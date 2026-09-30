@@ -98,3 +98,12 @@ def test_stars_and_trailing_plus_are_not_part_of_the_name():
     assert payee_key(T("Microsoft*Xbox", -1.0)) == "MICROSOFT XBOX"
     assert payee_key(T("UDEMY +", -14.24)) == "UDEMY"
     assert payee_key(T("TACO BELL - MONKS", -9.0)) == "TACO BELL - MONKS"       # a dash inside a name is kept
+
+
+def test_foreign_payment_name_stops_before_the_currency_lines():
+    usd = T("INT'L 0093267280", -19.99, "VIS", "TBL* LEARN.CANTRIL AMSTERDAM USD 19.99 @ 1.27 Visa Rate Non-Sterling Transaction Fee")
+    eur = T("INT'L 0052056981", -11.02, "VIS", "MONOKAI AMSTERDAM EUR 12.50 @ 1.1649 Visa Rate Non-Sterling Transaction Fee")
+    assert payee_key(usd) == "TBL LEARN.CANTRIL AMSTERDAM"
+    assert payee_key(eur) == "MONOKAI AMSTERDAM"
+    plain = T("INT'L 0093267280", -5.0, "VIS", "AWS EMEA aws.amazon.co")
+    assert payee_key(plain) == "AWS EMEA AWS.AMAZON.CO"

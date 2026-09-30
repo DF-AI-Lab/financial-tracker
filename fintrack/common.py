@@ -14,6 +14,7 @@ def payee_key(t: Txn) -> str:
       card payments) use the detail instead. Remove every run of digits, remove a trailing
       " LTD", " LIMITED" or " PLC", collapse repeated spaces, strip.
       e.g. "CORNER SHOP 12" -> "CORNER SHOP".
+    - For INT'L payments the detail is cut before the first currency code (USD, EUR ...) or "VISA RATE".
     - A "*" becomes a space ("GOOGLE *YOUTUBE" -> "GOOGLE YOUTUBE") and trailing "+" and spaces are dropped.
     - Cash machines (type ATM): also drop a trailing month word (JAN..DEC), because the bank
       writes the date into the name: "CASH NOTEMAC APR18" -> "CASH NOTEMAC".
@@ -26,6 +27,8 @@ def payee_key(t: Txn) -> str:
     desc_upper = t.description.strip().upper()
     if desc_upper.startswith("INT'L"):
         text = t.detail.upper()
+        # stop before the currency / exchange-rate lines ("... USD 19.99 @ 1.27 VISA RATE ...")
+        text = re.split(r'\s+(?:USD|EUR|GBP|CAD|AUD|CHF|JPY|SEK|NOK|DKK|PLN|NZD)\b|\s+VISA RATE', text)[0]
     else:
         text = desc_upper
 
