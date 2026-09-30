@@ -122,6 +122,8 @@ def parse_answer(text: str, count: int) -> dict:
     numbers (space separated, ranges like 1-3 allowed) -- the word "regular" is an alias: it gives
     kind "common" (there is only one word for it now); "later" + numbers; "stop" alone;
     "label" + one number + the label text, which runs until the next keyword.
+    The keyword "all" (alone or with others) sets result["all"] = True; the result always has an
+    "all" key (False when not typed).
     Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "later 3 5", "stop".
     Blank text -> nothing set, no error. Error (and nothing else trusted) for an unknown word,
     a keyword with no numbers, or a number below 1 or above `count` (the message names it).
@@ -237,7 +239,7 @@ def parse_answer(text: str, count: int) -> dict:
     return result
 
 
-def review(conn, txns: List[Txn], ask, out=print, size: int = 10) -> int:
+def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bool = False) -> int:
     """Ask about every item that has no saved answer, `size` at a time. Returns how many items were saved.
 
     - stats = item_stats(txns); saved = fintrack.store.get_items(conn).
@@ -246,9 +248,13 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10) -> int:
       per item:  `  1  Standing order  SAM PARKER - RENT   avg 550.00  (8 in 8 months)  suggest: Regular`
       (index, GROUP_NAMES[group], name plus " - reference" when there is one, average with 2
       decimals, count and months, then suggest: KIND_NAMES[kind]). Then print the hint line
-      `Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop   (Enter keeps my suggestions)`.
+      `Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)`.
     - answer = ask("> "). EOFError or OSError -> stop quietly. parse_answer; if error: out a line
       starting `Sorry, I did not understand:` plus the message, and ask again for the SAME round.
+    - skip_small=True: items with 2 or fewer payments AND a total under 50 are not asked about at all
+      (not shown, not saved: they just follow the automatic rules, which make them Random).
+    - "all": save this round as usual (typed kinds/labels, "later" respected), then save the suggestion
+      (source "suggested") for EVERY other item still to be asked, and finish. Returns the number saved.
     - "stop": end (nothing from this round is saved). Items in "later" are not saved, and are not asked
       again in this run (but are asked again in the next run).
     - Every other item of the round is saved with fintrack.store.set_item: kind = typed kind or the

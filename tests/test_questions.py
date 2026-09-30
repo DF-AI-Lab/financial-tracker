@@ -186,3 +186,38 @@ def test_bill_payment_top_ups_are_always_suggested_random():
 def test_the_word_regular_is_shown_as_common(capsys):
     from fintrack.questions import KIND_NAMES
     assert KIND_NAMES["regular"] == KIND_NAMES["common"] == "Common"
+
+
+def test_parse_answer_all_keyword():
+    assert parse_answer("all", 10)["all"] is True and parse_answer("all", 10)["error"] is None
+    r = parse_answer("common 1  all", 10)
+    assert r["all"] is True and r["kinds"] == {1: "common"}
+    assert parse_answer("common 1", 10)["all"] is False and parse_answer("", 10)["all"] is False
+
+
+def test_all_accepts_suggestions_for_everything_left():
+    conn = open_db(":memory:")
+    ask = runner("all")
+    assert review(conn, TXNS, ask, out=lambda s: None, size=4) == 9
+    assert len(ask.calls) == 1 and len(get_items(conn)) == 9
+    assert get_items(conn)["CARD|CAR DEALER|"]["kind"] == "oneoff"
+
+
+def test_all_still_respects_typed_answers_and_later():
+    conn = open_db(":memory:")
+    ask = runner("common 1  later 2  label 3 Power  all")      # round 1: 1 CAR DEALER, 2 RENT, 3 ENERGY, 4 GYM
+    assert review(conn, TXNS, ask, out=lambda s: None, size=4) == 8
+    items = get_items(conn)
+    assert items["CARD|CAR DEALER|"]["kind"] == "common" and items["CARD|CAR DEALER|"]["source"] == "user"
+    assert "SO|LANDLORD|RENT" not in items                      # 'later' is still skipped
+    assert items["DD|ENERGY CO|"]["label"] == "Power"
+    assert items["CARD|BARBER|"]["source"] == "suggested"       # from a later round, taken as suggested
+
+
+def test_skip_small_does_not_ask_about_tiny_one_offs():
+    conn, lines = open_db(":memory:"), []
+    ask = runner()
+    assert review(conn, TXNS, ask, out=lines.append, size=10, skip_small=True) == 8
+    assert "CARD|EARLY SHOP|" not in get_items(conn)            # 1 payment of 5.00
+    assert "EARLY SHOP" not in "\n".join(lines)
+    assert "CARD|BARBER|" in get_items(conn)                    # 3 payments: kept
