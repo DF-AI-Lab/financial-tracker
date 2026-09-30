@@ -22,3 +22,17 @@ class Statement:
     opening: Optional[float]  # balance on that first row
     closing: Optional[float]  # balance on that last row
     txns: list                # list[Txn]
+
+
+@dataclass
+class Cycle:
+    """One payday-to-payday period (from one wage arriving to the day before the next)."""
+    start: date        # date of the wage payment that opens the cycle
+    end: date          # complete cycle: day before the next wage; last cycle: date of its last payment
+    wage: float        # sum of the wage credits in this cycle
+    txns: list         # list[Txn]: every payment dated in the cycle, including the wage credit(s)
+    complete: bool     # False for the last cycle (the next wage has not arrived yet)
+
+    @property
+    def label(self) -> str:
+        return self.start.strftime("%d %b %Y")
