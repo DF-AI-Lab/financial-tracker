@@ -1,9 +1,12 @@
-"""Read your statement PDFs and print bills, payday-to-payday cycles and what is left.
+"""Read your statement PDFs, store them in a database, and print analysis.
 
-  python run.py        reads the REAL folder: `statements` next to this code folder
-                       (Financial Tracker Project\\statements). If that folder does not
-                       exist it falls back to the `statements` folder inside the code folder.
-  python run.py test   reads the `statements` folder inside the code folder (for testing)
+  python run.py              reads the REAL folder (Financial Tracker Project\\statements).
+                             Creates tracker.db next to that folder (or in .parent if the
+                             folder does not exist). If that folder does not exist, falls
+                             back to the `statements` folder inside the code folder.
+  python run.py test         reads the `statements` folder inside the code folder.
+  python run.py fix          lets you change saved item classifications (regular/common/etc).
+  python run.py folder PATH  saves the folder path for future runs.
 
 CSV files are written to `output/` inside the code folder.
 """
@@ -18,7 +21,9 @@ from fintrack.sort import bills_summary, classify, statement_report, big_items
 from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
 from fintrack.common import analyse
 from fintrack.left import parse_money, format_left
-from fintrack.settings import saved_folder, SAVED_FILE
+from fintrack.settings import saved_folder, save_folder, SAVED_FILE
+from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items
+from fintrack.questions import review, fix_items
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -45,21 +50,26 @@ def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR, saved_file=None):
     return Path(test_dir)
 
 
-def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
+def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_items=input, db_path=None):
     in_dir = Path(in_dir)
     out_dir = Path(out_dir)
 
+    # Make in_dir if needed and print it
     in_dir.mkdir(exist_ok=True)
     print(f"Reading statements from: {in_dir}")
+
+    # Determine db_path: default to parent / "tracker.db"
+    if db_path is None:
+        db_path = in_dir.parent / "tracker.db"
+    else:
+        db_path = Path(db_path)
+    print(f"Database: {db_path}")
+
+    # Parse all PDF statements
     pdfs = sorted(in_dir.glob("*.pdf")) + sorted(in_dir.glob("*.PDF"))
     pdfs = list(set(pdfs))  # Remove duplicates from case-insensitive globbing
     pdfs = sorted(pdfs, key=lambda p: p.name)
 
-    if not pdfs:
-        print(f"No PDFs found. Drop your statements in: {in_dir}")
-        return
-
-    # Parse all statements
     statements = []
     for p in pdfs:
         st = parse_statement(p)
@@ -84,10 +94,33 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
                 print(f"Skipped duplicate: {st.file} (same period as {kept_st.file})")
                 break
 
-    # Get all transactions from kept statements
-    all_txns = []
+    # Open database and import statements
+    conn = open_db(db_path)
+    new_count = 0
     for st in kept:
-        all_txns.extend(st.txns)
+        problems = check_statement(st)
+        if import_statement(conn, st, problems):
+            new_count += 1
+    existing_count = len(kept) - new_count
+    print(f"Stored {new_count} new statements; {existing_count} already in the database.")
+
+    # If no PDFs and no statements in database: print message and return
+    if not pdfs:
+        db_statements = load_statements(conn)
+        if not db_statements:
+            print(f"No PDFs found. Drop your statements in: {in_dir}")
+            return
+
+    # Load everything from database
+    all_stmts = load_statements(conn)
+    all_txns = load_txns(conn)
+
+    # Run review before reports
+    review(conn, all_txns, ask_items, out=print)
+    answers = get_items(conn)
+
+    # Get all transactions from kept statements for report building (using database)
+    # all_txns and all_stmts are already loaded from database above
     all_txns.sort(key=lambda t: t.date)
 
     # Generate reports
@@ -95,7 +128,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
 
     # Statement by statement report
     print("\nSTATEMENT BY STATEMENT")
-    rows = statement_report(kept)
+    rows = statement_report(all_stmts)
     for row in rows:
         print(f"  {row['label']:<12} income {row['income']:>9.2f}  bills {row['bills']:>8.2f}  random {row['random']:>8.2f}  spare {row['spare']:>9.2f}")
 
@@ -154,7 +187,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
         print(f"  {row['label']:<12} wage {row['wage']:>9.2f}  bills {row['bills']:>8.2f}  random {row['random']:>8.2f}  spare {row['spare']:>9.2f}{status}")
 
     # Analyze spending patterns
-    analysis = analyse(cycles)
+    analysis = analyse(cycles, answers=answers)
 
     # Print common spending
     print("\nCOMMON (average per cycle over the last N complete cycles)")
@@ -216,5 +249,65 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
     print(format_left(wage, analysis))
 
 
+def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_dir=None) -> bool:
+    """Handle command-line commands. Returns True if argv was recognized, False otherwise.
+
+    Commands:
+    - ["folder", <path>]: save a folder path for future runs
+    - ["folder"]: show usage for folder command (when no path given)
+    - ["fix"]: enter fix mode to change saved item classifications
+    - anything else ([], ["test"], etc): return False
+    """
+    if not argv:
+        return False
+
+    cmd = argv[0].lower()
+
+    if cmd == "folder":
+        # Handle folder command
+        if len(argv) < 2:
+            # No path given, show usage
+            out("Usage: python run.py folder <path>")
+            return True
+
+        path = Path(argv[1])
+        if not path.is_dir():
+            out(f"That folder does not exist: {path}")
+            return True
+
+        # Save the folder
+        if saved_file is None:
+            saved_file = SAVED_FILE
+        save_folder(path, saved_file)
+        out(f"Saved. From now on I read statements from: {path}")
+        return True
+
+    if cmd == "fix":
+        # Handle fix command
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        else:
+            in_dir = Path(in_dir)
+
+        if db_path is None:
+            db_path = in_dir.parent / "tracker.db"
+        else:
+            db_path = Path(db_path)
+
+        # Check if database exists
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+
+        # Open database and call fix_items
+        conn = open_db(db_path)
+        fix_items(conn, ask, out)
+        return True
+
+    # Unknown command
+    return False
+
+
 if __name__ == "__main__":
-    main(in_dir=pick_folder(sys.argv[1:]))
+    if not run_command(sys.argv[1:]):
+        main(in_dir=pick_folder(sys.argv[1:]))

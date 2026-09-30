@@ -23,3 +23,11 @@ Real statements go in `statements/` (git-ignored). Never commit them.
 
 The run checks every statement's balances (OK / CHECK), skips duplicate statements,
 and lists any single payment of 1,000 or more under BIG ITEMS.
+
+## Commands
+- `run.py` reads the statements, asks about new items, then prints the reports and asks for your latest pay
+- `run.py test` uses the `statements` folder inside the code folder
+- `run.py fix` lists your saved answers so you can change them (e.g. `oneoff 3`, `label 2 Rent`)
+- `run.py folder "C:\path\to\statements"` remembers your statements folder
+
+Your data lives in `tracker.db` next to the statements folder. It is never committed to Git.
