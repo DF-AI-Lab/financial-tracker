@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.env
+# your REAL statements never go in git
+statements/
+real_statements/
+*.pdf
+!tests/data/*.pdf

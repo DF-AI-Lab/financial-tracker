@@ -1,0 +1,457 @@
+{
+  "statements": [
+    {
+      "file": "statement_2024_08.pdf",
+      "opening": 350.0,
+      "closing": 1862.9,
+      "transactions": [
+        {
+          "date": "2024-07-25",
+          "type": "CR",
+          "description": "ACME MOTORS PLC",
+          "detail": "PAYROLL",
+          "amount": 2410.0,
+          "balance": 2760.0
+        },
+        {
+          "date": "2024-07-26",
+          "type": ")))",
+          "description": "TACO PLACE",
+          "detail": "LEEDS",
+          "amount": -12.5,
+          "balance": null
+        },
+        {
+          "date": "2024-07-26",
+          "type": ")))",
+          "description": "GREENGROCER 12",
+          "detail": "LEEDS",
+          "amount": -31.2,
+          "balance": 2716.3
+        },
+        {
+          "date": "2024-07-29",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -20.0,
+          "balance": 2696.3
+        },
+        {
+          "date": "2024-08-01",
+          "type": "DD",
+          "description": "GYM CLUB",
+          "detail": "MEMBERSHIP",
+          "amount": -50.0,
+          "balance": null
+        },
+        {
+          "date": "2024-08-01",
+          "type": "DD",
+          "description": "WATER BOARD",
+          "detail": "WATER",
+          "amount": -15.75,
+          "balance": null
+        },
+        {
+          "date": "2024-08-01",
+          "type": "DD",
+          "description": "TV LICENCE",
+          "detail": "LICENCE",
+          "amount": -13.25,
+          "balance": null
+        },
+        {
+          "date": "2024-08-01",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "RENT",
+          "amount": -550.0,
+          "balance": 2067.3
+        },
+        {
+          "date": "2024-08-02",
+          "type": "DD",
+          "description": "SKY DIGITAL",
+          "detail": "SKY",
+          "amount": -46.5,
+          "balance": null
+        },
+        {
+          "date": "2024-08-02",
+          "type": "DD",
+          "description": "PHONE CO",
+          "detail": "MOBILE",
+          "amount": -40.11,
+          "balance": 1980.69
+        },
+        {
+          "date": "2024-08-05",
+          "type": ")))",
+          "description": "PETROL STATION 7",
+          "detail": "LEEDS",
+          "amount": -45.0,
+          "balance": 1935.69
+        },
+        {
+          "date": "2024-08-07",
+          "type": "VIS",
+          "description": "STREAM VIDEO",
+          "detail": "London",
+          "amount": -12.99,
+          "balance": 1922.7
+        },
+        {
+          "date": "2024-08-09",
+          "type": "ATM",
+          "description": "CASH MACHINE",
+          "detail": "LEEDS",
+          "amount": -50.0,
+          "balance": 1872.7
+        },
+        {
+          "date": "2024-08-12",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -30.0,
+          "balance": 1842.7
+        },
+        {
+          "date": "2024-08-15",
+          "type": "CR",
+          "description": "PAT LEE",
+          "detail": "Sent from Bank",
+          "amount": 30.0,
+          "balance": 1872.7
+        },
+        {
+          "date": "2024-08-20",
+          "type": ")))",
+          "description": "TACO PLACE",
+          "detail": "LEEDS",
+          "amount": -9.8,
+          "balance": 1862.9
+        }
+      ]
+    },
+    {
+      "file": "statement_2024_09.pdf",
+      "opening": 1862.9,
+      "closing": 3223.27,
+      "transactions": [
+        {
+          "date": "2024-08-27",
+          "type": ")))",
+          "description": "GREENGROCER 12",
+          "detail": "LEEDS",
+          "amount": -28.13,
+          "balance": null
+        },
+        {
+          "date": "2024-08-27",
+          "type": "VIS",
+          "description": "INT'L 0095911310",
+          "detail": "Learn Online +905326253880",
+          "amount": -11.99,
+          "balance": 1822.78
+        },
+        {
+          "date": "2024-08-28",
+          "type": ")))",
+          "description": "PETROL STATION 7",
+          "detail": "LEEDS",
+          "amount": -25.01,
+          "balance": 1797.77
+        },
+        {
+          "date": "2024-08-29",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -20.0,
+          "balance": 1777.77
+        },
+        {
+          "date": "2024-08-30",
+          "type": "CR",
+          "description": "ACME MOTORS PLC",
+          "detail": "PAYROLL",
+          "amount": 2388.3,
+          "balance": null
+        },
+        {
+          "date": "2024-08-30",
+          "type": ")))",
+          "description": "CHIROPRACTOR",
+          "detail": "York",
+          "amount": -70.0,
+          "balance": 4096.07
+        },
+        {
+          "date": "2024-08-31",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -50.0,
+          "balance": 4046.07
+        },
+        {
+          "date": "2024-09-01",
+          "type": "DD",
+          "description": "GYM CLUB",
+          "detail": "MEMBERSHIP",
+          "amount": -50.0,
+          "balance": null
+        },
+        {
+          "date": "2024-09-01",
+          "type": "DD",
+          "description": "WATER BOARD",
+          "detail": "WATER",
+          "amount": -15.75,
+          "balance": null
+        },
+        {
+          "date": "2024-09-01",
+          "type": "DD",
+          "description": "TV LICENCE",
+          "detail": "LICENCE",
+          "amount": -13.25,
+          "balance": null
+        },
+        {
+          "date": "2024-09-01",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "RENT",
+          "amount": -550.0,
+          "balance": 3417.07
+        },
+        {
+          "date": "2024-09-02",
+          "type": "DD",
+          "description": "SKY DIGITAL",
+          "detail": "SKY",
+          "amount": -46.5,
+          "balance": null
+        },
+        {
+          "date": "2024-09-02",
+          "type": "DD",
+          "description": "PHONE CO",
+          "detail": "MOBILE",
+          "amount": -40.11,
+          "balance": 3330.46
+        },
+        {
+          "date": "2024-09-06",
+          "type": ")))",
+          "description": "TACO PLACE",
+          "detail": "LEEDS",
+          "amount": -14.2,
+          "balance": 3316.26
+        },
+        {
+          "date": "2024-09-09",
+          "type": "ATM",
+          "description": "CASH MACHINE",
+          "detail": "LEEDS",
+          "amount": -40.0,
+          "balance": 3276.26
+        },
+        {
+          "date": "2024-09-10",
+          "type": "VIS",
+          "description": "STREAM VIDEO",
+          "detail": "London",
+          "amount": -12.99,
+          "balance": 3263.27
+        },
+        {
+          "date": "2024-09-13",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -40.0,
+          "balance": 3223.27
+        },
+        {
+          "date": "2024-09-16",
+          "type": "VIS",
+          "description": "INT'L 0093267280",
+          "detail": "CLOUD HOST aws.example.co",
+          "amount": -26.59,
+          "balance": 3196.68
+        },
+        {
+          "date": "2024-09-18",
+          "type": "VIS",
+          "description": "INT'L 0093267280",
+          "detail": "CLOUD HOST aws.example.co",
+          "amount": 26.59,
+          "balance": 3223.27
+        }
+      ]
+    },
+    {
+      "file": "statement_2024_10.pdf",
+      "opening": 3223.27,
+      "closing": 4026.24,
+      "transactions": [
+        {
+          "date": "2024-09-24",
+          "type": ")))",
+          "description": "GREENGROCER 12",
+          "detail": "LEEDS",
+          "amount": -9.8,
+          "balance": null
+        },
+        {
+          "date": "2024-09-24",
+          "type": "BP",
+          "description": "TOOL SHOP Ltd",
+          "detail": "tools",
+          "amount": -10.0,
+          "balance": 3203.47
+        },
+        {
+          "date": "2024-09-30",
+          "type": "CR",
+          "description": "ACME MOTORS PLC",
+          "detail": "PAYROLL",
+          "amount": 2462.62,
+          "balance": null
+        },
+        {
+          "date": "2024-09-30",
+          "type": ")))",
+          "description": "FARM SHOP 321",
+          "detail": "YORK",
+          "amount": -52.44,
+          "balance": 5613.65
+        },
+        {
+          "date": "2024-10-01",
+          "type": "DD",
+          "description": "GYM CLUB",
+          "detail": "MEMBERSHIP",
+          "amount": -50.0,
+          "balance": null
+        },
+        {
+          "date": "2024-10-01",
+          "type": "DD",
+          "description": "WATER BOARD",
+          "detail": "WATER",
+          "amount": -15.75,
+          "balance": null
+        },
+        {
+          "date": "2024-10-01",
+          "type": "DD",
+          "description": "TV LICENCE",
+          "detail": "LICENCE",
+          "amount": -13.25,
+          "balance": null
+        },
+        {
+          "date": "2024-10-01",
+          "type": "DD",
+          "description": "COUNCIL TAX",
+          "detail": "CITY COUNCIL",
+          "amount": -161.0,
+          "balance": null
+        },
+        {
+          "date": "2024-10-01",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "BILLS",
+          "amount": -150.0,
+          "balance": null
+        },
+        {
+          "date": "2024-10-01",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "RENT",
+          "amount": -550.0,
+          "balance": 4673.65
+        },
+        {
+          "date": "2024-10-02",
+          "type": "DD",
+          "description": "SKY DIGITAL",
+          "detail": "SKY",
+          "amount": -46.5,
+          "balance": null
+        },
+        {
+          "date": "2024-10-02",
+          "type": "DD",
+          "description": "PHONE CO",
+          "detail": "MOBILE",
+          "amount": -40.11,
+          "balance": null
+        },
+        {
+          "date": "2024-10-02",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -30.0,
+          "balance": null
+        },
+        {
+          "date": "2024-10-02",
+          "type": "VIS",
+          "description": "FURNITURE STORE",
+          "detail": "MANCHESTER",
+          "amount": -279.0,
+          "balance": 4278.04
+        },
+        {
+          "date": "2024-10-07",
+          "type": "DD",
+          "description": "ENERGY CO",
+          "detail": "ENERGY",
+          "amount": -157.12,
+          "balance": 4120.92
+        },
+        {
+          "date": "2024-10-08",
+          "type": ")))",
+          "description": "TACO PLACE",
+          "detail": "LEEDS",
+          "amount": -18.9,
+          "balance": 4102.02
+        },
+        {
+          "date": "2024-10-10",
+          "type": ")))",
+          "description": "PETROL STATION 7",
+          "detail": "LEEDS",
+          "amount": -61.3,
+          "balance": 4040.72
+        },
+        {
+          "date": "2024-10-15",
+          "type": "VIS",
+          "description": "STREAM VIDEO",
+          "detail": "London",
+          "amount": -12.99,
+          "balance": 4027.73
+        },
+        {
+          "date": "2024-10-21",
+          "type": "VIS",
+          "description": "PRINT SHOP",
+          "detail": "www.example.com",
+          "amount": -1.49,
+          "balance": 4026.24
+        }
+      ]
+    }
+  ]
+}
