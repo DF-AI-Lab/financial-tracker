@@ -25,7 +25,7 @@ REAL_DIR = HERE.parent / "statements"  # the folder next to the code folder (you
 OUT_DIR = HERE / "output"
 
 
-def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR):
+def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR, saved_file=None):
     """Which statements folder to read: "test" on the command line -> test_dir;
     otherwise real_dir if it exists, else test_dir."""
     if "test" in argv:

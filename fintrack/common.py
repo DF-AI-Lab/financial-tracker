@@ -1,6 +1,6 @@
 import re
 from statistics import median
-from typing import List
+from typing import List, Optional
 
 from fintrack.models import Analysis, Cycle, Txn
 from fintrack.sort import bill_key
@@ -44,7 +44,7 @@ def payee_key(t: Txn) -> str:
 
 
 def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance: float = 0.15,
-            oneoff_limit: float = 1000.0) -> Analysis:
+            oneoff_limit: float = 1000.0, answers: Optional[dict] = None) -> Analysis:
     """Work out which spending is COMMON, which is a ONE-OFF and which is RANDOM.
 
     - Use only cycles with complete=True, and only the last `window` of them.
@@ -66,6 +66,19 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
       over the window, "average": total / cycles_used, "kind": "bill" or "other"}.
     - common_per_cycle = sum of common totals / cycles_used;
       random_per_cycle = sum of random payments / cycles_used. Round nothing (tests use approx).
+
+    `answers` (default None = {}) is what the user confirmed, the dict from fintrack.store.get_items:
+    {item_key: {"kind": "regular"|"common"|"random"|"oneoff", "label": str, "source": str}}.
+    For every outgoing payment in the window whose fintrack.store.item_key(t) is in `answers`, the
+    answer decides instead of the automatic rules above:
+      - "regular" or "common": the payment is COMMON. Group key = the answer's label if it is not
+        empty, otherwise the item key. Several items with the same label are merged into one common
+        entry (cycles = window cycles where any of them appears; kind = "bill" if any of its
+        payments is DD or SO, else "other").
+      - "random": RANDOM, even if it is big.
+      - "oneoff": a ONE-OFF (goes in one_offs, left out of the averages), whatever its size.
+    Payments whose item is NOT in `answers` still follow the automatic rules, which are worked out
+    from the unanswered payments only. one_offs stay sorted by date.
     """
     # Filter to complete cycles and take the last window
     complete_cycles = [c for c in cycles if c.complete]

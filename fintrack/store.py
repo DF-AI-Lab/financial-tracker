@@ -255,3 +255,9 @@ def get_items(conn) -> Dict[str, dict]:
         }
 
     return result
+
+
+def load_statements(conn) -> List[Statement]:
+    """Every stored statement as a fintrack.models.Statement with its payments (txns, in order),
+    oldest end date first. Dates come back as date objects; problems are not part of Statement."""
+    raise NotImplementedError
