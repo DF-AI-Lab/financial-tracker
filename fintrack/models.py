@@ -36,3 +36,13 @@ class Cycle:
     @property
     def label(self) -> str:
         return self.start.strftime("%d %b %Y")
+
+
+@dataclass
+class Analysis:
+    """What a typical payday-to-payday cycle looks like (see fintrack/common.py)."""
+    cycles_used: int          # how many complete cycles the averages are based on
+    common: dict              # key -> {"cycles": n, "total": x, "average": x, "kind": "bill" or "other"}
+    common_per_cycle: float   # average total of all common payments per cycle
+    random_per_cycle: float   # average total of random payments per cycle
+    one_offs: list            # list[Txn]: big rare payments left out of the averages
