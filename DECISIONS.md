@@ -38,3 +38,8 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - **SQLite, not memory.** The database remembers statements, payments and your answers.
   It lives next to the real statements folder (`Financial Tracker Project\tracker.db`), NOT in the
   code folder (the ZIP is re-downloaded each time), and is never committed to Git.
+- **One word: Common.** "Regular" and "Common" counted the same, so there is only Common now (typing `regular`
+  still works and means Common). Kinds are Common / Random / One-off.
+- **Suggestions by type:** standing orders and direct debits suggest Common; bill-payment top-ups (BP) always
+  suggest Random; cards and cash suggest Common when 4 or more payments are within 15% of the usual amount, a single
+  payment of 1,000 or more suggests One-off, otherwise Random.

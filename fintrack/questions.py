@@ -75,7 +75,9 @@ def suggest(stat: dict) -> Tuple[str, str]:
 
     # Determine kind
     if group in ("SO", "DD"):
-        kind = "regular"
+        kind = "common"
+    elif group == "BP":
+        kind = "random"
     else:
         # Check for oneoff: single payment of 1000 or more
         if count == 1 and amounts[0] >= 1000:
@@ -168,8 +170,13 @@ def parse_answer(text: str, count: int) -> dict:
             result["labels"][num] = " ".join(label_parts)
 
         elif token_lower in ("common", "regular", "random", "oneoff", "one-off", "later"):
-            # Map "one-off" to "oneoff"
-            kind = "oneoff" if token_lower == "one-off" else token_lower
+            # Map "one-off" to "oneoff" and "regular" to "common"
+            if token_lower == "one-off":
+                kind = "oneoff"
+            elif token_lower == "regular":
+                kind = "common"
+            else:
+                kind = token_lower
 
             # Collect numbers for this keyword
             numbers = []
