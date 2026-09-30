@@ -9,13 +9,16 @@ from fintrack.parse import parse_statement
 from fintrack.checks import check_statement
 from fintrack.dedupe import unique_statements
 from fintrack.sort import bills_summary, classify, statement_report, big_items
+from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
+from fintrack.common import analyse
+from fintrack.left import parse_money, format_left
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"
 OUT_DIR = HERE / "output"
 
 
-def main(in_dir=IN_DIR, out_dir=OUT_DIR):
+def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
     in_dir = Path(in_dir)
     out_dir = Path(out_dir)
 
@@ -107,6 +110,82 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR):
             w.writerow([t.date.isoformat(), t.type, t.description, t.detail, f"{-t.amount:.2f}"])
 
     print(f"\nCSV files saved in: {out_dir}")
+
+    # Payday-to-payday cycles and pay question
+    cycles = build_cycles(all_txns, payer=wage_payer)
+
+    if not cycles:
+        print(f"\nNo wage from {wage_payer} found, so payday cycles and the pay question are skipped.")
+        return
+
+    # Print payday-to-payday cycles
+    print("\nPAYDAY TO PAYDAY")
+    cycle_rows = cycle_report(cycles)
+    for row in cycle_rows:
+        status = "" if row["complete"] else " (so far)"
+        print(f"  {row['label']:<12} wage {row['wage']:>9.2f}  bills {row['bills']:>8.2f}  random {row['random']:>8.2f}  spare {row['spare']:>9.2f}{status}")
+
+    # Analyze spending patterns
+    analysis = analyse(cycles)
+
+    # Print common spending
+    print("\nCOMMON (average per cycle over the last N complete cycles)")
+    if analysis.common:
+        for key in sorted(analysis.common.keys(), key=lambda k: analysis.common[k]["average"], reverse=True):
+            data = analysis.common[key]
+            print(f"  {key:<35} {data['average']:>9.2f}")
+
+    # Print one-offs
+    print("\nONE-OFFS (left out of the averages)")
+    if analysis.one_offs:
+        for t in analysis.one_offs:
+            print(f"  {t.date.isoformat()} {t.description:<30} {t.amount:>9.2f}")
+    else:
+        print("  none")
+
+    # Write cycles.csv
+    with open(out_dir / "cycles.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["label", "start", "end", "complete", "wage", "other_in", "bills", "random", "spare"])
+        for row in cycle_rows:
+            w.writerow([row["label"], row["start"], row["end"], row["complete"], row["wage"],
+                       row["other_in"], row["bills"], row["random"], row["spare"]])
+
+    # Write common.csv
+    with open(out_dir / "common.csv", "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["key", "kind", "cycles", "total", "average"])
+        for key in sorted(analysis.common.keys(), key=lambda k: analysis.common[k]["average"], reverse=True):
+            data = analysis.common[key]
+            w.writerow([key, data["kind"], data["cycles"], f"{data['total']:.2f}", f"{data['average']:.2f}"])
+
+    # Ask for wage
+    last_wage = cycles[-1].wage
+    tries = 0
+    while tries < 3:
+        try:
+            answer = ask(f"Latest pay? Press Enter to use last wage ({last_wage:,.2f}): ")
+        except (EOFError, OSError):
+            print("(No keyboard available, skipping the pay question.)")
+            return
+
+        if answer == "":
+            # Use last wage
+            wage = last_wage
+            break
+
+        wage = parse_money(answer)
+        if wage is None:
+            print("Sorry, I could not read that as money.")
+            tries += 1
+        else:
+            break
+
+    if tries >= 3:
+        return
+
+    # Print the wage breakdown
+    print(format_left(wage, analysis))
 
 
 if __name__ == "__main__":
