@@ -16,6 +16,7 @@ def open_db(path) -> sqlite3.Connection:
       statements(id, file, start, end, opening, closing, problems, UNIQUE(start, end, opening, closing))
       payments(id, statement_id, seq, date, type, description, detail, amount, balance)
       items(key PRIMARY KEY, kind, label, source)
+      rules(id INTEGER PRIMARY KEY, payer, usual, label, kind, max_days, tolerance, source)
     Dates are stored as ISO text.
     """
     conn = sqlite3.connect(str(path))
@@ -308,3 +309,19 @@ def load_statements(conn) -> List[Statement]:
         result.append(statement)
 
     return result
+
+
+RULE_KINDS = ("common", "declined")
+
+
+def add_rule(conn, payer: str, usual: float, label: str, kind: str = "common", max_days: int = 2,
+             tolerance: float = 0.10, source: str = "user") -> None:
+    """Save a payday-transfer rule (see fintrack/paydayrule.py). kind must be in RULE_KINDS, else ValueError.
+    Table rules(id INTEGER PRIMARY KEY, payer, usual, label, kind, max_days, tolerance, source), created
+    in open_db with IF NOT EXISTS. Every call adds a new row. Commit before returning."""
+    raise NotImplementedError
+
+
+def get_rules(conn) -> List[dict]:
+    """Every saved rule, oldest first, as {"payer", "usual", "label", "kind", "max_days", "tolerance", "source"}."""
+    raise NotImplementedError
