@@ -13,7 +13,9 @@ Run tests: `.venv/bin/pytest -q`
 Real statements go in `statements/` (git-ignored). Never commit them.
 
 ## Run it on Windows
-1. Drop your statement PDFs in the `statements` folder
+1. Put your statement PDFs in the `statements` folder that sits NEXT TO this code folder
+   (e.g. `Financial Tracker Project\statements`). `python run.py test` uses the
+   `statements` folder inside the code folder instead (for testing).
 2. Open PowerShell in this folder (File Explorer address bar: type `powershell`, Enter)
 3. Run: `C:\ftvenv\Scripts\python.exe run.py`
    (one-off setup: `python -m venv C:\ftvenv` then `C:\ftvenv\Scripts\python.exe -m pip install pdfplumber`)

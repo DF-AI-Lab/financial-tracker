@@ -1,7 +1,13 @@
-"""Drop your statement PDFs in the `statements` folder, then run:  python run.py
+"""Read your statement PDFs and print bills, payday-to-payday cycles and what is left.
 
-Prints bills, monthly report and random spending, and writes CSV files to `output/`.
+  python run.py        reads the REAL folder: `statements` next to this code folder
+                       (Financial Tracker Project\\statements). If that folder does not
+                       exist it falls back to the `statements` folder inside the code folder.
+  python run.py test   reads the `statements` folder inside the code folder (for testing)
+
+CSV files are written to `output/` inside the code folder.
 """
+import sys
 import csv
 from pathlib import Path
 
@@ -14,8 +20,19 @@ from fintrack.common import analyse
 from fintrack.left import parse_money, format_left
 
 HERE = Path(__file__).parent
-IN_DIR = HERE / "statements"
+IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
+REAL_DIR = HERE.parent / "statements"  # the folder next to the code folder (your real statements)
 OUT_DIR = HERE / "output"
+
+
+def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR):
+    """Which statements folder to read: "test" on the command line -> test_dir;
+    otherwise real_dir if it exists, else test_dir."""
+    if "test" in argv:
+        return Path(test_dir)
+    if Path(real_dir).is_dir():
+        return Path(real_dir)
+    return Path(test_dir)
 
 
 def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
@@ -23,6 +40,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
     out_dir = Path(out_dir)
 
     in_dir.mkdir(exist_ok=True)
+    print(f"Reading statements from: {in_dir}")
     pdfs = sorted(in_dir.glob("*.pdf")) + sorted(in_dir.glob("*.PDF"))
     pdfs = list(set(pdfs))  # Remove duplicates from case-insensitive globbing
     pdfs = sorted(pdfs, key=lambda p: p.name)
@@ -189,4 +207,4 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER):
 
 
 if __name__ == "__main__":
-    main()
+    main(in_dir=pick_folder(sys.argv[1:]))
