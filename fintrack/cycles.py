@@ -1,3 +1,4 @@
+from datetime import timedelta
 from typing import List
 
 from fintrack.models import Cycle, Txn
@@ -9,7 +10,7 @@ WAGE_MIN = 500.0
 def is_wage(t: Txn, payer: str = WAGE_PAYER, min_amount: float = WAGE_MIN) -> bool:
     """True if t is money IN from the wage payer: amount >= min_amount and the payer name
     (case-insensitive) is contained in t.description."""
-    raise NotImplementedError
+    return t.amount >= min_amount and payer.lower() in t.description.lower()
 
 
 def build_cycles(txns: List[Txn], payer: str = WAGE_PAYER, min_amount: float = WAGE_MIN) -> List[Cycle]:
@@ -25,7 +26,72 @@ def build_cycles(txns: List[Txn], payer: str = WAGE_PAYER, min_amount: float = W
       next cycle's start. The last cycle has complete=False and end = date of its last payment.
     - No wage found at all -> [].
     """
-    raise NotImplementedError
+    # Sort by date, maintaining order for same date
+    sorted_txns = sorted(txns, key=lambda t: t.date)
+
+    # Find first wage
+    first_wage_idx = None
+    for i, t in enumerate(sorted_txns):
+        if is_wage(t, payer, min_amount):
+            first_wage_idx = i
+            break
+
+    if first_wage_idx is None:
+        return []
+
+    cycles = []
+    current_cycle_start = None
+    current_cycle_txns = []
+    current_cycle_wage = 0.0
+
+    for t in sorted_txns:
+        if t.date < sorted_txns[first_wage_idx].date:
+            # Before first wage, drop it
+            continue
+
+        if is_wage(t, payer, min_amount):
+            # Check if this wage is within 10 days of the current cycle start
+            if current_cycle_start is not None and (t.date - current_cycle_start).days <= 10:
+                # Same cycle, add to wage
+                current_cycle_txns.append(t)
+                current_cycle_wage += t.amount
+            else:
+                # New cycle
+                if current_cycle_start is not None:
+                    # Close previous cycle
+                    cycles.append(Cycle(
+                        start=current_cycle_start,
+                        end=current_cycle_txns[-1].date,  # Will be updated
+                        wage=current_cycle_wage,
+                        txns=current_cycle_txns,
+                        complete=False  # Will be updated
+                    ))
+
+                # Start new cycle
+                current_cycle_start = t.date
+                current_cycle_txns = [t]
+                current_cycle_wage = t.amount
+        else:
+            # Regular payment
+            if current_cycle_start is not None:
+                current_cycle_txns.append(t)
+
+    # Close the last cycle
+    if current_cycle_start is not None:
+        cycles.append(Cycle(
+            start=current_cycle_start,
+            end=current_cycle_txns[-1].date,
+            wage=current_cycle_wage,
+            txns=current_cycle_txns,
+            complete=False
+        ))
+
+    # Update end dates for complete cycles
+    for i in range(len(cycles) - 1):
+        cycles[i].end = cycles[i + 1].start - timedelta(days=1)
+        cycles[i].complete = True
+
+    return cycles
 
 
 def cycle_report(cycles: List[Cycle]) -> List[dict]:
@@ -36,4 +102,36 @@ def cycle_report(cycles: List[Cycle]) -> List[dict]:
     payment (refunds, family money). bills = money OUT with type DD or SO. random = all other
     money OUT. All positive numbers rounded to 2 decimals. spare = wage + other_in - bills - random.
     """
-    raise NotImplementedError
+    rows = []
+    for c in cycles:
+        # Sum all amounts
+        total_in = 0.0
+        bills = 0.0
+        random = 0.0
+
+        for t in c.txns:
+            if t.amount > 0:
+                total_in += t.amount
+            else:
+                # Money out
+                if t.type in ('DD', 'SO'):
+                    bills += abs(t.amount)
+                else:
+                    random += abs(t.amount)
+
+        other_in = total_in - c.wage
+        spare = c.wage + other_in - bills - random
+
+        rows.append({
+            'label': c.label,
+            'start': c.start.isoformat(),
+            'end': c.end.isoformat(),
+            'complete': c.complete,
+            'wage': round(c.wage, 2),
+            'other_in': round(other_in, 2),
+            'bills': round(bills, 2),
+            'random': round(random, 2),
+            'spare': round(spare, 2)
+        })
+
+    return rows
