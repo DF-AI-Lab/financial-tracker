@@ -91,3 +91,10 @@ def test_cash_machine_name_does_not_include_the_date():
     assert {payee_key(T(n, -30, "ATM")) for n in names} == {"CASH NOTEMAC"}
     assert payee_key(T("MARCH SHOP 4", -5, "VIS")) == "MARCH SHOP"     # only cash machines lose a month word
     assert payee_key(T("SHOP MAR", -5, "VIS")) == "SHOP MAR"
+
+
+def test_stars_and_trailing_plus_are_not_part_of_the_name():
+    assert payee_key(T("GOOGLE *YOUTUBE", -12.99)) == payee_key(T("GOOGLE YOUTUBE", -8.78)) == "GOOGLE YOUTUBE"
+    assert payee_key(T("Microsoft*Xbox", -1.0)) == "MICROSOFT XBOX"
+    assert payee_key(T("UDEMY +", -14.24)) == "UDEMY"
+    assert payee_key(T("TACO BELL - MONKS", -9.0)) == "TACO BELL - MONKS"       # a dash inside a name is kept

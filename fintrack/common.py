@@ -14,6 +14,7 @@ def payee_key(t: Txn) -> str:
       card payments) use the detail instead. Remove every run of digits, remove a trailing
       " LTD", " LIMITED" or " PLC", collapse repeated spaces, strip.
       e.g. "CORNER SHOP 12" -> "CORNER SHOP".
+    - A "*" becomes a space ("GOOGLE *YOUTUBE" -> "GOOGLE YOUTUBE") and trailing "+" and spaces are dropped.
     - Cash machines (type ATM): also drop a trailing month word (JAN..DEC), because the bank
       writes the date into the name: "CASH NOTEMAC APR18" -> "CASH NOTEMAC".
     """
@@ -30,6 +31,10 @@ def payee_key(t: Txn) -> str:
 
     # Remove every run of digits
     text = re.sub(r'\d+', '', text)
+
+    # A star is just bank punctuation ("GOOGLE *YOUTUBE"); a trailing plus is left over from a phone number
+    text = text.replace('*', ' ')
+    text = re.sub(r'[ +]+$', '', text)
 
     # Remove trailing " LTD", " LIMITED", or " PLC"
     if text.endswith(" LTD"):
