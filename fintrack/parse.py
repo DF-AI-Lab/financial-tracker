@@ -91,21 +91,28 @@ def parse_pdf(path) -> List[Txn]:
             type_col_max = type_col_x0_actual + 20
 
             i = header_top_idx + 1
+            last_balance_undated = False  # Track if we just hit an undated BALANCECARRIEDFORWARD
             while i < len(sorted_tops):
                 top = sorted_tops[i]
                 line_words = sorted(lines[top], key=lambda w: w['x0'])
                 line_text = ' '.join(w['text'] for w in line_words)
+
+                # Skip footer rows with "Customer Service Centre"
+                if 'CUSTOMER SERVICE CENTRE' in line_text.upper():
+                    i += 1
+                    continue
 
                 # Skip special lines
                 if _is_balance_line(line_text):
                     # If this is BALANCECARRIEDFORWARD with a date, stop processing rows
                     # (everything after is footer/terms text, not transactions)
                     # But keep processing past BALANCEBROUGHTFORWARD (that's at the start)
-                    if 'CARRIED' in line_text.upper() and _has_date_in_line(line_words):
-                        break
-                    i += 1
-                    continue
-                if 'Customer Service Centre' in line_text:
+                    if 'CARRIED' in line_text.upper():
+                        if _has_date_in_line(line_words):
+                            break
+                        else:
+                            # Undated BALANCECARRIEDFORWARD ends the page's payments
+                            last_balance_undated = True
                     i += 1
                     continue
 
@@ -165,12 +172,29 @@ def parse_pdf(path) -> List[Txn]:
                     next_line_words = sorted(lines[next_top], key=lambda w: w['x0'])
                     next_line_text = ' '.join(w['text'] for w in next_line_words)
 
-                    # Skip balance lines (and stop if it's BALANCECARRIEDFORWARD with a date)
+                    # Skip footer rows with "Customer Service Centre"
+                    if 'CUSTOMER SERVICE CENTRE' in next_line_text.upper():
+                        break  # Stop processing continuation rows
+
+                    # Skip balance lines (and stop if it's BALANCECARRIEDFORWARD with a date or undated)
                     if _is_balance_line(next_line_text):
-                        if 'CARRIED' in next_line_text.upper() and _has_date_in_line(next_line_words):
-                            break  # Stop processing on this page
+                        if 'CARRIED' in next_line_text.upper():
+                            # Any BALANCECARRIEDFORWARD ends the payment's continuation rows
+                            break
                         j += 1
                         continue
+
+                    # If we hit an undated BALANCECARRIEDFORWARD earlier, don't continue appending
+                    if last_balance_undated:
+                        # Only continue if this line has a new type code
+                        next_type_word = None
+                        for w in next_line_words:
+                            if type_col_min <= w['x0'] <= type_col_max:
+                                next_type_word = w
+                                break
+                        if not (next_type_word and _is_valid_type_code(next_type_word['text']) and next_type_word['text'] != 'DR'):
+                            # This is not a new payment, so stop continuation
+                            break
 
                     # Check if this line has a type code
                     next_type_word = None
