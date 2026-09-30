@@ -89,29 +89,72 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
     cycles_used = len(window_cycles)
     needed = min(min_cycles, cycles_used)
 
-    # Group payments by payee_key and cycle
-    # key_cycle_total[key][cycle_idx] = sum of amounts (as positive) for that key in that cycle
-    # key_txns[key] = all transactions for that key
-    key_cycle_total = {}
-    key_txns = {}
+    if answers is None:
+        answers = {}
+
+    # Import item_key here to avoid circular imports
+    from fintrack.store import item_key
+
+    # Separate payments into answered and unanswered
+    answered_txns = []  # (cycle_idx, txn)
+    unanswered_txns = []  # (cycle_idx, txn)
 
     for cycle_idx, cycle in enumerate(window_cycles):
         for txn in cycle.txns:
             if txn.amount < 0:  # Money out only
-                key = payee_key(txn)
-                if key not in key_cycle_total:
-                    key_cycle_total[key] = {}
-                    key_txns[key] = []
+                key = item_key(txn)
+                if key in answers:
+                    answered_txns.append((cycle_idx, txn, key))
+                else:
+                    unanswered_txns.append((cycle_idx, txn))
 
-                if cycle_idx not in key_cycle_total[key]:
-                    key_cycle_total[key][cycle_idx] = 0
-                key_cycle_total[key][cycle_idx] += abs(txn.amount)
-                key_txns[key].append(txn)
+    # Process answered payments
+    answered_common = {}  # label -> {cycles_set, is_bill, total, txns}
+    answered_one_offs = []
+    answered_random = []
 
-    # Determine which keys are COMMON
-    common = {}
-    one_offs = []
-    random_payments = []
+    for cycle_idx, txn, item_k in answered_txns:
+        answer = answers[item_k]
+        kind = answer["kind"]
+        label = answer.get("label", "") or item_k
+
+        if kind in ("regular", "common"):
+            # Common payment
+            if label not in answered_common:
+                answered_common[label] = {
+                    "cycles_set": set(),
+                    "is_bill": False,
+                    "total": 0,
+                    "txns": []
+                }
+            answered_common[label]["cycles_set"].add(cycle_idx)
+            answered_common[label]["is_bill"] = answered_common[label]["is_bill"] or txn.type in ("DD", "SO")
+            answered_common[label]["total"] += abs(txn.amount)
+            answered_common[label]["txns"].append(txn)
+        elif kind == "random":
+            answered_random.append(txn)
+        elif kind == "oneoff":
+            answered_one_offs.append(txn)
+
+    # Process unanswered payments using automatic rules
+    key_cycle_total = {}
+    key_txns = {}
+
+    for cycle_idx, txn in unanswered_txns:
+        key = payee_key(txn)
+        if key not in key_cycle_total:
+            key_cycle_total[key] = {}
+            key_txns[key] = []
+
+        if cycle_idx not in key_cycle_total[key]:
+            key_cycle_total[key][cycle_idx] = 0
+        key_cycle_total[key][cycle_idx] += abs(txn.amount)
+        key_txns[key].append(txn)
+
+    # Determine which unanswered keys are COMMON
+    unanswered_common = {}
+    unanswered_one_offs = []
+    unanswered_random = []
 
     for key in key_cycle_total:
         # Get the per-cycle totals for this key (including zeros for cycles without payment)
@@ -138,7 +181,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
 
         if is_common:
             # All payments of this key are common
-            common[key] = {
+            unanswered_common[key] = {
                 "cycles": cycles_with_payment,
                 "total": total,
                 "average": total / cycles_used,
@@ -148,12 +191,27 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
             # Not common: check each payment for one-off or random
             for txn in key_txns[key]:
                 if abs(txn.amount) >= oneoff_limit:
-                    one_offs.append(txn)
+                    unanswered_one_offs.append(txn)
                 else:
-                    random_payments.append(txn)
+                    unanswered_random.append(txn)
 
-    # Sort one_offs by date
+    # Merge answered and unanswered common entries
+    common = dict(unanswered_common)
+    for label, data in answered_common.items():
+        cycles_num = len(data["cycles_set"])
+        kind = "bill" if data["is_bill"] else "other"
+        common[label] = {
+            "cycles": cycles_num,
+            "total": data["total"],
+            "average": data["total"] / cycles_used,
+            "kind": kind
+        }
+
+    # Merge one-offs and random
+    one_offs = answered_one_offs + unanswered_one_offs
     one_offs.sort(key=lambda t: t.date)
+
+    random_payments = answered_random + unanswered_random
 
     # Calculate per-cycle averages
     common_total = sum(v["total"] for v in common.values())

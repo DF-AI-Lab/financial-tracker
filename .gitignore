@@ -9,3 +9,6 @@ real_statements/
 *.pdf
 !tests/data/*.pdf
 output/
+
+# your real data stays on your PC
+*.db

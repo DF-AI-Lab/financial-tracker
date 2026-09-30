@@ -18,6 +18,7 @@ from fintrack.sort import bills_summary, classify, statement_report, big_items
 from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
 from fintrack.common import analyse
 from fintrack.left import parse_money, format_left
+from fintrack.settings import saved_folder, SAVED_FILE
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -27,11 +28,20 @@ OUT_DIR = HERE / "output"
 
 def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR, saved_file=None):
     """Which statements folder to read: "test" on the command line -> test_dir;
-    otherwise real_dir if it exists, else test_dir."""
+    otherwise the remembered folder (fintrack.settings.saved_folder) if it exists;
+    else real_dir if it is a directory; else test_dir."""
     if "test" in argv:
         return Path(test_dir)
+
+    if saved_file is None:
+        saved_file = SAVED_FILE
+    remembered = saved_folder(saved_file)
+    if remembered is not None:
+        return remembered
+
     if Path(real_dir).is_dir():
         return Path(real_dir)
+
     return Path(test_dir)
 
 

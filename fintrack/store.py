@@ -260,4 +260,51 @@ def get_items(conn) -> Dict[str, dict]:
 def load_statements(conn) -> List[Statement]:
     """Every stored statement as a fintrack.models.Statement with its payments (txns, in order),
     oldest end date first. Dates come back as date objects; problems are not part of Statement."""
-    raise NotImplementedError
+    from datetime import date
+
+    rows = conn.execute("""
+        SELECT id, file, start, end, opening, closing
+        FROM statements
+        ORDER BY end
+    """).fetchall()
+
+    result = []
+    for row in rows:
+        statement_id = row[0]
+        file = row[1]
+        start = date.fromisoformat(row[2])
+        end = date.fromisoformat(row[3])
+        opening = row[4]
+        closing = row[5]
+
+        # Load payments for this statement
+        payment_rows = conn.execute("""
+            SELECT date, type, description, detail, amount, balance
+            FROM payments
+            WHERE statement_id = ?
+            ORDER BY seq
+        """, (statement_id,)).fetchall()
+
+        txns = []
+        for p_row in payment_rows:
+            txn = Txn(
+                date=date.fromisoformat(p_row[0]),
+                type=p_row[1],
+                description=p_row[2],
+                detail=p_row[3],
+                amount=p_row[4],
+                balance=p_row[5]
+            )
+            txns.append(txn)
+
+        statement = Statement(
+            file=file,
+            start=start,
+            end=end,
+            opening=opening,
+            closing=closing,
+            txns=txns
+        )
+        result.append(statement)
+
+    return result
