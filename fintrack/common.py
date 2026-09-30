@@ -1,6 +1,9 @@
+import re
+from statistics import median
 from typing import List
 
 from fintrack.models import Analysis, Cycle, Txn
+from fintrack.sort import bill_key
 
 
 def payee_key(t: Txn) -> str:
@@ -12,7 +15,32 @@ def payee_key(t: Txn) -> str:
       " LTD", " LIMITED" or " PLC", collapse repeated spaces, strip.
       e.g. "CORNER SHOP 12" -> "CORNER SHOP".
     """
-    raise NotImplementedError
+    # For DD and SO, use bill_key
+    if t.type in ("DD", "SO"):
+        return bill_key(t)
+
+    # For other types, check if description starts with INT'L
+    desc_upper = t.description.strip().upper()
+    if desc_upper.startswith("INT'L"):
+        text = t.detail.upper()
+    else:
+        text = desc_upper
+
+    # Remove every run of digits
+    text = re.sub(r'\d+', '', text)
+
+    # Remove trailing " LTD", " LIMITED", or " PLC"
+    if text.endswith(" LTD"):
+        text = text[:-4].strip()
+    elif text.endswith(" LIMITED"):
+        text = text[:-8].strip()
+    elif text.endswith(" PLC"):
+        text = text[:-4].strip()
+
+    # Collapse repeated spaces and strip
+    text = re.sub(r' +', ' ', text).strip()
+
+    return text
 
 
 def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance: float = 0.15,
@@ -39,4 +67,86 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
     - common_per_cycle = sum of common totals / cycles_used;
       random_per_cycle = sum of random payments / cycles_used. Round nothing (tests use approx).
     """
-    raise NotImplementedError
+    # Filter to complete cycles and take the last window
+    complete_cycles = [c for c in cycles if c.complete]
+    if not complete_cycles:
+        return Analysis(0, {}, 0.0, 0.0, [])
+
+    window_cycles = complete_cycles[-window:]
+    cycles_used = len(window_cycles)
+    needed = min(min_cycles, cycles_used)
+
+    # Group payments by payee_key and cycle
+    # key_cycle_total[key][cycle_idx] = sum of amounts (as positive) for that key in that cycle
+    # key_txns[key] = all transactions for that key
+    key_cycle_total = {}
+    key_txns = {}
+
+    for cycle_idx, cycle in enumerate(window_cycles):
+        for txn in cycle.txns:
+            if txn.amount < 0:  # Money out only
+                key = payee_key(txn)
+                if key not in key_cycle_total:
+                    key_cycle_total[key] = {}
+                    key_txns[key] = []
+
+                if cycle_idx not in key_cycle_total[key]:
+                    key_cycle_total[key][cycle_idx] = 0
+                key_cycle_total[key][cycle_idx] += abs(txn.amount)
+                key_txns[key].append(txn)
+
+    # Determine which keys are COMMON
+    common = {}
+    one_offs = []
+    random_payments = []
+
+    for key in key_cycle_total:
+        # Get the per-cycle totals for this key (including zeros for cycles without payment)
+        per_cycle_totals = [key_cycle_total[key].get(i, 0) for i in range(cycles_used)]
+        cycles_with_payment = sum(1 for t in per_cycle_totals if t > 0)
+        total = sum(per_cycle_totals)
+
+        # Check if any payment is a bill (DD or SO)
+        is_bill = any(txn.type in ("DD", "SO") for txn in key_txns[key])
+        kind = "bill" if is_bill else "other"
+
+        is_common = False
+        if is_bill:
+            # Bill: common if appears in >= needed cycles
+            is_common = cycles_with_payment >= needed
+        else:
+            # Other: common if at least needed cycles with payment have totals within tolerance of median
+            # Only consider non-zero totals for the median calculation
+            nonzero_totals = [t for t in per_cycle_totals if t > 0]
+            if nonzero_totals:
+                med = median(nonzero_totals)
+                within_tolerance = sum(1 for t in nonzero_totals if med > 0 and abs(t - med) / med <= tolerance)
+                is_common = within_tolerance >= needed
+
+        if is_common:
+            # All payments of this key are common
+            common[key] = {
+                "cycles": cycles_with_payment,
+                "total": total,
+                "average": total / cycles_used,
+                "kind": kind
+            }
+        else:
+            # Not common: check each payment for one-off or random
+            for txn in key_txns[key]:
+                if abs(txn.amount) >= oneoff_limit:
+                    one_offs.append(txn)
+                else:
+                    random_payments.append(txn)
+
+    # Sort one_offs by date
+    one_offs.sort(key=lambda t: t.date)
+
+    # Calculate per-cycle averages
+    common_total = sum(v["total"] for v in common.values())
+    common_per_cycle = common_total / cycles_used if cycles_used > 0 else 0.0
+
+    random_total = sum(abs(t.amount) for t in random_payments)
+    random_per_cycle = random_total / cycles_used if cycles_used > 0 else 0.0
+
+    return Analysis(cycles_used, common, common_per_cycle, random_per_cycle, one_offs)
