@@ -59,7 +59,8 @@ def payee_key(t: Txn) -> str:
 
 
 def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance: float = 0.15,
-            oneoff_limit: float = 1000.0, answers: Optional[dict] = None) -> Analysis:
+            oneoff_limit: float = 1000.0, answers: Optional[dict] = None,
+            rules: Optional[list] = None) -> Analysis:
     """Work out which spending is COMMON, which is a ONE-OFF and which is RANDOM.
 
     - Use only cycles with complete=True, and only the last `window` of them.
@@ -92,6 +93,12 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
         payments is DD or SO, else "other").
       - "random": RANDOM, even if it is big.
       - "oneoff": a ONE-OFF (goes in one_offs, left out of the averages), whatever its size.
+    `rules` (default None = []) are the payday-transfer rules from fintrack.store.get_rules. A payment is
+    covered by a rule when fintrack.paydayrule.matches_rule(t, rule, cycle.start) is true, using the start date
+    (payday) of the cycle the payment is in. A covered payment is COMMON whatever its item answer says and is never
+    a one-off: group key = the rule's label (or the rule's payer when the label is empty), kind "other" (merged
+    with an "answers" entry of the same label, which can make the merged kind "bill"). Rules with kind "declined"
+    do nothing. Rules are checked BEFORE `answers`.
     Payments whose item is NOT in `answers` still follow the automatic rules, which are worked out
     from the unanswered payments only. one_offs stay sorted by date.
     """
