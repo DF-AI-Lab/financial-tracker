@@ -98,6 +98,11 @@ def parse_pdf(path) -> List[Txn]:
 
                 # Skip special lines
                 if _is_balance_line(line_text):
+                    # If this is BALANCECARRIEDFORWARD with a date, stop processing rows
+                    # (everything after is footer/terms text, not transactions)
+                    # But keep processing past BALANCEBROUGHTFORWARD (that's at the start)
+                    if 'CARRIED' in line_text.upper() and _has_date_in_line(line_words):
+                        break
                     i += 1
                     continue
                 if 'Customer Service Centre' in line_text:
@@ -113,6 +118,12 @@ def parse_pdf(path) -> List[Txn]:
 
                 # If no type code, skip this line (shouldn't happen in well-formed data)
                 if type_word is None:
+                    i += 1
+                    continue
+
+                # Only treat it as a valid type code if it looks like a real code
+                # (not an ordinary word like "not", "the", "is")
+                if not _is_valid_type_code(type_word['text']):
                     i += 1
                     continue
 
@@ -154,8 +165,10 @@ def parse_pdf(path) -> List[Txn]:
                     next_line_words = sorted(lines[next_top], key=lambda w: w['x0'])
                     next_line_text = ' '.join(w['text'] for w in next_line_words)
 
-                    # Skip balance lines
+                    # Skip balance lines (and stop if it's BALANCECARRIEDFORWARD with a date)
                     if _is_balance_line(next_line_text):
+                        if 'CARRIED' in next_line_text.upper() and _has_date_in_line(next_line_words):
+                            break  # Stop processing on this page
                         j += 1
                         continue
 
@@ -166,8 +179,8 @@ def parse_pdf(path) -> List[Txn]:
                             next_type_word = w
                             break
 
-                    # If it has a type code and it's not 'DR', it's a new transaction
-                    if next_type_word and next_type_word['text'] != 'DR':
+                    # If it has a valid type code (and it's not 'DR'), it's a new transaction
+                    if next_type_word and _is_valid_type_code(next_type_word['text']) and next_type_word['text'] != 'DR':
                         break
 
                     # This is a continuation row - collect detail and amounts
@@ -267,16 +280,65 @@ def _is_balance_line(text: str) -> bool:
     return 'BALANCEBROUGHTFORWARD' in text_upper or 'BALANCECARRIEDFORWARD' in text_upper
 
 
-def _looks_like_currency(text: str) -> bool:
-    """Check if text looks like a currency amount."""
+def _is_valid_type_code(text: str) -> bool:
+    """Check if a word looks like a valid payment type code.
+
+    Valid codes are short (2-4 chars), uppercase, and contain only letters/digits or special patterns.
+    Examples: DD, SO, BP, CR, VIS, ATM, )))
+    Invalid: 'not', 'the', 'is' (lowercase or mixed case, ordinary words)
+    """
     text = text.strip()
-    # Remove common currency symbols and separators
-    cleaned = text.replace('£', '').replace(',', '').replace('@', '')
-    try:
-        float(cleaned)
-        return True
-    except ValueError:
+    if not text or len(text) < 2 or len(text) > 4:
         return False
+    # Check if it's a special pattern like )))
+    if text == ')))':
+        return True
+    # Real payment codes are typically uppercase and alphanumeric
+    # This excludes lowercase or mixed-case ordinary words like 'not', 'the', 'is'
+    return text.isupper() and text.isalnum()
+
+
+def _has_date_in_line(line_words: list) -> bool:
+    """Check if a line has a date in the first few words (day, month, year pattern)."""
+    # Look for date pattern: word(s) that look like day, month, year
+    if len(line_words) < 3:
+        return False
+
+    # Check first few words for date pattern
+    words_text = [w['text'] for w in line_words[:6]]
+    for i in range(len(words_text) - 2):
+        day_str = words_text[i]
+        month_str = words_text[i + 1]
+        year_str = words_text[i + 2]
+
+        # Check if this looks like a date
+        if (day_str.isdigit() and 1 <= int(day_str) <= 31 and
+            month_str in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                         'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec') and
+            year_str.isdigit() and len(year_str) == 2):
+            return True
+    return False
+
+
+def _looks_like_currency(text: str) -> bool:
+    """Check if text looks like a currency amount.
+
+    Must match money format: digits with optional thousands commas and exactly two decimals.
+    E.g., 2,331.43 or 50.00 (valid); 25, 0.00%, 39.90% (invalid).
+    """
+    text = text.strip()
+    # Remove currency symbol
+    cleaned = text.replace('£', '')
+
+    # Check for trailing % (not money)
+    if '%' in cleaned:
+        return False
+
+    # Check format: optional digits/commas, then dot, then exactly 2 digits
+    import re
+    # Pattern: optional digits with commas, then dot, then exactly 2 digits
+    pattern = r'^\d+(?:,\d{3})*\.\d{2}$'
+    return bool(re.match(pattern, cleaned))
 
 
 def _is_in_amount_column(x1: float, paid_out_x1: float, paid_in_x1: float, balance_x1: float) -> bool:
