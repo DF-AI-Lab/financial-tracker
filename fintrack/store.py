@@ -62,6 +62,20 @@ def open_db(path) -> sqlite3.Connection:
         )
     """)
 
+    # Create rules table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS rules (
+            id INTEGER PRIMARY KEY,
+            payer TEXT,
+            usual REAL,
+            label TEXT,
+            kind TEXT,
+            max_days INTEGER,
+            tolerance REAL,
+            source TEXT
+        )
+    """)
+
     conn.commit()
     return conn
 
@@ -319,9 +333,31 @@ def add_rule(conn, payer: str, usual: float, label: str, kind: str = "common", m
     """Save a payday-transfer rule (see fintrack/paydayrule.py). kind must be in RULE_KINDS, else ValueError.
     Table rules(id INTEGER PRIMARY KEY, payer, usual, label, kind, max_days, tolerance, source), created
     in open_db with IF NOT EXISTS. Every call adds a new row. Commit before returning."""
-    raise NotImplementedError
+    if kind not in RULE_KINDS:
+        raise ValueError(f"kind must be one of {RULE_KINDS}, got {kind}")
+
+    conn.execute(
+        "INSERT INTO rules (payer, usual, label, kind, max_days, tolerance, source) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (payer, usual, label, kind, max_days, tolerance, source)
+    )
+
+    conn.commit()
 
 
 def get_rules(conn) -> List[dict]:
     """Every saved rule, oldest first, as {"payer", "usual", "label", "kind", "max_days", "tolerance", "source"}."""
-    raise NotImplementedError
+    rows = conn.execute("SELECT payer, usual, label, kind, max_days, tolerance, source FROM rules ORDER BY id").fetchall()
+
+    result = []
+    for row in rows:
+        result.append({
+            "payer": row[0],
+            "usual": row[1],
+            "label": row[2],
+            "kind": row[3],
+            "max_days": row[4],
+            "tolerance": row[5],
+            "source": row[6]
+        })
+
+    return result
