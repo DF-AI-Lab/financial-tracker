@@ -286,3 +286,14 @@ def _is_in_amount_column(x1: float, paid_out_x1: float, paid_in_x1: float, balan
 
     min_dist = min(dist_to_out, dist_to_in, dist_to_bal)
     return min_dist < 50
+
+
+def parse_statement(path):
+    """Like parse_pdf but returns a fintrack.models.Statement.
+
+    file = the file NAME only (not the folder). start/opening come from the first
+    BALANCEBROUGHTFORWARD row that has a date, end/closing from the last
+    BALANCECARRIEDFORWARD row that has a date. Use None for anything not found.
+    txns = the same list parse_pdf returns.
+    """
+    raise NotImplementedError

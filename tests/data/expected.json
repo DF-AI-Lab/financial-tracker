@@ -4,6 +4,8 @@
       "file": "statement_2024_08.pdf",
       "opening": 350.0,
       "closing": 1862.9,
+      "start": "2024-07-22",
+      "end": "2024-08-22",
       "transactions": [
         {
           "date": "2024-07-25",
@@ -139,6 +141,8 @@
       "file": "statement_2024_09.pdf",
       "opening": 1862.9,
       "closing": 3223.27,
+      "start": "2024-08-22",
+      "end": "2024-09-22",
       "transactions": [
         {
           "date": "2024-08-27",
@@ -298,6 +302,8 @@
       "file": "statement_2024_10.pdf",
       "opening": 3223.27,
       "closing": 4026.24,
+      "start": "2024-09-22",
+      "end": "2024-10-22",
       "transactions": [
         {
           "date": "2024-09-24",

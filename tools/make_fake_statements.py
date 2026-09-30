@@ -123,6 +123,7 @@ def build():
         write_pdf(st, opening, closing, txns)
         expected["statements"].append({
             "file": st["file"], "opening": opening, "closing": closing,
+            "start": st["from"].isoformat(), "end": st["to"].isoformat(),
             "transactions": txns,
         })
     (OUT / "expected.json").write_text(json.dumps(expected, indent=2))

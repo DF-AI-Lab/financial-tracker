@@ -103,6 +103,7 @@ def main():
     write_pdf(OPEN, closing, days)
     (OUT / "expected_real_style.json").write_text(json.dumps({"statements": [{
         "file": "realstyle_2024_06.pdf", "opening": OPEN, "closing": closing,
+        "start": "2024-05-22", "end": "2024-06-22",
         "transactions": expected_txns}]}, indent=2))
 
 

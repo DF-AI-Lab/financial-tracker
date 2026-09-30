@@ -97,3 +97,28 @@ def monthly_report(txns: List[Txn]) -> Dict[str, dict]:
         }
 
     return result
+
+
+def bill_key(t: Txn) -> str:
+    """Name a bill is grouped under (used by bills_summary).
+
+    description is upper-cased and stripped; a trailing " LTD", " LIMITED" or " PLC" is
+    removed, so "E.ON NEXT LTD" and "E.ON NEXT" are the same bill. The detail is ignored
+    when it is empty or "FIRST PAYMENT" (any case); otherwise key = "<description> - <detail>".
+    """
+    raise NotImplementedError
+
+
+def statement_report(statements) -> List[dict]:
+    """One row per Statement (a list of fintrack.models.Statement), sorted by end date:
+    {"file", "label", "end", "income", "bills", "random", "spare"}.
+    label = end date formatted like "Apr 2024"; end = ISO date string; income/bills/random
+    are positive numbers rounded to 2 decimals (same rules as classify); spare =
+    income - bills - random. Skip statements whose end is None.
+    """
+    raise NotImplementedError
+
+
+def big_items(txns: List[Txn], limit: float = 1000.0) -> List[Txn]:
+    """Payments (in or out) whose amount is >= limit in size, sorted by date."""
+    raise NotImplementedError
