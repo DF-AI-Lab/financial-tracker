@@ -38,7 +38,11 @@ def bills_summary(txns: List[Txn]) -> Dict[str, dict]:
     bill_groups = defaultdict(lambda: {"total": 0.0, "months": set()})
 
     for txn in bills:
-        key = f"{txn.description} - {txn.detail}"
+        # Use just description if detail is empty
+        if txn.detail:
+            key = f"{txn.description} - {txn.detail}"
+        else:
+            key = txn.description
         bill_groups[key]["total"] += abs(txn.amount)  # Convert to positive
         bill_groups[key]["months"].add(txn.date.strftime("%Y-%m"))
 

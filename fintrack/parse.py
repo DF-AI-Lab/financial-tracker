@@ -35,9 +35,13 @@ def parse_pdf(path) -> List[Txn]:
     transactions = []
 
     with pdfplumber.open(path) as pdf:
-        # Skip pages 0 (cover) and last page (terms)
-        # Process page 1 (and any middle pages)
-        for page_idx in range(1, len(pdf.pages) - 1):
+        current_date = None
+        paid_out_x1 = None  # Right edge of paid-out column
+        paid_in_x1 = None   # Right edge of paid-in column
+        balance_x1 = None   # Right edge of balance column
+        type_col_x0 = None  # Left edge of type column
+
+        for page_idx in range(len(pdf.pages)):
             page = pdf.pages[page_idx]
             words = page.extract_words()
 
@@ -49,124 +53,182 @@ def parse_pdf(path) -> List[Txn]:
             # Sort by top position
             sorted_tops = sorted(lines.keys())
 
-            # Process lines
-            current_date = None
-            i = 0
+            # First, find the header row on this page
+            page_has_header = False
+            header_top_idx = None
+            for idx, top in enumerate(sorted_tops):
+                line_words = lines[top]
+                line_text = ' '.join(w['text'] for w in line_words)
+                if 'Balance' in line_text and 'Payment' in line_text:
+                    page_has_header = True
+                    header_top_idx = idx
+                    # Extract column positions from header row
+                    for w in line_words:
+                        if w['text'] == 'Balance':
+                            balance_x1 = w['x1']
+                        elif w['text'] == 'out':
+                            paid_out_x1 = w['x1']
+                        elif w['text'] == 'in':
+                            paid_in_x1 = w['x1']
+                        elif w['text'] == 'Payment':
+                            type_col_x0 = w['x0']
+                    break
+
+            # If no header found, skip this page
+            if not page_has_header:
+                continue
+
+            # Process transaction rows (those below the header)
+            # Use extracted positions, with fallbacks for different PDF layouts
+            type_col_x0_actual = type_col_x0 if type_col_x0 else 110
+            paid_out_x1_actual = paid_out_x1 if paid_out_x1 else 353.3
+            paid_in_x1_actual = paid_in_x1 if paid_in_x1 else 435.6
+            balance_x1_actual = balance_x1 if balance_x1 else 517.0
+
+            # Type column range is around the Payment header position
+            type_col_min = type_col_x0_actual - 20
+            type_col_max = type_col_x0_actual + 20
+
+            i = header_top_idx + 1
             while i < len(sorted_tops):
                 top = sorted_tops[i]
                 line_words = sorted(lines[top], key=lambda w: w['x0'])
-
-                # Build line text for checking
                 line_text = ' '.join(w['text'] for w in line_words)
 
-                # Skip header and special lines
-                if 'BALANCE BROUGHT' in line_text or 'BALANCE CARRIED' in line_text:
+                # Skip special lines
+                if _is_balance_line(line_text):
                     i += 1
                     continue
-                if 'Account details' in line_text or 'Payment type' in line_text:
+                if 'Customer Service Centre' in line_text:
                     i += 1
                     continue
 
-                # Check if this line has a type code (at x0 ~ 130)
+                # Check if this line has a type code
                 type_word = None
                 for w in line_words:
-                    if 125 <= w['x0'] <= 145:
+                    if type_col_min <= w['x0'] <= type_col_max:
                         type_word = w
                         break
 
+                # If no type code, skip this line (shouldn't happen in well-formed data)
                 if type_word is None:
                     i += 1
                     continue
 
                 txn_type = type_word['text']
 
-                # Check if this line has a date (at x0 ~ 40-70)
+                # Check if this line has a date
                 date_words = [w for w in line_words if w['x0'] < 100 and w['x0'] >= 30]
                 if len(date_words) >= 3:
-                    # Extract date
                     day_str = date_words[0]['text']
                     month_str = date_words[1]['text']
                     year_str = date_words[2]['text']
                     try:
-                        # Try to parse as DD MMM YY format
                         date_str = f"20{year_str} {month_str} {day_str}"
                         current_date = _parse_date(date_str)
                     except:
                         pass  # Keep previous date
 
-                # Extract payee from this line (words after type, before amount)
+                # Extract payee/description (text after type code, before amount columns)
+                # Payee starts after type column and is not in the amount columns
+                payee_start = type_col_x0_actual + 20
                 payee_words = []
                 for w in line_words:
-                    if w['x0'] >= 160 and w != type_word:
+                    # Skip if in amount columns
+                    if _is_in_amount_column(w['x1'], paid_out_x1_actual, paid_in_x1_actual, balance_x1_actual):
+                        continue
+                    if w['x0'] > payee_start and w['x0'] < 400:
                         payee_words.append(w)
 
-                payee = ' '.join(w['text'] for w in payee_words) if payee_words else 'UNKNOWN'
+                description = ' '.join(w['text'] for w in payee_words) if payee_words else ''
 
-                # Now look at next line for detail and amount
-                if i + 1 < len(sorted_tops):
-                    next_top = sorted_tops[i + 1]
+                # Collect all amounts and detail from this and following rows
+                payment_rows = [line_words]
+                detail_parts = []
+
+                # Look ahead for continuation rows
+                j = i + 1
+                while j < len(sorted_tops):
+                    next_top = sorted_tops[j]
                     next_line_words = sorted(lines[next_top], key=lambda w: w['x0'])
                     next_line_text = ' '.join(w['text'] for w in next_line_words)
 
-                    # Check if next line is a detail line (has text at x0~170 but no type at x0~130)
-                    has_type_in_next = any(125 <= w['x0'] <= 145 for w in next_line_words)
-
-                    if not has_type_in_next and len(next_line_words) > 0:
-                        # This is a detail line
-                        # Extract detail (first word at x0 ~ 170)
-                        detail_words = []
-                        amount_str = None
-                        balance_str = None
-
-                        for w in next_line_words:
-                            if w['x0'] < 160:
-                                # Skip (shouldn't happen)
-                                pass
-                            elif w['x0'] >= 160 and w['x0'] < 400 and w['x1'] < 410:
-                                # Detail text
-                                detail_words.append(w)
-                            elif 405 <= w['x1'] <= 435:
-                                # Paid-out amount
-                                amount_str = w['text']
-                            elif 475 <= w['x1'] <= 510:
-                                # Paid-in amount
-                                amount_str = w['text']
-                            elif 530 <= w['x1'] <= 575:
-                                # Balance
-                                balance_str = w['text']
-
-                        detail = ' '.join(w['text'] for w in detail_words) if detail_words else ''
-
-                        # Parse amount
-                        amount = _parse_amount(amount_str) if amount_str else 0.0
-
-                        # Determine sign based on x1 position
-                        for w in next_line_words:
-                            if w['text'] == amount_str:
-                                if 405 <= w['x1'] <= 435:
-                                    amount = -amount  # Paid out
-                                elif 475 <= w['x1'] <= 510:
-                                    amount = amount  # Paid in
-                                break
-
-                        # Parse balance
-                        balance = _parse_amount(balance_str) if balance_str else None
-
-                        if current_date:
-                            txn = Txn(
-                                date=current_date,
-                                type=txn_type,
-                                description=payee,
-                                detail=detail,
-                                amount=amount,
-                                balance=balance
-                            )
-                            transactions.append(txn)
-
-                        i += 2
+                    # Skip balance lines
+                    if _is_balance_line(next_line_text):
+                        j += 1
                         continue
 
-                i += 1
+                    # Check if this line has a type code
+                    next_type_word = None
+                    for w in next_line_words:
+                        if type_col_min <= w['x0'] <= type_col_max:
+                            next_type_word = w
+                            break
+
+                    # If it has a type code and it's not 'DR', it's a new transaction
+                    if next_type_word and next_type_word['text'] != 'DR':
+                        break
+
+                    # This is a continuation row - collect detail and amounts
+                    payment_rows.append(next_line_words)
+
+                    # Extract detail text (text between type col and amount columns)
+                    # Amount columns are at x1 positions of the detected column edges
+                    for w in next_line_words:
+                        # Skip if in amount columns
+                        if _is_in_amount_column(w['x1'], paid_out_x1_actual, paid_in_x1_actual, balance_x1_actual):
+                            continue
+                        # Include text in detail area (after type col, before amount cols)
+                        detail_start = type_col_x0_actual + 20
+                        if w['x0'] > detail_start and w['x0'] < 350:
+                            detail_parts.append(w['text'])
+
+                    j += 1
+
+                # Now sum amounts from all rows of this payment
+                total_amount = 0.0
+                last_balance = None
+
+                for row_words in payment_rows:
+                    for w in row_words:
+                        if _looks_like_currency(w['text']):
+                            amount_val = _parse_amount(w['text'])
+                            # Classify by proximity to column edges
+                            dist_to_out = abs(w['x1'] - paid_out_x1_actual)
+                            dist_to_in = abs(w['x1'] - paid_in_x1_actual)
+                            dist_to_bal = abs(w['x1'] - balance_x1_actual)
+
+                            min_dist = min(dist_to_out, dist_to_in, dist_to_bal)
+
+                            if min_dist > 50:
+                                # Not close to any column
+                                continue
+
+                            if dist_to_out == min_dist:
+                                # Paid out
+                                total_amount -= amount_val
+                            elif dist_to_in == min_dist:
+                                # Paid in
+                                total_amount += amount_val
+                            elif dist_to_bal == min_dist:
+                                # Balance - save this
+                                last_balance = amount_val
+
+                # Create transaction
+                if current_date:
+                    detail = ' '.join(detail_parts)
+                    txn = Txn(
+                        date=current_date,
+                        type=txn_type,
+                        description=description,
+                        detail=detail,
+                        amount=round(total_amount, 2),
+                        balance=last_balance
+                    )
+                    transactions.append(txn)
+
+                # Move to next transaction
+                i = j if j > i + 1 else i + 1
 
     return transactions
 
@@ -196,3 +258,31 @@ def _parse_amount(amount_str: str) -> float:
         return float(cleaned)
     except:
         return 0.0
+
+
+def _is_balance_line(text: str) -> bool:
+    """Check if a line is a balance brought/carried line."""
+    text_upper = text.upper().replace(' ', '')
+    return 'BALANCEBROUGHTFORWARD' in text_upper or 'BALANCECARRIEDFORWARD' in text_upper
+
+
+def _looks_like_currency(text: str) -> bool:
+    """Check if text looks like a currency amount."""
+    text = text.strip()
+    # Remove common currency symbols and separators
+    cleaned = text.replace('£', '').replace(',', '').replace('@', '')
+    try:
+        float(cleaned)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_in_amount_column(x1: float, paid_out_x1: float, paid_in_x1: float, balance_x1: float) -> bool:
+    """Check if x1 position is close to any of the amount columns."""
+    dist_to_out = abs(x1 - paid_out_x1)
+    dist_to_in = abs(x1 - paid_in_x1)
+    dist_to_bal = abs(x1 - balance_x1)
+
+    min_dist = min(dist_to_out, dist_to_in, dist_to_bal)
+    return min_dist < 50
