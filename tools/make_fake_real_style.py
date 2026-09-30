@@ -199,7 +199,24 @@ def write_pdf(opening, closing, days):
     c.drawString(X_DATE, y, "22 Jun 24")
     c.drawString(X_TEXT, y, "BALANCECARRIEDFORWARD")
     c.drawRightString(R_BAL, y, money(closing))
+    # small print under the table on the same page (real statements have this). It has
+    # words in the type column and numbers like 25 and 0.00% that are NOT payments.
+    y -= 24
     c.setFont("Helvetica", 7)
+    c.drawString(50, y, "Information about the Compensation Scheme")
+    y -= 24
+    c.drawString(50, y, "Your deposit is eligible for protection under the scheme. Call your branch.")
+    y -= 40
+    c.drawString(255, y, "AER"); c.drawString(295, y, "Overdraft"); c.drawString(513, y, "EAR")
+    y -= 9
+    c.drawString(194, y, "balance"); c.drawString(242, y, "variable")
+    c.drawString(448, y, "balance"); c.drawString(500, y, "variable")
+    y -= 12
+    c.drawString(47, y, "Creditinterestis"); c.drawString(106, y, "not"); c.drawString(121, y, "paid")
+    y -= 3
+    c.drawString(385, y, "upto"); c.drawRightString(477, y, "25"); c.drawRightString(525, y, "0.00%")
+    y -= 13
+    c.drawString(385, y, "over"); c.drawRightString(477, y, "25"); c.drawRightString(524, y, "39.90%")
     c.drawString(50, 40, "Customer Service Centre . BX8 1HB")
     c.showPage()
     # terms page, no table
