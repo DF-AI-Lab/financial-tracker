@@ -3,7 +3,8 @@ __pycache__/
 .pytest_cache/
 .env
 # your REAL statements never go in git
-statements/
+statements/*
+!statements/README.txt
 real_statements/
 *.pdf
 !tests/data/*.pdf
