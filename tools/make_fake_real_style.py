@@ -153,6 +153,8 @@ def write_pdf(opening, closing, days):
         c.setFont("Times-Roman", 8)
         c.drawString(X_TEXT, y, "BALANCECARRIEDFORWARD")
         c.drawRightString(R_BAL, y, money(carried))
+        c.setFont("Helvetica", 7)   # real pages end with this footer row under the table
+        c.drawString(50, 40, "Customer Service Centre . BX8 1HB")
         c.showPage()
         c.setFont("Helvetica", 7)
         c.drawString(50, H - 60, "23 May to 22 June 2024")

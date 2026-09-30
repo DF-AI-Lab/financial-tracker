@@ -49,3 +49,10 @@ def test_bill_with_no_detail_uses_payee_as_key(real_style_txns):
     assert s["GYM CLUB"] == {"months": 1, "average": 50.00}
     assert s["SAM PARKER - RENT"] == {"months": 1, "average": 550.00}
     assert s["ENERGY CO"] == {"months": 1, "average": 162.45}  # "FIRST PAYMENT" detail is ignored
+
+
+def test_page_footer_is_never_part_of_a_payment():
+    got = parse_pdf(DATA / STATEMENTS[0]["file"])
+    for t in got:
+        text = f"{t.description} {t.detail}".upper()
+        assert "BX8" not in text and "CUSTOMER SERVICE" not in text, (t.description, t.detail)
