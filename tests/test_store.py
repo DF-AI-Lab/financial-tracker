@@ -93,7 +93,7 @@ def test_item_key():
     assert item_key(T("DD", "e.on next", "")) == "DD|E.ON NEXT|"
     assert item_key(T("VIS", "CORNER SHOP 12", "YORK")) == "CARD|CORNER SHOP|"
     assert item_key(T(")))", "Tesco Stores 5314", "HUNTINGDON")) == "CARD|TESCO STORES|"
-    assert item_key(T("ATM", "CASH NOTEMAC JAN04", "JAMES HALL @17:36")) == "CASH|CASH NOTEMAC JAN|"
+    assert item_key(T("ATM", "CASH NOTEMAC JAN04", "JAMES HALL @17:36")) == "CASH|CASH NOTEMAC|"
     assert item_key(T("CR", "ACME MOTORS PLC", "PAYROLL", 2400)) == "IN|ACME MOTORS PLC|"
     assert item_key(T("VIS", "INT'L 0093267280", "AWS EMEA aws.amazon.co")) == "CARD|AWS EMEA AWS.AMAZON.CO|"
 

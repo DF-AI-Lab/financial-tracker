@@ -14,6 +14,8 @@ def payee_key(t: Txn) -> str:
       card payments) use the detail instead. Remove every run of digits, remove a trailing
       " LTD", " LIMITED" or " PLC", collapse repeated spaces, strip.
       e.g. "CORNER SHOP 12" -> "CORNER SHOP".
+    - Cash machines (type ATM): also drop a trailing month word (JAN..DEC), because the bank
+      writes the date into the name: "CASH NOTEMAC APR18" -> "CASH NOTEMAC".
     """
     # For DD and SO, use bill_key
     if t.type in ("DD", "SO"):
@@ -39,6 +41,11 @@ def payee_key(t: Txn) -> str:
 
     # Collapse repeated spaces and strip
     text = re.sub(r' +', ' ', text).strip()
+
+    # Cash machines: the bank writes the date into the name ("CASH NOTEMAC APR18"), so drop a
+    # trailing month word, otherwise every month becomes a different item
+    if t.type == "ATM":
+        text = re.sub(r' (JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)$', '', text).strip()
 
     return text
 

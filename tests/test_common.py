@@ -83,3 +83,11 @@ def test_similar_amount_rule_uses_median_and_15_percent():
 def test_big_payment_of_a_common_payer_is_not_a_one_off():
     a = analyse(cycles_with([1000, 1000, 1000, 1000, 1000, 1000]))
     assert "GAME SHOP" in a.common and a.one_offs == []
+
+
+def test_cash_machine_name_does_not_include_the_date():
+    # the bank writes the date into the machine name: "CASH NOTEMAC APR18"
+    names = ["CASH NOTEMAC JAN04", "CASH NOTEMAC APR18", "CASH NOTEMAC jun15", "CASH NOTEMAC MAR"]
+    assert {payee_key(T(n, -30, "ATM")) for n in names} == {"CASH NOTEMAC"}
+    assert payee_key(T("MARCH SHOP 4", -5, "VIS")) == "MARCH SHOP"     # only cash machines lose a month word
+    assert payee_key(T("SHOP MAR", -5, "VIS")) == "SHOP MAR"
