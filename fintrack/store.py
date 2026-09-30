@@ -1,8 +1,10 @@
 """SQLite memory for the tracker: statements, payments and your answers."""
+import re
 import sqlite3
 from typing import Dict, List
 
 from fintrack.models import Statement, Txn
+from fintrack.common import payee_key
 
 KINDS = ("regular", "common", "random", "oneoff")
 
@@ -16,7 +18,51 @@ def open_db(path) -> sqlite3.Connection:
       items(key PRIMARY KEY, kind, label, source)
     Dates are stored as ISO text.
     """
-    raise NotImplementedError
+    conn = sqlite3.connect(str(path))
+    conn.row_factory = sqlite3.Row
+
+    # Create statements table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS statements (
+            id INTEGER PRIMARY KEY,
+            file TEXT,
+            start TEXT,
+            end TEXT,
+            opening REAL,
+            closing REAL,
+            problems TEXT,
+            UNIQUE(start, end, opening, closing)
+        )
+    """)
+
+    # Create payments table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS payments (
+            id INTEGER PRIMARY KEY,
+            statement_id INTEGER,
+            seq INTEGER,
+            date TEXT,
+            type TEXT,
+            description TEXT,
+            detail TEXT,
+            amount REAL,
+            balance REAL,
+            FOREIGN KEY(statement_id) REFERENCES statements(id)
+        )
+    """)
+
+    # Create items table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS items (
+            key TEXT PRIMARY KEY,
+            kind TEXT,
+            label TEXT,
+            source TEXT
+        )
+    """)
+
+    conn.commit()
+    return conn
 
 
 def import_statement(conn, st: Statement, problems: List[str]) -> bool:
@@ -27,19 +73,91 @@ def import_statement(conn, st: Statement, problems: List[str]) -> bool:
     saved as text, joined with newlines ("" when there are none). Payments keep their order
     (seq = position in st.txns). Commit before returning.
     """
-    raise NotImplementedError
+    # Skip if start or end is None
+    if st.start is None or st.end is None:
+        return False
+
+    # Check if statement already exists with same start, end, opening, closing
+    start_iso = st.start.isoformat()
+    end_iso = st.end.isoformat()
+
+    existing = conn.execute(
+        "SELECT id FROM statements WHERE start = ? AND end = ? AND opening = ? AND closing = ?",
+        (start_iso, end_iso, st.opening, st.closing)
+    ).fetchone()
+
+    if existing:
+        return False
+
+    # Insert the statement
+    problems_text = "\n".join(problems) if problems else ""
+    cursor = conn.execute(
+        "INSERT INTO statements (file, start, end, opening, closing, problems) VALUES (?, ?, ?, ?, ?, ?)",
+        (st.file, start_iso, end_iso, st.opening, st.closing, problems_text)
+    )
+    statement_id = cursor.lastrowid
+
+    # Insert the payments
+    for seq, txn in enumerate(st.txns):
+        conn.execute(
+            "INSERT INTO payments (statement_id, seq, date, type, description, detail, amount, balance) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (statement_id, seq, txn.date.isoformat(), txn.type, txn.description, txn.detail, txn.amount, txn.balance)
+        )
+
+    conn.commit()
+    return True
 
 
 def load_txns(conn) -> List[Txn]:
     """Every stored payment as a Txn, oldest first: order by date, then statement start, then seq."""
-    raise NotImplementedError
+    rows = conn.execute("""
+        SELECT p.date, p.type, p.description, p.detail, p.amount, p.balance, s.start
+        FROM payments p
+        JOIN statements s ON p.statement_id = s.id
+        ORDER BY p.date, s.start, p.seq
+    """).fetchall()
+
+    result = []
+    for row in rows:
+        from datetime import date
+        txn = Txn(
+            date=date.fromisoformat(row[0]),
+            type=row[1],
+            description=row[2],
+            detail=row[3],
+            amount=row[4],
+            balance=row[5]
+        )
+        result.append(txn)
+
+    return result
 
 
 def statement_rows(conn) -> List[dict]:
     """One dict per stored statement, oldest end date first:
     {"file", "start", "end", "opening", "closing", "problems", "payments"}
     where start/end are ISO strings, problems is the saved text and payments is the number stored."""
-    raise NotImplementedError
+    rows = conn.execute("""
+        SELECT s.file, s.start, s.end, s.opening, s.closing, s.problems, COUNT(p.id) as payments
+        FROM statements s
+        LEFT JOIN payments p ON s.id = p.statement_id
+        GROUP BY s.id
+        ORDER BY s.end
+    """).fetchall()
+
+    result = []
+    for row in rows:
+        result.append({
+            "file": row[0],
+            "start": row[1],
+            "end": row[2],
+            "opening": row[3],
+            "closing": row[4],
+            "problems": row[5],
+            "payments": row[6]
+        })
+
+    return result
 
 
 def item_key(t: Txn) -> str:
@@ -50,18 +168,90 @@ def item_key(t: Txn) -> str:
     For DD, SO and BP: NAME = description upper-cased and stripped with a trailing " LTD",
     " LIMITED" or " PLC" removed and repeated spaces collapsed; REFERENCE = detail upper-cased
     and stripped, but "" when the detail is empty or "FIRST PAYMENT".
-    For the other groups: NAME = fintrack.common.payee_key(t) and REFERENCE = "".
+    For CR (income): NAME = description upper-cased and stripped (suffixes kept), REFERENCE = "".
+    For the other groups (CARD, CASH): NAME = fintrack.common.payee_key(t) and REFERENCE = "".
     Example: SO, "SAM PARKER", "Rent" -> "SO|SAM PARKER|RENT"; VIS "CORNER SHOP 12" -> "CARD|CORNER SHOP|".
     """
-    raise NotImplementedError
+    # Determine the group
+    if t.type == "DD":
+        group = "DD"
+    elif t.type == "SO":
+        group = "SO"
+    elif t.type == "BP":
+        group = "BP"
+    elif t.type == "ATM":
+        group = "CASH"
+    elif t.type == "CR":
+        group = "IN"
+    else:
+        group = "CARD"
+
+    # For DD, SO, BP: extract NAME and REFERENCE
+    if group in ("DD", "SO", "BP"):
+        # NAME: description upper-cased, stripped, remove " LTD", " LIMITED", " PLC", collapse spaces
+        name = t.description.strip().upper()
+        if name.endswith(" LTD"):
+            name = name[:-4].strip()
+        elif name.endswith(" LIMITED"):
+            name = name[:-8].strip()
+        elif name.endswith(" PLC"):
+            name = name[:-4].strip()
+        name = re.sub(r' +', ' ', name).strip()
+
+        # REFERENCE: detail upper-cased and stripped, but "" when empty or "FIRST PAYMENT"
+        detail = t.detail.strip().upper()
+        if not detail or detail == "FIRST PAYMENT":
+            reference = ""
+        else:
+            reference = detail
+
+        return f"{group}|{name}|{reference}"
+
+    # For CR: just upper-case and strip (don't remove suffixes like payee_key does)
+    if group == "IN":
+        name = t.description.strip().upper()
+        return f"{group}|{name}|"
+
+    # For other groups (VIS, ATM, etc.): NAME = payee_key(t), REFERENCE = ""
+    name = payee_key(t)
+    return f"{group}|{name}|"
 
 
 def set_item(conn, key: str, kind: str, label: str = "", source: str = "user") -> None:
     """Save your answer for an item (insert or update). kind must be in KINDS, else ValueError.
     source is "user" or "suggested". Commit before returning."""
-    raise NotImplementedError
+    if kind not in KINDS:
+        raise ValueError(f"kind must be one of {KINDS}, got {kind}")
+
+    # Check if key already exists
+    existing = conn.execute("SELECT key FROM items WHERE key = ?", (key,)).fetchone()
+
+    if existing:
+        # Update
+        conn.execute(
+            "UPDATE items SET kind = ?, label = ?, source = ? WHERE key = ?",
+            (kind, label, source, key)
+        )
+    else:
+        # Insert
+        conn.execute(
+            "INSERT INTO items (key, kind, label, source) VALUES (?, ?, ?, ?)",
+            (key, kind, label, source)
+        )
+
+    conn.commit()
 
 
 def get_items(conn) -> Dict[str, dict]:
     """{key: {"kind", "label", "source"}} for every saved item."""
-    raise NotImplementedError
+    rows = conn.execute("SELECT key, kind, label, source FROM items").fetchall()
+
+    result = {}
+    for row in rows:
+        result[row[0]] = {
+            "kind": row[1],
+            "label": row[2],
+            "source": row[3]
+        }
+
+    return result
