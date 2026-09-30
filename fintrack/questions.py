@@ -117,18 +117,18 @@ def parse_answer(text: str, count: int) -> dict:
     """Read the one-line answer to a list of `count` numbered items.
 
     Returns {"kinds": {n: kind}, "labels": {n: text}, "later": set of n, "stop": bool,
-    "error": None or a short message}. Numbers are 1-based.
+    "all": bool, "error": None or a short message}. Numbers are 1-based.
     Words (any case): common, regular, random, oneoff (also "one-off") each followed by item
     numbers (space separated, ranges like 1-3 allowed) -- the word "regular" is an alias: it gives
     kind "common" (there is only one word for it now); "later" + numbers; "stop" alone;
     "label" + one number + the label text, which runs until the next keyword.
     The keyword "all" (alone or with others) sets result["all"] = True; the result always has an
-    "all" key (False when not typed).
-    Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "later 3 5", "stop".
+    "all" key (False when not typed). "all" takes no numbers.
+    Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "later 3 5", "stop", "all".
     Blank text -> nothing set, no error. Error (and nothing else trusted) for an unknown word,
     a keyword with no numbers, or a number below 1 or above `count` (the message names it).
     """
-    result = {"kinds": {}, "labels": {}, "later": set(), "stop": False, "error": None}
+    result = {"kinds": {}, "labels": {}, "later": set(), "stop": False, "all": False, "error": None}
 
     if not text.strip():
         return result
@@ -141,7 +141,10 @@ def parse_answer(text: str, count: int) -> dict:
         token = tokens[i]
         token_lower = token.lower()
 
-        if token_lower == "stop":
+        if token_lower == "all":
+            result["all"] = True
+            i += 1
+        elif token_lower == "stop":
             result["stop"] = True
             i += 1
         elif token_lower == "label":
@@ -164,7 +167,7 @@ def parse_answer(text: str, count: int) -> dict:
             # Collect label text until the next keyword
             label_parts = []
             while i < len(tokens):
-                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label"):
+                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "all"):
                     break
                 label_parts.append(tokens[i])
                 i += 1
@@ -186,7 +189,7 @@ def parse_answer(text: str, count: int) -> dict:
 
             while i < len(tokens):
                 t = tokens[i]
-                if t.lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label"):
+                if t.lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "all"):
                     break
 
                 # Check if it's a range like "1-3"
@@ -268,10 +271,17 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
 
     total_saved = 0
     later_set = set()
+    skip_small_set = set()
+
+    # If skip_small is True, identify items to skip (not saved, not shown)
+    if skip_small:
+        for key, stat in stats.items():
+            if key not in saved and stat["count"] <= 2 and stat["total"] < 50:
+                skip_small_set.add(key)
 
     while True:
-        # Get pending items, skipping those marked "later" in this run
-        pending = pending_items(stats, saved, skip=later_set)
+        # Get pending items, skipping those marked "later" in this run and small items
+        pending = pending_items(stats, saved, skip=later_set | skip_small_set)
 
         if not pending:
             break
@@ -309,7 +319,7 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
             out(line)
 
         # Print hint line
-        out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop   (Enter keeps my suggestions)")
+        out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)")
 
         # Ask for answer
         while True:
@@ -329,7 +339,7 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
                 # Nothing from this round is saved
                 return total_saved
 
-            # Save items
+            # Save items from this round
             for idx, stat in enumerate(round_items, start=1):
                 if idx in parsed["later"]:
                     # Mark as "later" for skipping in this run
@@ -358,6 +368,17 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
                     set_item(conn, stat["key"], kind, label, source)
                     saved[stat["key"]] = {"kind": kind, "label": label, "source": source}
                     total_saved += 1
+
+            # Handle "all" keyword: save suggestions for all remaining items and finish
+            if parsed["all"]:
+                # Get all pending items
+                all_pending = pending_items(stats, saved, skip=later_set | skip_small_set)
+                for stat in all_pending:
+                    kind, label = suggest(stat)
+                    set_item(conn, stat["key"], kind, label, "suggested")
+                    saved[stat["key"]] = {"kind": kind, "label": label, "source": "suggested"}
+                    total_saved += 1
+                return total_saved
 
             break
 

@@ -116,7 +116,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     all_txns = load_txns(conn)
 
     # Run review before reports
-    review(conn, all_txns, ask_items, out=print)
+    review(conn, all_txns, ask_items, out=print, skip_small=True)
     answers = get_items(conn)
 
     # Get all transactions from kept statements for report building (using database)
