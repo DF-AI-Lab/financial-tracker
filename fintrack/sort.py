@@ -25,7 +25,8 @@ def classify(txns: List[Txn]) -> Dict[str, List[Txn]]:
 def bills_summary(txns: List[Txn]) -> Dict[str, dict]:
     """For each bill return {"months": n, "average": x}.
 
-    Key is "<description> - <detail>", e.g. "GYM CLUB - MEMBERSHIP".
+    Key is "<description> - <detail>", e.g. "GYM CLUB - MEMBERSHIP", or just
+    "<description>" when the detail is empty (e.g. "GYM CLUB").
     months = number of distinct calendar months with a payment.
     average = total paid / months, as a positive number rounded to 2 decimals.
     """

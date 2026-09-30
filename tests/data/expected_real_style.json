@@ -1,0 +1,227 @@
+{
+  "statements": [
+    {
+      "file": "realstyle_2024_06.pdf",
+      "opening": 120.5,
+      "closing": 282.46,
+      "transactions": [
+        {
+          "date": "2024-05-25",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -6.0,
+          "balance": null
+        },
+        {
+          "date": "2024-05-25",
+          "type": "VIS",
+          "description": "STREAM AUDIO",
+          "detail": "stream.co/pymt",
+          "amount": -0.99,
+          "balance": null
+        },
+        {
+          "date": "2024-05-25",
+          "type": "VIS",
+          "description": "STREAM AUDIO",
+          "detail": "stream.co/pymt",
+          "amount": -0.99,
+          "balance": null
+        },
+        {
+          "date": "2024-05-25",
+          "type": ")))",
+          "description": "MEGA MART",
+          "detail": "HUNTINGTON",
+          "amount": -5.62,
+          "balance": null
+        },
+        {
+          "date": "2024-05-25",
+          "type": ")))",
+          "description": "DIY STORE 1232",
+          "detail": "YORK",
+          "amount": -17.0,
+          "balance": 89.9
+        },
+        {
+          "date": "2024-05-27",
+          "type": ")))",
+          "description": "FARM SHOP 321",
+          "detail": "YORK",
+          "amount": -38.87,
+          "balance": null
+        },
+        {
+          "date": "2024-05-27",
+          "type": "VIS",
+          "description": "INT'L 0078064112",
+          "detail": "Learn Online +905326253880",
+          "amount": -17.99,
+          "balance": 33.04
+        },
+        {
+          "date": "2024-05-28",
+          "type": "CR",
+          "description": "ACME MOTORS PLC",
+          "detail": "",
+          "amount": 2331.43,
+          "balance": null
+        },
+        {
+          "date": "2024-05-28",
+          "type": "BP",
+          "description": "SAM PARKER",
+          "detail": "Food and bil",
+          "amount": -50.0,
+          "balance": 2314.47
+        },
+        {
+          "date": "2024-06-02",
+          "type": "DD",
+          "description": "GYM CLUB",
+          "detail": "",
+          "amount": -50.0,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "DD",
+          "description": "WATER BOARD",
+          "detail": "",
+          "amount": -15.75,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "DD",
+          "description": "PHONE CO",
+          "detail": "",
+          "amount": -40.11,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "DD",
+          "description": "SKY DIGITAL",
+          "detail": "",
+          "amount": -45.5,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "DD",
+          "description": "TV LICENCE MBP",
+          "detail": "",
+          "amount": -31.8,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "DD",
+          "description": "CITY COUNCIL GENER",
+          "detail": "",
+          "amount": -159.4,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "BILLS",
+          "amount": -150.0,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "RENT",
+          "amount": -550.0,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "VIS",
+          "description": "STREAM VIDEO",
+          "detail": "g.co/helppay#",
+          "amount": -12.99,
+          "balance": null
+        },
+        {
+          "date": "2024-06-02",
+          "type": "VIS",
+          "description": "FURNITURE STORE",
+          "detail": "MANCHESTER",
+          "amount": -279.0,
+          "balance": 979.92
+        },
+        {
+          "date": "2024-06-03",
+          "type": "SO",
+          "description": "SAM PARKER",
+          "detail": "FOOD",
+          "amount": -200.0,
+          "balance": 779.92
+        },
+        {
+          "date": "2024-06-05",
+          "type": "DD",
+          "description": "ENERGY CO",
+          "detail": "FIRST PAYMENT",
+          "amount": -162.45,
+          "balance": null
+        },
+        {
+          "date": "2024-06-05",
+          "type": "SO",
+          "description": "PAT LEE",
+          "detail": "CAR LOAN PAYMENT",
+          "amount": -250.0,
+          "balance": 367.47
+        },
+        {
+          "date": "2024-06-08",
+          "type": "VIS",
+          "description": "INT'L 0052056981",
+          "detail": "MONOKAI AMSTERDAM EUR 12.50 @ 1.1649 Visa Rate Non-Sterling Transaction Fee",
+          "amount": -11.02,
+          "balance": 356.45
+        },
+        {
+          "date": "2024-06-10",
+          "type": ")))",
+          "description": "CHIROPRACTOR",
+          "detail": "York",
+          "amount": -70.0,
+          "balance": 286.45
+        },
+        {
+          "date": "2024-06-12",
+          "type": "CR",
+          "description": "PAT LEE",
+          "detail": "Sent from Bank",
+          "amount": 30.0,
+          "balance": 316.45
+        },
+        {
+          "date": "2024-06-15",
+          "type": "ATM",
+          "description": "CASH NOTEMAC JUN15",
+          "detail": "Notemachine @19:57",
+          "amount": -30.0,
+          "balance": 286.45
+        },
+        {
+          "date": "2024-06-18",
+          "type": "VIS",
+          "description": "PRINT SHOP",
+          "detail": "www.example.com",
+          "amount": -3.99,
+          "balance": 282.46
+        }
+      ]
+    }
+  ]
+}

@@ -10,9 +10,27 @@ from fintrack.models import Txn
 def parse_pdf(path) -> List[Txn]:
     """Read one bank statement PDF and return its transactions in order.
 
-    Rules (see README.md): ignore cover and terms pages, skip BALANCE BROUGHT/CARRIED
-    FORWARD lines, carry the date down to lines without one, join a payment's two
-    lines, and decide paid-out vs paid-in (x position of the amount, or balance maths).
+    Rules (learned from real HSBC statements, see tests/):
+    - Never assume page numbers: the FIRST page also holds transactions. Only read rows
+      BELOW the column header row ("Date / Payment type and details / £Paid out /
+      £Paid in / £Balance"). Pages with no such header row (terms pages) have no
+      transactions. Column x positions come from that header row and differ between
+      statements.
+    - A row whose type column holds a code (DD, SO, BP, CR, VIS, ATM, ")))" ...) starts a
+      new payment. Rows after it with no code are more lines of the same payment. A
+      "DR" code row is also a continuation (never a new payment).
+    - Amount = sum of every number in the paid-out (negative) or paid-in (positive)
+      column across ALL rows of that payment (foreign payments have a rate amount plus
+      a fee row). Numbers outside those columns (e.g. "EUR 12.50") are not amounts.
+      The amount can sit on the payee row itself (DD, CR) or on a later row.
+    - description = payee text on the payment's first row (after the type code);
+      detail = all other text on the later rows joined by single spaces, excluding
+      money-column numbers and the "DR" code. Empty string if none.
+    - The date is only printed on the first payment of a day; carry it down, also across
+      a page break.
+    - Skip BALANCEBROUGHTFORWARD / BALANCECARRIEDFORWARD rows (words may be run together,
+      may have no date, may have a stray "."). Skip footer text and the account summary.
+    - balance = the £Balance column number on the payment's last row, else None.
     """
     transactions = []
 

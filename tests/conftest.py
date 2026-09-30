@@ -9,8 +9,8 @@ from fintrack.models import Txn
 DATA = Path(__file__).parent / "data"
 
 
-def load_expected():
-    return json.loads((DATA / "expected.json").read_text())["statements"]
+def load_expected(name="expected.json"):
+    return json.loads((DATA / name).read_text())["statements"]
 
 
 def to_txn(d):
@@ -26,3 +26,8 @@ def expected():
 @pytest.fixture(scope="session")
 def all_expected_txns(expected):
     return [to_txn(t) for st in expected for t in st["transactions"]]
+
+
+@pytest.fixture(scope="session")
+def real_style_txns():
+    return [to_txn(t) for st in load_expected("expected_real_style.json") for t in st["transactions"]]
