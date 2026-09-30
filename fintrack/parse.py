@@ -1,10 +1,11 @@
 from typing import List
 from datetime import date
 from collections import defaultdict
+from pathlib import Path
 
 import pdfplumber
 
-from fintrack.models import Txn
+from fintrack.models import Txn, Statement
 
 
 def parse_pdf(path) -> List[Txn]:
@@ -296,4 +297,100 @@ def parse_statement(path):
     BALANCECARRIEDFORWARD row that has a date. Use None for anything not found.
     txns = the same list parse_pdf returns.
     """
-    raise NotImplementedError
+    # Get the file name only (not the full path)
+    if isinstance(path, str):
+        path = Path(path)
+    file_name = path.name
+
+    # Get transactions from parse_pdf
+    txns = parse_pdf(path)
+
+    # Extract balance information
+    start = None
+    opening = None
+    end = None
+    closing = None
+
+    with pdfplumber.open(path) as pdf:
+        for page_idx in range(len(pdf.pages)):
+            page = pdf.pages[page_idx]
+            words = page.extract_words()
+
+            # Group words by top position (to identify lines)
+            lines = defaultdict(list)
+            for word in words:
+                lines[round(word['top'])].append(word)
+
+            # Sort by top position
+            sorted_tops = sorted(lines.keys())
+
+            for idx, top in enumerate(sorted_tops):
+                line_words = lines[top]
+                line_text = ' '.join(w['text'] for w in line_words)
+
+                # Look for BALANCE BROUGHT FORWARD (first occurrence with date)
+                if 'BALANCE' in line_text.upper() and 'BROUGHT' in line_text.upper() and start is None:
+                    # Extract date from this line
+                    date_parts = []
+                    for w in line_words:
+                        if len(date_parts) < 3 and w['text'] in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                                                   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+                                                                   '01', '02', '03', '04', '05', '06', '07', '08', '09',
+                                                                   '10', '11', '12', '13', '14', '15', '16', '17', '18', '19',
+                                                                   '20', '21', '22', '23', '24', '25', '26', '27', '28', '29', '30', '31',
+                                                                   '24', '23', '22', '21', '20', '19'):
+                            date_parts.append(w['text'])
+
+                    # Try to parse the date from the line
+                    words_in_line = [w['text'] for w in line_words]
+                    for i, word in enumerate(words_in_line):
+                        if word.isdigit() and len(word) == 2 and 1 <= int(word) <= 31:
+                            # Potential day
+                            if i + 1 < len(words_in_line):
+                                month_str = words_in_line[i + 1]
+                                if month_str in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'):
+                                    if i + 2 < len(words_in_line):
+                                        year_str = words_in_line[i + 2]
+                                        if year_str.isdigit() and len(year_str) == 2:
+                                            try:
+                                                date_str = f"20{year_str} {month_str} {word}"
+                                                start = _parse_date(date_str)
+                                                break
+                                            except:
+                                                pass
+
+                    # Extract the opening balance (the last number in the line that looks like currency)
+                    for w in reversed(line_words):
+                        if _looks_like_currency(w['text']):
+                            opening = _parse_amount(w['text'])
+                            break
+
+                # Look for BALANCE CARRIED FORWARD (keep updating to get the last one)
+                if 'BALANCE' in line_text.upper() and 'CARRIED' in line_text.upper():
+                    # Extract date from this line
+                    words_in_line = [w['text'] for w in line_words]
+                    for i, word in enumerate(words_in_line):
+                        if word.isdigit() and len(word) == 2 and 1 <= int(word) <= 31:
+                            # Potential day
+                            if i + 1 < len(words_in_line):
+                                month_str = words_in_line[i + 1]
+                                if month_str in ('Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+                                                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'):
+                                    if i + 2 < len(words_in_line):
+                                        year_str = words_in_line[i + 2]
+                                        if year_str.isdigit() and len(year_str) == 2:
+                                            try:
+                                                date_str = f"20{year_str} {month_str} {word}"
+                                                end = _parse_date(date_str)
+                                                break
+                                            except:
+                                                pass
+
+                    # Extract the closing balance (the last number in the line that looks like currency)
+                    for w in reversed(line_words):
+                        if _looks_like_currency(w['text']):
+                            closing = _parse_amount(w['text'])
+                            break
+
+    return Statement(file=file_name, start=start, end=end, opening=opening, closing=closing, txns=txns)

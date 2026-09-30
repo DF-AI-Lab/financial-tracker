@@ -10,4 +10,24 @@ def unique_statements(statements: List[Statement]) -> Tuple[List[Statement], Lis
     Keep the first one in the order given; the rest go in `skipped`. Statements whose
     start or end is None are never treated as duplicates.
     """
-    raise NotImplementedError
+    kept = []
+    skipped = []
+    seen = {}
+
+    for st in statements:
+        # Skip if start or end is None
+        if st.start is None or st.end is None:
+            kept.append(st)
+            continue
+
+        # Create a key for this statement (start, end, opening, closing)
+        key = (st.start, st.end, st.opening, st.closing)
+
+        # Check if we've seen this key before
+        if key in seen:
+            skipped.append(st)
+        else:
+            seen[key] = st
+            kept.append(st)
+
+    return kept, skipped

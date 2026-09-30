@@ -34,15 +34,11 @@ def bills_summary(txns: List[Txn]) -> Dict[str, dict]:
     classified = classify(txns)
     bills = classified["bills"]
 
-    # Group by (description, detail)
+    # Group by bill_key
     bill_groups = defaultdict(lambda: {"total": 0.0, "months": set()})
 
     for txn in bills:
-        # Use just description if detail is empty
-        if txn.detail:
-            key = f"{txn.description} - {txn.detail}"
-        else:
-            key = txn.description
+        key = bill_key(txn)
         bill_groups[key]["total"] += abs(txn.amount)  # Convert to positive
         bill_groups[key]["months"].add(txn.date.strftime("%Y-%m"))
 
@@ -106,7 +102,26 @@ def bill_key(t: Txn) -> str:
     removed, so "E.ON NEXT LTD" and "E.ON NEXT" are the same bill. The detail is ignored
     when it is empty or "FIRST PAYMENT" (any case); otherwise key = "<description> - <detail>".
     """
-    raise NotImplementedError
+    # Upper-case and strip the description
+    desc = t.description.strip().upper()
+
+    # Remove trailing " LTD", " LIMITED", or " PLC"
+    if desc.endswith(" LTD"):
+        desc = desc[:-4].strip()
+    elif desc.endswith(" LIMITED"):
+        desc = desc[:-8].strip()
+    elif desc.endswith(" PLC"):
+        desc = desc[:-4].strip()
+
+    # Check if detail should be included
+    detail = t.detail.strip().upper()
+
+    # Ignore detail if empty or "FIRST PAYMENT"
+    if not detail or detail == "FIRST PAYMENT":
+        return desc
+
+    # Otherwise include detail
+    return f"{desc} - {t.detail}"
 
 
 def statement_report(statements) -> List[dict]:
@@ -116,9 +131,56 @@ def statement_report(statements) -> List[dict]:
     are positive numbers rounded to 2 decimals (same rules as classify); spare =
     income - bills - random. Skip statements whose end is None.
     """
-    raise NotImplementedError
+    rows = []
+
+    for st in statements:
+        # Skip statements without end date
+        if st.end is None:
+            continue
+
+        # Classify transactions
+        classified = classify(st.txns)
+
+        # Calculate income (sum of positive amounts)
+        income = sum(t.amount for t in classified["income"])
+
+        # Calculate bills (sum of absolute negative amounts for DD/SO)
+        bills = sum(abs(t.amount) for t in classified["bills"])
+
+        # Calculate random (sum of absolute negative amounts for other)
+        random = sum(abs(t.amount) for t in classified["random"])
+
+        # Calculate spare
+        spare = income - bills - random
+
+        # Round all values
+        income = round(income, 2)
+        bills = round(bills, 2)
+        random = round(random, 2)
+        spare = round(spare, 2)
+
+        # Format label
+        label = st.end.strftime("%b %Y")
+        end_str = st.end.isoformat()
+
+        rows.append({
+            "file": st.file,
+            "label": label,
+            "end": end_str,
+            "income": income,
+            "bills": bills,
+            "random": random,
+            "spare": spare
+        })
+
+    # Sort by end date
+    rows.sort(key=lambda r: r["end"])
+
+    return rows
 
 
 def big_items(txns: List[Txn], limit: float = 1000.0) -> List[Txn]:
     """Payments (in or out) whose amount is >= limit in size, sorted by date."""
-    raise NotImplementedError
+    result = [t for t in txns if abs(t.amount) >= limit]
+    result.sort(key=lambda t: t.date)
+    return result
