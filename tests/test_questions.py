@@ -26,9 +26,9 @@ def test_item_stats():
 def test_suggestions():
     s = stats()
     want = {
-        "SO|LANDLORD|RENT": ("regular", "Rent"),
-        "DD|GYM CLUB|": ("regular", "Gym Club"),
-        "DD|ENERGY CO|": ("regular", "Energy Co"),
+        "SO|LANDLORD|RENT": ("common", "Rent"),
+        "DD|GYM CLUB|": ("common", "Gym Club"),
+        "DD|ENERGY CO|": ("common", "Energy Co"),
         "CARD|STREAM VIDEO|": ("common", "Stream Video"),      # 8 payments, all 12.99
         "CASH|CASH MACHINE|": ("common", "Cash Machine"),      # 4 payments, all 50
         "CARD|CORNER SHOP|": ("random", "Corner Shop"),        # amounts all over the place
@@ -56,7 +56,7 @@ def test_pending_items_order_and_filters():
     ("", 10, {}, {}, set(), False),
     ("common 1 2 4  oneoff 6", 10, {1: "common", 2: "common", 4: "common", 6: "oneoff"}, {}, set(), False),
     ("Common 1-3", 10, {1: "common", 2: "common", 3: "common"}, {}, set(), False),
-    ("one-off 2  REGULAR 5  random 7 8", 10, {2: "oneoff", 5: "regular", 7: "random", 8: "random"}, {}, set(), False),
+    ("one-off 2  REGULAR 5  random 7 8", 10, {2: "oneoff", 5: "common", 7: "random", 8: "random"}, {}, set(), False),
     ("later 3 5", 10, {}, {}, {3, 5}, False),
     ("stop", 10, {}, {}, set(), True),
     ("label 1 Rent", 10, {}, {1: "Rent"}, set(), False),
@@ -97,7 +97,7 @@ def test_accepting_suggestions_saves_everything_once():
     items = get_items(conn)
     assert len(items) == 9
     assert items["CARD|CAR DEALER|"]["kind"] == "oneoff" and items["CARD|CAR DEALER|"]["source"] == "suggested"
-    assert items["SO|LANDLORD|RENT"] == {"kind": "regular", "label": "Rent", "source": "suggested"}
+    assert items["SO|LANDLORD|RENT"] == {"kind": "common", "label": "Rent", "source": "suggested"}
     text = "\n".join(lines)
     assert "NEW ITEMS" in text and "Standing order" in text and "LANDLORD - RENT" in text
     assert "suggest: One-off" in text and "550.00" in text
@@ -173,3 +173,16 @@ def test_fix_items_ignores_bad_input_and_no_keyboard():
     assert any(l.startswith("Sorry, I did not understand:") for l in lines)
     assert fix_items(conn, runner(EOFError()), out=lambda s: None) == 0
     assert get_items(conn)["DD|GYM CLUB|"]["kind"] == "regular"
+
+
+def test_bill_payment_top_ups_are_always_suggested_random():
+    from datetime import date
+    from fintrack.models import Txn
+    txns = [Txn(date(2024, m, 10), "BP", "SAM PARKER", "Food and bil", -20.0) for m in range(1, 9)]  # 8 identical top-ups
+    stat = item_stats(txns)["BP|SAM PARKER|FOOD AND BIL"]
+    assert suggest(stat) == ("random", "Food And Bil")
+
+
+def test_the_word_regular_is_shown_as_common(capsys):
+    from fintrack.questions import KIND_NAMES
+    assert KIND_NAMES["regular"] == KIND_NAMES["common"] == "Common"

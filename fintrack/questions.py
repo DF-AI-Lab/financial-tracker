@@ -6,7 +6,7 @@ import re
 from fintrack.models import Txn
 from fintrack.store import item_key
 
-KIND_NAMES = {"regular": "Regular", "common": "Common", "random": "Random", "oneoff": "One-off"}
+KIND_NAMES = {"regular": "Common", "common": "Common", "random": "Random", "oneoff": "One-off"}
 GROUP_NAMES = {"DD": "Direct debit", "SO": "Standing order", "BP": "Bill payment",
                "CARD": "Card", "CASH": "Cash", "IN": "Money in"}
 
@@ -61,7 +61,8 @@ def item_stats(txns: List[Txn]) -> Dict[str, dict]:
 def suggest(stat: dict) -> Tuple[str, str]:
     """(kind, label) to suggest for an item.
 
-    kind: group SO or DD -> "regular". Otherwise (BP, CARD, CASH): "oneoff" when there is a
+    kind: group SO or DD -> "common". Group BP (bill-payment top-ups, e.g. to a family member
+    when they are short) -> always "random". Otherwise (CARD, CASH): "oneoff" when there is a
     single payment of 1000 or more; "common" when at least 4 payments are within 15% of the
     median amount (statistics.median); else "random".
     label: (reference or name) in Title Case, e.g. "RENT" -> "Rent", "GYM CLUB" -> "Gym Club".
@@ -116,7 +117,8 @@ def parse_answer(text: str, count: int) -> dict:
     Returns {"kinds": {n: kind}, "labels": {n: text}, "later": set of n, "stop": bool,
     "error": None or a short message}. Numbers are 1-based.
     Words (any case): common, regular, random, oneoff (also "one-off") each followed by item
-    numbers (space separated, ranges like 1-3 allowed); "later" + numbers; "stop" alone;
+    numbers (space separated, ranges like 1-3 allowed) -- the word "regular" is an alias: it gives
+    kind "common" (there is only one word for it now); "later" + numbers; "stop" alone;
     "label" + one number + the label text, which runs until the next keyword.
     Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "later 3 5", "stop".
     Blank text -> nothing set, no error. Error (and nothing else trusted) for an unknown word,
