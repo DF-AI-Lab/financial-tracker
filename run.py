@@ -115,13 +115,24 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     all_stmts = load_statements(conn)
     all_txns = load_txns(conn)
 
+    # Sort transactions early for cycle building
+    all_txns.sort(key=lambda t: t.date)
+
     # Run review before reports
     review(conn, all_txns, ask_items, out=print, skip_small=True)
     answers = get_items(conn)
 
-    # Get all transactions from kept statements for report building (using database)
-    # all_txns and all_stmts are already loaded from database above
-    all_txns.sort(key=lambda t: t.date)
+    # Review payday-transfer rules and get rules for analysis
+    from fintrack.paydayrule import review_rules
+    from fintrack.store import get_rules
+
+    # Build cycles early for rule review
+    cycles = build_cycles(all_txns, payer=wage_payer)
+    if cycles:
+        paydays = [c.start for c in cycles]
+        review_rules(conn, all_txns, paydays, ask_items, out=print)
+
+    rules = get_rules(conn)
 
     # Generate reports
     out_dir.mkdir(exist_ok=True)
@@ -173,8 +184,6 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     print(f"\nCSV files saved in: {out_dir}")
 
     # Payday-to-payday cycles and pay question
-    cycles = build_cycles(all_txns, payer=wage_payer)
-
     if not cycles:
         print(f"\nNo wage from {wage_payer} found, so payday cycles and the pay question are skipped.")
         return
@@ -186,8 +195,8 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
         status = "" if row["complete"] else " (so far)"
         print(f"  {row['label']:<12} wage {row['wage']:>9.2f}  bills {row['bills']:>8.2f}  random {row['random']:>8.2f}  spare {row['spare']:>9.2f}{status}")
 
-    # Analyze spending patterns
-    analysis = analyse(cycles, answers=answers)
+    # Analyze spending patterns with rules
+    analysis = analyse(cycles, answers=answers, rules=rules)
 
     # Print common spending
     print("\nCOMMON (average per cycle over the last N complete cycles)")

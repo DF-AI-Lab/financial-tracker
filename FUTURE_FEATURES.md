@@ -12,12 +12,10 @@ _Ideas agreed but not built yet. Newest at the bottom._
 - Your answers decide common / random / one-off; items with the same label merge
 - `run.py folder "C:\path"` remembers the statements folder
 
+- Payday transfer rule (rent by transfer): within 2 days of payday, about the usual amount (10%), asked once with examples, remembered; a new price is noticed after 2 payments
+- `all` answer and skipping tiny one-offs in the question list
+
 ## Next up
-- **Payday transfer rule (rent by transfer):** a bill payment to the same person is counted as rent (Common)
-  when it is paid within 2 days of payday AND the amount is within 10% of the usual amount (the app finds the usual
-  amount itself), whatever the reference says (the reference is sometimes forgotten). Small top-ups stay Random.
-  Asked once per person with examples first ("count these as Common, label Rent? y/n") and remembered.
-  If rent jumps by more than 10% it asks again.
 - **Categories report:** totals per label (Rent, Gas & Electric...) month by month and the 6-cycle average
   per label (the labels are already saved by the questions).
 - **Missing statements warning:** if one statement does not start where the last one ended,

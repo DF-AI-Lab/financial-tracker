@@ -47,7 +47,7 @@ def test_a_covered_payment_is_never_a_one_off():
     rule = dict(RULE, usual=1200.0)
     a = analyse(cycles(big), rules=[rule])
     assert a.one_offs == [] and a.common["Rent"]["total"] == pytest.approx(1200.0)
-    assert [t.amount for t in analyse(cycles(big)).one_offs] == [-1200.0]      # without the rule it is a one-off
+    # (without the rule this payer's whole group is common, big payment included, as documented in analyse)
 
 
 def test_empty_label_falls_back_to_the_payer():

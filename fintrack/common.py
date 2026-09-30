@@ -114,16 +114,48 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
     if answers is None:
         answers = {}
 
-    # Import item_key here to avoid circular imports
-    from fintrack.store import item_key
+    if rules is None:
+        rules = []
 
-    # Separate payments into answered and unanswered
-    answered_txns = []  # (cycle_idx, txn)
+    # Import item_key and matches_rule here to avoid circular imports
+    from fintrack.store import item_key
+    from fintrack.paydayrule import matches_rule
+
+    # Identify rule-covered payments first (rules checked BEFORE answers)
+    rule_covered_txns = set()  # Set of (cycle_idx, txn id) to mark them as covered
+    rules_common = {}  # label -> {cycles_set, is_bill, total}
+
+    for cycle_idx, cycle in enumerate(window_cycles):
+        for txn in cycle.txns:
+            if txn.amount < 0:  # Money out only
+                # Check if covered by any rule
+                for rule in rules:
+                    if rule["kind"] != "common":  # Skip declined rules
+                        continue
+                    if matches_rule(txn, rule, cycle.start):
+                        rule_covered_txns.add(id(txn))
+                        # Add to rules_common
+                        label = rule.get("label", "") or rule["payer"]
+                        if label not in rules_common:
+                            rules_common[label] = {
+                                "cycles_set": set(),
+                                "is_bill": False,
+                                "total": 0
+                            }
+                        rules_common[label]["cycles_set"].add(cycle_idx)
+                        rules_common[label]["is_bill"] = rules_common[label]["is_bill"] or txn.type in ("DD", "SO")
+                        rules_common[label]["total"] += abs(txn.amount)
+                        break  # Stop checking rules once matched
+
+    # Separate payments into answered and unanswered (excluding rule-covered)
+    answered_txns = []  # (cycle_idx, txn, item_key)
     unanswered_txns = []  # (cycle_idx, txn)
 
     for cycle_idx, cycle in enumerate(window_cycles):
         for txn in cycle.txns:
             if txn.amount < 0:  # Money out only
+                if id(txn) in rule_covered_txns:
+                    continue  # Skip rule-covered payments
                 key = item_key(txn)
                 if key in answers:
                     answered_txns.append((cycle_idx, txn, key))
@@ -170,6 +202,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
 
         if cycle_idx not in key_cycle_total[key]:
             key_cycle_total[key][cycle_idx] = 0
+
         key_cycle_total[key][cycle_idx] += abs(txn.amount)
         key_txns[key].append(txn)
 
@@ -179,22 +212,18 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
     unanswered_random = []
 
     for key in key_cycle_total:
-        # Get the per-cycle totals for this key (including zeros for cycles without payment)
         per_cycle_totals = [key_cycle_total[key].get(i, 0) for i in range(cycles_used)]
         cycles_with_payment = sum(1 for t in per_cycle_totals if t > 0)
         total = sum(per_cycle_totals)
 
-        # Check if any payment is a bill (DD or SO)
         is_bill = any(txn.type in ("DD", "SO") for txn in key_txns[key])
         kind = "bill" if is_bill else "other"
 
         is_common = False
         if is_bill:
-            # Bill: common if appears in >= needed cycles
             is_common = cycles_with_payment >= needed
         else:
-            # Other: common if at least needed cycles with payment have totals within tolerance of median
-            # Only consider non-zero totals for the median calculation
+            # Other: common if at least `needed` cycles have totals within tolerance of the median
             nonzero_totals = [t for t in per_cycle_totals if t > 0]
             if nonzero_totals:
                 med = median(nonzero_totals)
@@ -202,7 +231,6 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
                 is_common = within_tolerance >= needed
 
         if is_common:
-            # All payments of this key are common
             unanswered_common[key] = {
                 "cycles": cycles_with_payment,
                 "total": total,
@@ -210,24 +238,56 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
                 "kind": kind
             }
         else:
-            # Not common: check each payment for one-off or random
             for txn in key_txns[key]:
                 if abs(txn.amount) >= oneoff_limit:
                     unanswered_one_offs.append(txn)
                 else:
                     unanswered_random.append(txn)
 
-    # Merge answered and unanswered common entries
+    # Merge rule-common, answered and unanswered common entries
     common = dict(unanswered_common)
+
+    # Add rule-common entries
+    for label, data in rules_common.items():
+        cycles_num = len(data["cycles_set"])
+        kind = "bill" if data["is_bill"] else "other"
+
+        if label in common:
+            # Merge with existing (e.g., an unanswered common of same payee_key)
+            common[label]["cycles"] = max(common[label]["cycles"], cycles_num)
+            common[label]["total"] += data["total"]
+            common[label]["average"] = common[label]["total"] / cycles_used
+            common[label]["kind"] = "bill" if (common[label]["kind"] == "bill" or kind == "bill") else "other"
+        else:
+            common[label] = {
+                "cycles": cycles_num,
+                "total": data["total"],
+                "average": data["total"] / cycles_used,
+                "kind": kind
+            }
+
+    # Merge answered common entries
     for label, data in answered_common.items():
         cycles_num = len(data["cycles_set"])
         kind = "bill" if data["is_bill"] else "other"
-        common[label] = {
-            "cycles": cycles_num,
-            "total": data["total"],
-            "average": data["total"] / cycles_used,
-            "kind": kind
-        }
+
+        if label in common:
+            # Merge with existing (e.g., rule-common of same label)
+            # Keep track of all cycles that have this label
+            if "cycles_set" not in common[label]:
+                common[label]["cycles_set"] = set(range(common[label].get("cycles", 0)))
+            common[label]["cycles_set"] |= data["cycles_set"]
+            common[label]["cycles"] = len(common[label]["cycles_set"])
+            common[label]["total"] += data["total"]
+            common[label]["average"] = common[label]["total"] / cycles_used
+            common[label]["kind"] = "bill" if (common[label]["kind"] == "bill" or kind == "bill") else "other"
+        else:
+            common[label] = {
+                "cycles": cycles_num,
+                "total": data["total"],
+                "average": data["total"] / cycles_used,
+                "kind": kind
+            }
 
     # Merge one-offs and random
     one_offs = answered_one_offs + unanswered_one_offs

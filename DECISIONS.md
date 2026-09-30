@@ -43,3 +43,11 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - **Suggestions by type:** standing orders and direct debits suggest Common; bill-payment top-ups (BP) always
   suggest Random; cards and cash suggest Common when 4 or more payments are within 15% of the usual amount, a single
   payment of 1,000 or more suggests One-off, otherwise Random.
+- **Payday transfer rule (rent by transfer).** A bill payment to the same person is counted as Common (label e.g. "Rent")
+  when it is paid within 2 days of payday AND within 10% of the usual amount, whatever the reference says. The app
+  finds the usual amount itself, asks once with examples (y / n / type another label) and remembers the answer. Payments
+  under 100 (top-ups) never trigger it. A new price (more than 10% off) is asked about again after 2 payments.
+  The rule beats the item answers, and a covered payment is never a one-off.
+- **Question list shortcuts:** `all` keeps the suggestions for everything left; items with 2 or fewer payments under 50
+  in total are never asked about.
+
