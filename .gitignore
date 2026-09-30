@@ -7,3 +7,4 @@ statements/
 real_statements/
 *.pdf
 !tests/data/*.pdf
+output/
