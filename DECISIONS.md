@@ -1,5 +1,8 @@
 # Decisions
 
+> **1 Oct 2026:** the new plan (six-month picture, expected vs actual spare, where did it go, categories as
+> groups, yearly bills, same-bill merging, typed spends, home page) is agreed in `SPEC.md`.
+
 _Last updated 30 Sep 2026. Only things you have said yes to._
 
 ## Recorded 30 Sep

@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 30 Sep 2026._
+_Last updated: 1 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -10,6 +10,7 @@ question that shows what is left after a typical month. Everything is Python 3 +
 Older project (do not build on it): `python-finance-tracker` repo, see its `IDEA.md`.
 
 ## Read next
+- `SPEC.md`: the agreed plan for the next build (steps 1-9). Map + tickets: GitHub issue #1 on this repo.
 - `DECISIONS.md`: everything the user said yes to (rules, question-list behaviour, rent rule). Overrides anything else.
 - `FUTURE_FEATURES.md`: what is built and what is planned.
 - `README.md`: how to run on Windows.
@@ -41,14 +42,12 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
 - Push to branch `claude/stoic-archimedes-da95na` AND `main` (the user downloads `main`). Repo: DF-AI-Lab/financial-tracker
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
-## Where we are (30 Sep 2026)
+## Where we are (1 Oct 2026)
 Built and tested (154 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
-pay question, payday transfer (rent) rule. **Waiting on the user** to run the latest version on all 18 months and report the
-PAYDAY TRANSFERS question, the COMMON list (Rent should be about 550) and the pay block.
+pay question, payday transfer (rent) rule. Planning done with the wayfinder map (issue #1): `SPEC.md` holds every
+decision. Mock-up of the home page: `prototype/home.html` (fake numbers). Nothing from `SPEC.md` is built yet.
 
 ## Next
-1. Check the user's real output (Rent line, anything odd). Add a test for every real oddity.
-2. Merge look-alike labels (Car loan, Food Katie, YouTube): a "same bill?" question or a label tidy in `fix`.
-3. Categories report (totals per label per cycle, 6-cycle average per label).
-4. Spending so far in the current cycle vs typical.
-5. "Off by X" marker on balance-check warnings; warning when a statement month is missing; email fetch; other banks.
+1. Build `SPEC.md` step by step (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
+2. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
+3. Home page (step 9) last.
