@@ -57,7 +57,7 @@ def test_rent_rule_is_asked_once_and_used_in_the_averages(tmp_path, capsys):
 
 def test_saying_no_keeps_it_random_and_is_not_asked_again(tmp_path, capsys):
     inbox, out = seed(tmp_path)
-    answers = iter(["", "n"])            # 1st prompt: the items list (Enter), 2nd: the rent question (no)
+    answers = iter(["", "", "n"])        # items list (Enter), same bill? (Enter = no), rent question (no)
     text = go(inbox, out, lambda p: next(answers), capsys)
     assert get_rules(open_db(tmp_path / "tracker.db"))[0]["kind"] == "declined"
     assert "373.33" not in text

@@ -24,6 +24,7 @@ from fintrack.left import parse_money, format_left
 from fintrack.settings import saved_folder, save_folder, SAVED_FILE
 from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items
 from fintrack.questions import review, fix_items
+from fintrack.samebill import ask_same_bills
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -120,6 +121,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
 
     # Run review before reports
     review(conn, all_txns, ask_items, out=print, skip_small=True)
+    ask_same_bills(conn, all_txns, ask_items, out=print)
     answers = get_items(conn)
 
     # Review payday-transfer rules and get rules for analysis

@@ -158,14 +158,22 @@ def test_never_asked_twice():
     assert asked2 == []
 
 
-def test_enter_means_later_and_stop_ends():
+def test_later_and_stop_save_nothing():
     conn = saved_conn()
-    ask, asked = answers("", "stop")
+    ask, asked = answers("later", "stop")
     assert ask_same_bills(conn, txns_chloe_katie(), ask, out=lambda *a: None) == 0
     assert len(asked) == 2
     assert get_same_bills(conn) == {}
     ask2, asked2 = answers("n", "n")                                     # asked again next run
     assert ask_same_bills(conn, txns_chloe_katie(), ask2, out=lambda *a: None) == 2
+
+
+def test_enter_means_no_and_is_remembered():
+    conn = saved_conn()
+    ask, _ = answers("", "")
+    assert ask_same_bills(conn, txns_chloe_katie(), ask, out=lambda *a: None) == 2
+    assert set(get_same_bills(conn).values()) == {False}
+    assert get_items(conn)["BP|CHLOE AMBER FINCH|CAR PAYMENT OWED"]["label"] == "Chloe extra"
 
 
 def test_only_pairs_where_both_are_saved_and_labels_differ():

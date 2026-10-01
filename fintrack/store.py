@@ -17,6 +17,7 @@ def open_db(path) -> sqlite3.Connection:
       payments(id, statement_id, seq, date, type, description, detail, amount, balance)
       items(key PRIMARY KEY, kind, label, source)
       rules(id INTEGER PRIMARY KEY, payer, usual, label, kind, max_days, tolerance, source)
+      same_bills(key_a TEXT, key_b TEXT, same INTEGER, PRIMARY KEY(key_a, key_b))
     Dates are stored as ISO text.
     """
     conn = sqlite3.connect(str(path))
@@ -75,6 +76,34 @@ def open_db(path) -> sqlite3.Connection:
             source TEXT
         )
     """)
+
+    # Create same_bills table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS same_bills (
+            key_a TEXT,
+            key_b TEXT,
+            same INTEGER,
+            PRIMARY KEY(key_a, key_b)
+        )
+    """)
+
+    # Migration: rename old DD keys with references to new DD keys without references
+    rows = conn.execute("SELECT key, kind, label, source FROM items WHERE key LIKE 'DD|%'").fetchall()
+    for row in rows:
+        key, kind, label, source = row[0], row[1], row[2], row[3]
+        parts = key.split("|")
+        if len(parts) >= 3:
+            reference = parts[2]
+            if reference:  # Reference is not empty
+                new_key = "DD|" + parts[1] + "|"
+                # Check if new_key already exists
+                existing = conn.execute("SELECT key FROM items WHERE key = ?", (new_key,)).fetchone()
+                if existing:
+                    # New key exists, delete old key (new key wins)
+                    conn.execute("DELETE FROM items WHERE key = ?", (key,))
+                else:
+                    # New key doesn't exist, rename the old key
+                    conn.execute("UPDATE items SET key = ? WHERE key = ?", (new_key, key))
 
     conn.commit()
     return conn
@@ -180,7 +209,9 @@ def item_key(t: Txn) -> str:
 
     GROUP from the payment type: DD -> "DD", SO -> "SO", BP -> "BP", ATM -> "CASH",
     CR -> "IN", anything else (VIS, ")))" ...) -> "CARD".
-    For DD, SO and BP: NAME = description upper-cased and stripped with a trailing " LTD",
+    For DD: NAME = description upper-cased and stripped with a trailing " LTD",
+    " LIMITED" or " PLC" removed and repeated spaces collapsed; REFERENCE = "" (always ignore detail).
+    For SO and BP: NAME = description upper-cased and stripped with a trailing " LTD",
     " LIMITED" or " PLC" removed and repeated spaces collapsed; REFERENCE = detail upper-cased
     and stripped, but "" when the detail is empty or "FIRST PAYMENT".
     For CR (income): NAME = description upper-cased and stripped (suffixes kept), REFERENCE = "".
@@ -213,12 +244,15 @@ def item_key(t: Txn) -> str:
             name = name[:-4].strip()
         name = re.sub(r' +', ' ', name).strip()
 
-        # REFERENCE: detail upper-cased and stripped, but "" when empty or "FIRST PAYMENT"
-        detail = t.detail.strip().upper()
-        if not detail or detail == "FIRST PAYMENT":
+        # REFERENCE: for DD always ""; for SO and BP, detail upper-cased and stripped, but "" when empty or "FIRST PAYMENT"
+        if group == "DD":
             reference = ""
         else:
-            reference = detail
+            detail = t.detail.strip().upper()
+            if not detail or detail == "FIRST PAYMENT":
+                reference = ""
+            else:
+                reference = detail
 
         return f"{group}|{name}|{reference}"
 
@@ -359,5 +393,39 @@ def get_rules(conn) -> List[dict]:
             "tolerance": row[5],
             "source": row[6]
         })
+
+    return result
+
+
+def set_same_bill(conn, key1: str, key2: str, same: bool) -> None:
+    """Save an answer to whether two items are the same bill. same is True (1) or False (0).
+    The two keys are stored in sorted order (key_a < key_b) so the order of key1 and key2
+    does not matter. Commit before returning."""
+    # Sort keys so the smaller one is key_a
+    if key1 < key2:
+        key_a, key_b = key1, key2
+    else:
+        key_a, key_b = key2, key1
+
+    same_int = 1 if same else 0
+
+    # Insert or replace
+    conn.execute(
+        "INSERT OR REPLACE INTO same_bills (key_a, key_b, same) VALUES (?, ?, ?)",
+        (key_a, key_b, same_int)
+    )
+
+    conn.commit()
+
+
+def get_same_bills(conn) -> dict:
+    """Every saved "same bill" answer as {frozenset({key_a, key_b}): bool}."""
+    rows = conn.execute("SELECT key_a, key_b, same FROM same_bills").fetchall()
+
+    result = {}
+    for row in rows:
+        key_a, key_b, same_int = row[0], row[1], row[2]
+        fs = frozenset({key_a, key_b})
+        result[fs] = bool(same_int)
 
     return result
