@@ -77,6 +77,15 @@
     .diff-over, .diff-under { white-space: nowrap; }
     .diff-over { color: var(--warning-text); font-weight: 600; }
     .diff-under { color: var(--success); font-weight: 600; }
+    .cat-group-row { cursor: pointer; background: var(--gap-row); }
+    .cat-group-row:hover { background: var(--gap-row-hover); }
+    .cat-group-toggle { user-select: none; }
+    .cat-group-row.expanded .cat-group-toggle::before { content: '▾ '; }
+    .cat-group-row:not(.expanded) .cat-group-toggle::before { content: '▸ '; }
+    .cat-item-row { background: var(--bg); display: none; font-size: 13px; color: var(--text-muted); }
+    .cat-item-row.show { display: table-row; }
+    .cat-item-row td:first-child { padding-left: 40px; }
+    .cat-item-row .category-bar-container { display: none; }
   </style>
 </head>
 <body>
@@ -167,12 +176,12 @@ const DATA = {
   other_regular: [{name:"Netflix", avg:11, last:11},{name:"Fuel", avg:160, last:148}],
   unsorted: 42,
   categories: [
-    {name:"Food shop", this_cycle:480, avg:300},
-    {name:"Fuel", this_cycle:120, avg:160},
-    {name:"Takeaways", this_cycle:40, avg:120},
-    {name:"Fun/Subscriptions", this_cycle:65, avg:60},
-    {name:"Shopping", this_cycle:299, avg:90},
-    {name:"Unsorted", this_cycle:42, avg:35}
+    {name:"🏠 Household", items:[{name:"Rent",now:550,avg:550},{name:"Gas/Elec (E.ON)",now:116,avg:98},{name:"Council tax",now:161,avg:160},{name:"Water",now:35,avg:35},{name:"Sky / Phone",now:162,avg:147}]},
+    {name:"🚗 Car", items:[{name:"Car loan",now:250,avg:250},{name:"Insurance",now:40,avg:40},{name:"Car tax",now:16,avg:16},{name:"Fuel",now:114,avg:94}]},
+    {name:"🛒 Food shopping", items:[{name:"Tesco",now:182,avg:120},{name:"Asda",now:298,avg:180}]},
+    {name:"📺 Subscriptions", items:[{name:"Netflix",now:11,avg:11},{name:"YouTube",now:13,avg:13},{name:"Google Play",now:41,avg:36}]},
+    {name:"🛍️ Shopping", items:[{name:"Currys",now:299,avg:0},{name:"Amazon",now:0,avg:90}]},
+    {name:"❓ Unsorted", items:[{name:"Unsorted",now:42,avg:35}]}
   ]
 };
 </script>
@@ -247,17 +256,44 @@ function update() {
   <div class="six-item"><div class="six-item-label">Unsorted</div><div class="six-item-amount">${fmt(DATA.unsorted)}</div></div>`;
   const cBody = document.getElementById('categoriesTable');
   cBody.innerHTML = '';
-  const maxCycle = Math.max(...DATA.categories.map(c=>c.this_cycle));
-  const sorted = [...DATA.categories].sort((a,b)=>(b.this_cycle-b.avg)-(a.this_cycle-a.avg));
-  sorted.forEach(c=>{
-    const diff = c.this_cycle - c.avg;
+  // Calculate group totals and sort by over-spend
+  const groupsWithTotals = DATA.categories.map(g=>{
+    const now = g.items.reduce((s,i)=>s+i.now,0);
+    const avg = g.items.reduce((s,i)=>s+i.avg,0);
+    return {name:g.name, items:g.items, now, avg};
+  });
+  const maxGroupNow = Math.max(...groupsWithTotals.map(g=>g.now));
+  const sortedGroups = [...groupsWithTotals].sort((a,b)=>(b.now-b.avg)-(a.now-a.avg));
+
+  sortedGroups.forEach(g=>{
+    // Group row
+    const diff = g.now - g.avg;
     const diffClass = diff>0?'diff-over':(diff<0?'diff-under':'');
     const diffStr = diff>0?'+'+fmt(diff):(diff<0?'−'+fmt(Math.abs(diff)):fmt(0));
-    const tr = document.createElement('tr');
-    const barWidth = (c.this_cycle/maxCycle)*100;
-    const tickLeft = (c.avg/maxCycle)*100;
-    tr.innerHTML = `<td><div>${c.name}</div><div class="category-bar-container" style="width:100%;position:relative"><div class="category-bar" style="width:${barWidth}%"></div><div class="category-bar-tick" style="left:${tickLeft}%"></div></div></td><td style="text-align:right">${fmt(c.this_cycle)}</td><td style="text-align:right">${fmt(c.avg)}</td><td style="text-align:right"><span class="${diffClass}">${diffStr}</span></td>`;
-    cBody.appendChild(tr);
+    const grp = document.createElement('tr');
+    grp.className = 'cat-group-row';
+    const barWidth = (g.now/maxGroupNow)*100;
+    const tickLeft = (g.avg/maxGroupNow)*100;
+    grp.innerHTML = `<td><div><span class="cat-group-toggle"></span>${g.name}</div><div class="category-bar-container" style="width:100%;position:relative"><div class="category-bar" style="width:${barWidth}%"></div><div class="category-bar-tick" style="left:${tickLeft}%"></div></div></td><td style="text-align:right">${fmt(g.now)}</td><td style="text-align:right">${fmt(g.avg)}</td><td style="text-align:right"><span class="${diffClass}">${diffStr}</span></td>`;
+    const itemRows = [];
+    grp.onclick = ()=>{
+      grp.classList.toggle('expanded');
+      itemRows.forEach(r=>r.classList.toggle('show'));
+    };
+    cBody.appendChild(grp);
+
+    // Item rows (sorted by over-spend)
+    const sortedItems = [...g.items].sort((a,b)=>(b.now-b.avg)-(a.now-a.avg));
+    sortedItems.forEach(i=>{
+      const idiff = i.now - i.avg;
+      const idiffClass = idiff>0?'diff-over':(idiff<0?'diff-under':'');
+      const idiffStr = idiff>0?'+'+fmt(idiff):(idiff<0?'−'+fmt(Math.abs(idiff)):fmt(0));
+      const itr = document.createElement('tr');
+      itr.className = 'cat-item-row';
+      itr.innerHTML = `<td>${i.name}</td><td style="text-align:right">${fmt(i.now)}</td><td style="text-align:right">${fmt(i.avg)}</td><td style="text-align:right"><span class="${idiffClass}">${idiffStr}</span></td>`;
+      itemRows.push(itr);
+      cBody.appendChild(itr);
+    });
   });
 }
 document.getElementById('wageInput').addEventListener('input', update);
