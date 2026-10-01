@@ -66,6 +66,17 @@
     .checkmark { color: var(--success); font-weight: bold; }
     .x-mark { color: var(--danger); font-weight: bold; }
     .summary-row { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-weight: 600; }
+    .category-bar-container { margin-top: 6px; height: 24px; display: flex; align-items: center; }
+    .category-bar { height: 8px; background: var(--accent); border-radius: 2px; }
+    .category-bar-tick { position: absolute; top: 4px; height: 16px; width: 2px; background: var(--text-muted); }
+    .cat-table { width: 100%; table-layout: fixed; }
+    .cat-table th, .cat-table td { padding: 8px 4px; }
+    .cat-table th:first-child { width: 46%; }
+    .cat-table td:first-child div:first-child { overflow-wrap: anywhere; }
+    .category-bar-tick { background: var(--text) !important; }
+    .diff-over, .diff-under { white-space: nowrap; }
+    .diff-over { color: var(--warning-text); font-weight: 600; }
+    .diff-under { color: var(--success); font-weight: 600; }
   </style>
 </head>
 <body>
@@ -110,6 +121,10 @@
   </div>
 </div>
 <div class="card">
+  <h2>🛒 Spending by category</h2>
+  <table class="cat-table"><thead><tr><th>Category</th><th style="text-align:right">Now</th><th style="text-align:right">Avg</th><th style="text-align:right">+/−</th></tr></thead><tbody id="categoriesTable"></tbody></table>
+</div>
+<div class="card">
   <h2>📥 Add statements</h2>
   <div class="dropzone" onclick="alert('Prototype: would read PDF file(s)')">
     <p>📄 Drop PDF statements here</p>
@@ -150,7 +165,15 @@ const DATA = {
     {name:"TV licence", type:"DD", avg:13, last:null, stopped:true}
   ],
   other_regular: [{name:"Netflix", avg:11, last:11},{name:"Fuel", avg:160, last:148}],
-  unsorted: 42
+  unsorted: 42,
+  categories: [
+    {name:"Food shop", this_cycle:480, avg:300},
+    {name:"Fuel", this_cycle:120, avg:160},
+    {name:"Takeaways", this_cycle:40, avg:120},
+    {name:"Fun/Subscriptions", this_cycle:65, avg:60},
+    {name:"Shopping", this_cycle:299, avg:90},
+    {name:"Unsorted", this_cycle:42, avg:35}
+  ]
 };
 </script>
 <script>
@@ -222,6 +245,20 @@ function update() {
   <div class="six-item"><div class="six-item-label">Normal spending</div><div class="six-item-amount">${fmt(DATA.six_month.normal)}</div></div>
   <div class="six-item"><div class="six-item-label">One-offs</div><div class="six-item-amount">${fmt(DATA.six_month.oneoffs)}</div></div>
   <div class="six-item"><div class="six-item-label">Unsorted</div><div class="six-item-amount">${fmt(DATA.unsorted)}</div></div>`;
+  const cBody = document.getElementById('categoriesTable');
+  cBody.innerHTML = '';
+  const maxCycle = Math.max(...DATA.categories.map(c=>c.this_cycle));
+  const sorted = [...DATA.categories].sort((a,b)=>(b.this_cycle-b.avg)-(a.this_cycle-a.avg));
+  sorted.forEach(c=>{
+    const diff = c.this_cycle - c.avg;
+    const diffClass = diff>0?'diff-over':(diff<0?'diff-under':'');
+    const diffStr = diff>0?'+'+fmt(diff):(diff<0?'−'+fmt(Math.abs(diff)):fmt(0));
+    const tr = document.createElement('tr');
+    const barWidth = (c.this_cycle/maxCycle)*100;
+    const tickLeft = (c.avg/maxCycle)*100;
+    tr.innerHTML = `<td><div>${c.name}</div><div class="category-bar-container" style="width:100%;position:relative"><div class="category-bar" style="width:${barWidth}%"></div><div class="category-bar-tick" style="left:${tickLeft}%"></div></div></td><td style="text-align:right">${fmt(c.this_cycle)}</td><td style="text-align:right">${fmt(c.avg)}</td><td style="text-align:right"><span class="${diffClass}">${diffStr}</span></td>`;
+    cBody.appendChild(tr);
+  });
 }
 document.getElementById('wageInput').addEventListener('input', update);
 document.getElementById('wageInput').value = DATA.last_wage;
