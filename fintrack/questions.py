@@ -6,7 +6,7 @@ import re
 from fintrack.models import Txn
 from fintrack.store import item_key
 
-KIND_NAMES = {"regular": "Common", "common": "Common", "random": "Random", "oneoff": "One-off"}
+KIND_NAMES = {"regular": "Common", "common": "Common", "random": "Random", "oneoff": "One-off", "yearly": "Yearly"}
 GROUP_NAMES = {"DD": "Direct debit", "SO": "Standing order", "BP": "Bill payment",
                "CARD": "Card", "CASH": "Cash", "IN": "Money in"}
 
@@ -118,14 +118,14 @@ def parse_answer(text: str, count: int) -> dict:
 
     Returns {"kinds": {n: kind}, "labels": {n: text}, "cats": {n: text}, "later": set of n, "stop": bool,
     "all": bool, "error": None or a short message}. Numbers are 1-based.
-    Words (any case): common, regular, random, oneoff (also "one-off") each followed by item
+    Words (any case): common, regular, random, oneoff (also "one-off"), yearly each followed by item
     numbers (space separated, ranges like 1-3 allowed) -- the word "regular" is an alias: it gives
     kind "common" (there is only one word for it now); "later" + numbers; "stop" alone;
     "label" + one number + the label text, which runs until the next keyword;
     "cat" + one number + the category text, which runs until the next keyword.
     The keyword "all" (alone or with others) sets result["all"] = True; the result always has an
     "all" key (False when not typed). "all" takes no numbers.
-    Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "cat 1 Household", "later 3 5", "stop", "all".
+    Examples: "common 1 2 4  oneoff 6  yearly 5", "label 2 Katie top-ups  common 3", "cat 1 Household", "later 3 5", "stop", "all".
     Blank text -> nothing set, no error. Error (and nothing else trusted) for an unknown word,
     a keyword with no numbers, or a number below 1 or above `count` (the message names it).
     """
@@ -168,7 +168,7 @@ def parse_answer(text: str, count: int) -> dict:
             # Collect label text until the next keyword
             label_parts = []
             while i < len(tokens):
-                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "cat", "all"):
+                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "yearly", "later", "stop", "label", "cat", "all"):
                     break
                 label_parts.append(tokens[i])
                 i += 1
@@ -195,14 +195,14 @@ def parse_answer(text: str, count: int) -> dict:
             # Collect category text until the next keyword
             cat_parts = []
             while i < len(tokens):
-                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "cat", "all"):
+                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "yearly", "later", "stop", "label", "cat", "all"):
                     break
                 cat_parts.append(tokens[i])
                 i += 1
 
             result["cats"][num] = " ".join(cat_parts)
 
-        elif token_lower in ("common", "regular", "random", "oneoff", "one-off", "later"):
+        elif token_lower in ("common", "regular", "random", "oneoff", "one-off", "yearly", "later"):
             # Map "one-off" to "oneoff" and "regular" to "common"
             if token_lower == "one-off":
                 kind = "oneoff"
@@ -217,7 +217,7 @@ def parse_answer(text: str, count: int) -> dict:
 
             while i < len(tokens):
                 t = tokens[i]
-                if t.lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "cat", "all"):
+                if t.lower() in ("common", "regular", "random", "oneoff", "one-off", "yearly", "later", "stop", "label", "cat", "all"):
                     break
 
                 # Check if it's a range like "1-3"
@@ -279,7 +279,7 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
       per item:  `  1  Standing order  SAM PARKER - RENT   avg 550.00  (8 in 8 months)  suggest: Regular, Household`
       (index, GROUP_NAMES[group], name plus " - reference" when there is one, average with 2
       decimals, count and months, then suggest: KIND_NAMES[kind], category). Then print the hint line
-      `Type e.g.  common 1 2  oneoff 3  label 1 Rent  cat 1 Household  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)`.
+      `Type e.g.  common 1 2  oneoff 3  yearly 5  label 1 Rent  cat 1 Household  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)`.
     - answer = ask("> "). EOFError or OSError -> stop quietly. parse_answer; if error: out a line
       starting `Sorry, I did not understand:` plus the message, and ask again for the SAME round.
     - skip_small=True: items with 2 or fewer payments AND a total under 50 are not asked about at all
@@ -352,7 +352,7 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
             out(line)
 
         # Print hint line
-        out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  cat 1 Household  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)")
+        out("Type e.g.  common 1 2  oneoff 3  yearly 5  label 1 Rent  cat 1 Household  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)")
 
         # Ask for answer
         while True:
@@ -465,7 +465,7 @@ def fix_items(conn, ask, out=print) -> int:
         key_to_idx[idx] = key
 
     # Print hint line
-    out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  cat 1 Household  later 4  stop   (Enter keeps my suggestions)")
+    out("Type e.g.  common 1 2  oneoff 3  yearly 5  label 1 Rent  cat 1 Household  later 4  stop   (Enter keeps my suggestions)")
 
     # Ask for answer once
     try:

@@ -6,7 +6,7 @@ from typing import Dict, List
 from fintrack.models import Statement, Txn
 from fintrack.common import payee_key
 
-KINDS = ("regular", "common", "random", "oneoff")
+KINDS = ("regular", "common", "random", "oneoff", "yearly")
 
 
 def open_db(path) -> sqlite3.Connection:

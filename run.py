@@ -25,6 +25,7 @@ from fintrack.settings import saved_folder, save_folder, SAVED_FILE
 from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items
 from fintrack.questions import review, fix_items
 from fintrack.samebill import ask_same_bills
+from fintrack.yearly import yearly_due, yearly_lines
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -199,6 +200,14 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
 
     # Analyze spending patterns with rules
     analysis = analyse(cycles, answers=answers, rules=rules)
+
+    # Check for yearly bills due
+    if all_txns:
+        due = yearly_due(all_txns, answers, today=max(t.date for t in all_txns))
+        if due:
+            print()
+            for line in yearly_lines(due):
+                print(line)
 
     # Print common spending
     print("\nCOMMON (average per cycle over the last N complete cycles)")

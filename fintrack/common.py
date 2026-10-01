@@ -84,7 +84,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
       random_per_cycle = sum of random payments / cycles_used. Round nothing (tests use approx).
 
     `answers` (default None = {}) is what the user confirmed, the dict from fintrack.store.get_items:
-    {item_key: {"kind": "regular"|"common"|"random"|"oneoff", "label": str, "source": str}}.
+    {item_key: {"kind": "regular"|"common"|"random"|"oneoff"|"yearly", "label": str, "source": str}}.
     For every outgoing payment in the window whose fintrack.store.item_key(t) is in `answers`, the
     answer decides instead of the automatic rules above:
       - "regular" or "common": the payment is COMMON. Group key = the answer's label if it is not
@@ -92,7 +92,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
         entry (cycles = window cycles where any of them appears; kind = "bill" if any of its
         payments is DD or SO, else "other").
       - "random": RANDOM, even if it is big.
-      - "oneoff": a ONE-OFF (goes in one_offs, left out of the averages), whatever its size.
+      - "oneoff" or "yearly": a ONE-OFF (goes in one_offs, left out of the averages), whatever its size.
     `rules` (default None = []) are the payday-transfer rules from fintrack.store.get_rules. A payment is
     covered by a rule when fintrack.paydayrule.matches_rule(t, rule, cycle.start) is true, using the start date
     (payday) of the cycle the payment is in. A covered payment is COMMON whatever its item answer says and is never
@@ -187,7 +187,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
             answered_common[label]["txns"].append(txn)
         elif kind == "random":
             answered_random.append(txn)
-        elif kind == "oneoff":
+        elif kind in ("oneoff", "yearly"):
             answered_one_offs.append(txn)
 
     # Process unanswered payments using automatic rules
