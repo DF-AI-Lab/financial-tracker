@@ -117,3 +117,25 @@ def test_one_cycle_and_none():
     none = build_cycles([T(1, 28, "CR", PAYER, 2000)], payer=PAYER)
     assert format_picture(six_month_picture(none, analyse(none))) == [
         "SIX-MONTH PICTURE: not enough finished paydays yet."]
+
+
+def test_bills_found_by_the_rent_rule_get_last_and_type():
+    from datetime import timedelta
+    from tests import rentdata
+    a = analyse(rentdata.cycles(), rules=[rentdata.RULE])
+    assert a.common["Rent"]["type"] == "BP"
+    assert a.common["Rent"]["last"] == 0          # newest cycle's 650 is 18% over: not covered by the rule
+    extra = {5: [Txn(rentdata.payday(5) + timedelta(days=2), "SO", "LANDLORD", "RENT", -550.0)],
+             6: [Txn(rentdata.payday(6) + timedelta(days=2), "SO", "LANDLORD", "RENT", -550.0)]}
+    answers = {"SO|LANDLORD|RENT": {"kind": "common", "label": "Rent", "source": "user"}}
+    a = analyse(rentdata.cycles(extra), answers=answers, rules=[rentdata.RULE])
+    assert a.common["Rent"]["last"] == pytest.approx(550)
+    assert a.common["Rent"]["type"] == "SO"
+
+
+def test_card_and_contactless_show_as_card():
+    p = {"cycles_used": 1, "wage_avg": 0, "bills_avg": 0, "normal_avg": 0, "oneoffs_total": 0, "unsorted_avg": 0,
+         "bills": [], "other_regular": [{"name": "THE RANGE", "type": ")))", "avg": 1.59, "last": 1.59, "stopped": False},
+                                        {"name": "NETFLIX", "type": "VIS", "avg": 10, "last": 10, "stopped": False}]}
+    text = "\n".join(format_picture(p))
+    assert "THE RANGE (CARD)" in text and "NETFLIX (CARD)" in text and ")))" not in text

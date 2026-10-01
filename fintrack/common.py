@@ -79,7 +79,9 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
       (collected in Analysis.one_offs, in date order) and is left out of every average.
     - Every other payment is RANDOM.
     - common[key] = {"cycles": number of window cycles the key appears in, "total": its total
-      over the window, "average": total / cycles_used, "kind": "bill" or "other"}.
+      over the window, "average": total / cycles_used, "kind": "bill" or "other", "last": total
+      (positive) in the newest cycle (index cycles_used - 1), 0 if no payment there; "type": the
+      Txn.type of the most recent payment of this entry}.
     - common_per_cycle = sum of common totals / cycles_used;
       random_per_cycle = sum of random payments / cycles_used. Round nothing (tests use approx).
 
@@ -90,7 +92,8 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
       - "regular" or "common": the payment is COMMON. Group key = the answer's label if it is not
         empty, otherwise the item key. Several items with the same label are merged into one common
         entry (cycles = window cycles where any of them appears; kind = "bill" if any of its
-        payments is DD or SO, else "other").
+        payments is DD or SO, else "other"). "last" is the sum over the merged parts in the newest
+        cycle; "type" comes from the latest payment of all of them.
       - "random": RANDOM, even if it is big.
       - "oneoff" or "yearly": a ONE-OFF (goes in one_offs, left out of the averages), whatever its size.
     `rules` (default None = []) are the payday-transfer rules from fintrack.store.get_rules. A payment is
@@ -123,7 +126,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
 
     # Identify rule-covered payments first (rules checked BEFORE answers)
     rule_covered_txns = set()  # Set of (cycle_idx, txn id) to mark them as covered
-    rules_common = {}  # label -> {cycles_set, is_bill, total}
+    rules_common = {}  # label -> {cycles_set, is_bill, total, txn_list}
 
     for cycle_idx, cycle in enumerate(window_cycles):
         for txn in cycle.txns:
@@ -140,11 +143,13 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
                             rules_common[label] = {
                                 "cycles_set": set(),
                                 "is_bill": False,
-                                "total": 0
+                                "total": 0,
+                                "txn_list": []
                             }
                         rules_common[label]["cycles_set"].add(cycle_idx)
                         rules_common[label]["is_bill"] = rules_common[label]["is_bill"] or txn.type in ("DD", "SO")
                         rules_common[label]["total"] += abs(txn.amount)
+                        rules_common[label]["txn_list"].append((cycle_idx, txn))
                         break  # Stop checking rules once matched
 
     # Separate payments into answered and unanswered (excluding rule-covered)
@@ -163,7 +168,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
                     unanswered_txns.append((cycle_idx, txn))
 
     # Process answered payments
-    answered_common = {}  # label -> {cycles_set, is_bill, total, txns}
+    answered_common = {}  # label -> {cycles_set, is_bill, total, txn_list}
     answered_one_offs = []
     answered_random = []
 
@@ -179,12 +184,12 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
                     "cycles_set": set(),
                     "is_bill": False,
                     "total": 0,
-                    "txns": []
+                    "txn_list": []
                 }
             answered_common[label]["cycles_set"].add(cycle_idx)
             answered_common[label]["is_bill"] = answered_common[label]["is_bill"] or txn.type in ("DD", "SO")
             answered_common[label]["total"] += abs(txn.amount)
-            answered_common[label]["txns"].append(txn)
+            answered_common[label]["txn_list"].append((cycle_idx, txn))
         elif kind == "random":
             answered_random.append(txn)
         elif kind in ("oneoff", "yearly"):
@@ -192,19 +197,19 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
 
     # Process unanswered payments using automatic rules
     key_cycle_total = {}
-    key_txns = {}
+    key_txn_list = {}  # track (cycle_idx, txn) pairs for each key
 
     for cycle_idx, txn in unanswered_txns:
         key = payee_key(txn)
         if key not in key_cycle_total:
             key_cycle_total[key] = {}
-            key_txns[key] = []
+            key_txn_list[key] = []
 
         if cycle_idx not in key_cycle_total[key]:
             key_cycle_total[key][cycle_idx] = 0
 
         key_cycle_total[key][cycle_idx] += abs(txn.amount)
-        key_txns[key].append(txn)
+        key_txn_list[key].append((cycle_idx, txn))
 
     # Determine which unanswered keys are COMMON
     unanswered_common = {}
@@ -216,7 +221,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
         cycles_with_payment = sum(1 for t in per_cycle_totals if t > 0)
         total = sum(per_cycle_totals)
 
-        is_bill = any(txn.type in ("DD", "SO") for txn in key_txns[key])
+        is_bill = any(txn.type in ("DD", "SO") for _, txn in key_txn_list[key])
         kind = "bill" if is_bill else "other"
 
         is_common = False
@@ -235,10 +240,11 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
                 "cycles": cycles_with_payment,
                 "total": total,
                 "average": total / cycles_used,
-                "kind": kind
+                "kind": kind,
+                "txn_list": key_txn_list[key]
             }
         else:
-            for txn in key_txns[key]:
+            for _, txn in key_txn_list[key]:
                 if abs(txn.amount) >= oneoff_limit:
                     unanswered_one_offs.append(txn)
                 else:
@@ -258,12 +264,14 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
             common[label]["total"] += data["total"]
             common[label]["average"] = common[label]["total"] / cycles_used
             common[label]["kind"] = "bill" if (common[label]["kind"] == "bill" or kind == "bill") else "other"
+            common[label].setdefault("txn_list", []).extend(data["txn_list"])
         else:
             common[label] = {
                 "cycles": cycles_num,
                 "total": data["total"],
                 "average": data["total"] / cycles_used,
-                "kind": kind
+                "kind": kind,
+                "txn_list": list(data["txn_list"])
             }
 
     # Merge answered common entries
@@ -281,13 +289,43 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
             common[label]["total"] += data["total"]
             common[label]["average"] = common[label]["total"] / cycles_used
             common[label]["kind"] = "bill" if (common[label]["kind"] == "bill" or kind == "bill") else "other"
+            if "txn_list" not in common[label]:
+                common[label]["txn_list"] = []
+            common[label]["txn_list"].extend(data["txn_list"])
         else:
             common[label] = {
                 "cycles": cycles_num,
                 "total": data["total"],
                 "average": data["total"] / cycles_used,
-                "kind": kind
+                "kind": kind,
+                "txn_list": data["txn_list"]
             }
+
+    # Compute "last" and "type" for each common entry from txn_list
+    newest_cycle_idx = cycles_used - 1
+    for label in common:
+        txn_list = common[label].get("txn_list", [])
+
+        # Find transactions in the newest cycle
+        last_amount = 0.0
+        most_recent_txn = None
+        most_recent_date = None
+
+        for cycle_idx, txn in txn_list:
+            # Track most recent by date
+            if most_recent_date is None or txn.date > most_recent_date:
+                most_recent_date = txn.date
+                most_recent_txn = txn
+
+            # Sum amount in newest cycle
+            if cycle_idx == newest_cycle_idx:
+                last_amount += abs(txn.amount)
+
+        common[label]["last"] = last_amount
+        common[label]["type"] = most_recent_txn.type if most_recent_txn else ""
+
+        # Clean up: remove txn_list since it's no longer needed
+        del common[label]["txn_list"]
 
     # Merge one-offs and random
     one_offs = answered_one_offs + unanswered_one_offs

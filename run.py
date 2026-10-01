@@ -22,10 +22,11 @@ from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
 from fintrack.common import analyse
 from fintrack.left import parse_money, format_left
 from fintrack.settings import saved_folder, save_folder, SAVED_FILE
-from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items
+from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items, get_categories
 from fintrack.questions import review, fix_items
 from fintrack.samebill import ask_same_bills
 from fintrack.yearly import yearly_due, yearly_lines
+from fintrack.picture import six_month_picture, format_picture
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -208,6 +209,12 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
             print()
             for line in yearly_lines(due):
                 print(line)
+
+    # Print six-month picture
+    print()
+    picture = six_month_picture(cycles, analysis, items=answers, categories=get_categories(conn))
+    for line in format_picture(picture):
+        print(line)
 
     # Print common spending
     print("\nCOMMON (average per cycle over the last N complete cycles)")
