@@ -68,7 +68,7 @@ def test_due_from_11_months():
 
 def test_several_due_sorted_by_date_and_name_used_when_no_label():
     due = yearly_due(TXNS, ITEMS, today=date(2026, 2, 1))
-    assert [d["key"] for d in due] == ["DD|TV LICENCE|"]            # AVIVA is now 15 months: stopped warning
+    assert [d["key"] for d in due] == ["DD|TV LICENCE|"]            # AVIVA is now 16 months: warning stopped
     assert due[0]["label"] == "TV LICENCE"
     due = yearly_due(TXNS, ITEMS, today=date(2025, 11, 20))
     assert [d["key"] for d in due] == ["DD|AVIVA|"]                   # 13 months: still warned; TV LICENCE only 8
