@@ -59,7 +59,8 @@ def open_db(path) -> sqlite3.Connection:
             key TEXT PRIMARY KEY,
             kind TEXT,
             label TEXT,
-            source TEXT
+            source TEXT,
+            category TEXT DEFAULT ''
         )
     """)
 
@@ -86,6 +87,13 @@ def open_db(path) -> sqlite3.Connection:
             PRIMARY KEY(key_a, key_b)
         )
     """)
+
+    # Migration: add category column to items table if it doesn't exist (for old databases)
+    table_info = conn.execute("PRAGMA table_info(items)").fetchall()
+    column_names = [row[1] for row in table_info]
+    if "category" not in column_names:
+        conn.execute("ALTER TABLE items ADD COLUMN category TEXT DEFAULT ''")
+        conn.commit()
 
     # Migration: rename old DD keys with references to new DD keys without references
     rows = conn.execute("SELECT key, kind, label, source FROM items WHERE key LIKE 'DD|%'").fetchall()
@@ -302,6 +310,27 @@ def get_items(conn) -> Dict[str, dict]:
             "label": row[2],
             "source": row[3]
         }
+
+    return result
+
+
+def set_category(conn, key: str, category: str) -> None:
+    """Save a category for an item. Commit before returning."""
+    conn.execute(
+        "UPDATE items SET category = ? WHERE key = ?",
+        (category, key)
+    )
+    conn.commit()
+
+
+def get_categories(conn) -> Dict[str, str]:
+    """{key: category} for every saved item. Returns '' when no category saved (treats NULL as '')."""
+    rows = conn.execute("SELECT key, category FROM items").fetchall()
+
+    result = {}
+    for row in rows:
+        category = row[1] if row[1] is not None else ""
+        result[row[0]] = category
 
     return result
 

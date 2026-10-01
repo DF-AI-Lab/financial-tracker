@@ -47,6 +47,10 @@ def test_starter_list():
     ("CASH NOTEMAC", "", "CASH", "Cash"),
     ("ANYTHING", "", "CASH", "Cash"),                     # every cash machine is Cash
     ("MY SAVINGS POT", "", "BP", "Savings/Transfers"),
+    ("KATIE FINCH", "Food", "SO", "Food shopping"),          # real statements
+    ("KATIE FINCH", "Bills", "SO", "Household"),
+    ("KATIE FINCH", "Food And Bil", "BP", "Food shopping"),
+    ("GOOGLE GOOGLE PLA", "", "CARD", "Subscriptions"),     # the bank cuts "Google Play" short
     ("SIMPLY CHIROPRACTI", "", "CARD", "Unsorted"),
     ("", "", "CARD", "Unsorted"),
 ])

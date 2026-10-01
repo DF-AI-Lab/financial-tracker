@@ -116,19 +116,20 @@ def pending_items(stats: Dict[str, dict], saved: dict, skip=frozenset()) -> List
 def parse_answer(text: str, count: int) -> dict:
     """Read the one-line answer to a list of `count` numbered items.
 
-    Returns {"kinds": {n: kind}, "labels": {n: text}, "later": set of n, "stop": bool,
+    Returns {"kinds": {n: kind}, "labels": {n: text}, "cats": {n: text}, "later": set of n, "stop": bool,
     "all": bool, "error": None or a short message}. Numbers are 1-based.
     Words (any case): common, regular, random, oneoff (also "one-off") each followed by item
     numbers (space separated, ranges like 1-3 allowed) -- the word "regular" is an alias: it gives
     kind "common" (there is only one word for it now); "later" + numbers; "stop" alone;
-    "label" + one number + the label text, which runs until the next keyword.
+    "label" + one number + the label text, which runs until the next keyword;
+    "cat" + one number + the category text, which runs until the next keyword.
     The keyword "all" (alone or with others) sets result["all"] = True; the result always has an
     "all" key (False when not typed). "all" takes no numbers.
-    Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "later 3 5", "stop", "all".
+    Examples: "common 1 2 4  oneoff 6", "label 2 Katie top-ups  common 3", "cat 1 Household", "later 3 5", "stop", "all".
     Blank text -> nothing set, no error. Error (and nothing else trusted) for an unknown word,
     a keyword with no numbers, or a number below 1 or above `count` (the message names it).
     """
-    result = {"kinds": {}, "labels": {}, "later": set(), "stop": False, "all": False, "error": None}
+    result = {"kinds": {}, "labels": {}, "cats": {}, "later": set(), "stop": False, "all": False, "error": None}
 
     if not text.strip():
         return result
@@ -167,12 +168,39 @@ def parse_answer(text: str, count: int) -> dict:
             # Collect label text until the next keyword
             label_parts = []
             while i < len(tokens):
-                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "all"):
+                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "cat", "all"):
                     break
                 label_parts.append(tokens[i])
                 i += 1
 
             result["labels"][num] = " ".join(label_parts)
+
+        elif token_lower == "cat":
+            # "cat" + number + rest of text until next keyword
+            i += 1
+            if i >= len(tokens):
+                result["error"] = "cat needs a number"
+                return result
+
+            try:
+                num = int(tokens[i])
+                if num < 1 or num > count:
+                    result["error"] = f"{num}"
+                    return result
+            except ValueError:
+                result["error"] = f"cat needs a number, got {tokens[i]}"
+                return result
+
+            i += 1
+            # Collect category text until the next keyword
+            cat_parts = []
+            while i < len(tokens):
+                if tokens[i].lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "cat", "all"):
+                    break
+                cat_parts.append(tokens[i])
+                i += 1
+
+            result["cats"][num] = " ".join(cat_parts)
 
         elif token_lower in ("common", "regular", "random", "oneoff", "one-off", "later"):
             # Map "one-off" to "oneoff" and "regular" to "common"
@@ -189,7 +217,7 @@ def parse_answer(text: str, count: int) -> dict:
 
             while i < len(tokens):
                 t = tokens[i]
-                if t.lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "all"):
+                if t.lower() in ("common", "regular", "random", "oneoff", "one-off", "later", "stop", "label", "cat", "all"):
                     break
 
                 # Check if it's a range like "1-3"
@@ -248,23 +276,25 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
     - stats = item_stats(txns); saved = fintrack.store.get_items(conn).
     - Loop: take the next `size` items from pending_items (skipping items you skipped with "later"
       in THIS run). If none, finish. Print (out) a heading `NEW ITEMS (biggest first)` and one line
-      per item:  `  1  Standing order  SAM PARKER - RENT   avg 550.00  (8 in 8 months)  suggest: Regular`
+      per item:  `  1  Standing order  SAM PARKER - RENT   avg 550.00  (8 in 8 months)  suggest: Regular, Household`
       (index, GROUP_NAMES[group], name plus " - reference" when there is one, average with 2
-      decimals, count and months, then suggest: KIND_NAMES[kind]). Then print the hint line
-      `Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)`.
+      decimals, count and months, then suggest: KIND_NAMES[kind], category). Then print the hint line
+      `Type e.g.  common 1 2  oneoff 3  label 1 Rent  cat 1 Household  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)`.
     - answer = ask("> "). EOFError or OSError -> stop quietly. parse_answer; if error: out a line
       starting `Sorry, I did not understand:` plus the message, and ask again for the SAME round.
     - skip_small=True: items with 2 or fewer payments AND a total under 50 are not asked about at all
       (not shown, not saved: they just follow the automatic rules, which make them Random).
-    - "all": save this round as usual (typed kinds/labels, "later" respected), then save the suggestion
+    - "all": save this round as usual (typed kinds/labels/cats, "later" respected), then save the suggestion
       (source "suggested") for EVERY other item still to be asked, and finish. Returns the number saved.
     - "stop": end (nothing from this round is saved). Items in "later" are not saved, and are not asked
       again in this run (but are asked again in the next run).
     - Every other item of the round is saved with fintrack.store.set_item: kind = typed kind or the
-      suggestion, label = typed label or the suggestion. source is "user" if you typed a kind or label
-      for that item, else "suggested".
+      suggestion, label = typed label or the suggestion, source is "user" if you typed a kind, label or cat
+      for that item, else "suggested". When an item is saved, also call set_category with: the typed cat
+      for that item if one was typed, else guess_category(name, label, group).
     """
-    from fintrack.store import get_items, set_item
+    from fintrack.store import get_items, set_item, set_category
+    from fintrack.categories import guess_category
 
     stats = item_stats(txns)
     saved = get_items(conn)
@@ -314,12 +344,15 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
             kind, label = suggest(stat)
             kind_name = KIND_NAMES[kind]
 
+            # Get category suggestion
+            category = guess_category(name, label, group)
+
             # Format the line
-            line = f"  {idx}  {group_name}  {display_name}   avg {average:.2f}  ({count} in {months} months)  suggest: {kind_name}"
+            line = f"  {idx}  {group_name}  {display_name}   avg {average:.2f}  ({count} in {months} months)  suggest: {kind_name}, {category}"
             out(line)
 
         # Print hint line
-        out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)")
+        out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  cat 1 Household  later 4  stop  all   (Enter keeps my suggestions, all = keep them for everything left)")
 
         # Ask for answer
         while True:
@@ -365,7 +398,14 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
                     else:
                         source = "suggested"
 
+                    # Determine category to save
+                    if idx in parsed["cats"]:
+                        category = parsed["cats"][idx]
+                    else:
+                        category = guess_category(stat["name"], label, stat["group"])
+
                     set_item(conn, stat["key"], kind, label, source)
+                    set_category(conn, stat["key"], category)
                     saved[stat["key"]] = {"kind": kind, "label": label, "source": source}
                     total_saved += 1
 
@@ -375,7 +415,9 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
                 all_pending = pending_items(stats, saved, skip=later_set | skip_small_set)
                 for stat in all_pending:
                     kind, label = suggest(stat)
+                    category = guess_category(stat["name"], label, stat["group"])
                     set_item(conn, stat["key"], kind, label, "suggested")
+                    set_category(conn, stat["key"], category)
                     saved[stat["key"]] = {"kind": kind, "label": label, "source": "suggested"}
                     total_saved += 1
                 return total_saved
@@ -389,15 +431,19 @@ def fix_items(conn, ask, out=print) -> int:
     """Let the user change saved answers. Returns how many items were changed.
 
     Print `SAVED ITEMS` and one numbered line per saved item sorted by key:
-    `  1  <key>  <kind name>  <label>` with `  (suggested)` appended when source is "suggested".
+    `  1  <key>  <kind name>  <category>  <label>` with `  (suggested)` appended when source is "suggested".
     Then print the same hint line and ask("> ") once (EOFError/OSError -> return 0). parse_answer
     it (on error print `Sorry, I did not understand:` + message and return 0). For each item with a
-    typed kind and/or label call set_item with source "user" (keep the old kind or label for
-    whatever was not typed). "later" and "stop" change nothing.
+    typed kind, label and/or cat, call set_item and/or set_category as needed with source "user"
+    (keep the old kind, label or cat for whatever was not typed). An item counts as changed if a
+    kind, label OR cat was typed for it. If ONLY a cat was typed, do not call set_item (keep its
+    kind/label/source as they are). "later" and "stop" change nothing.
     """
-    from fintrack.store import get_items, set_item
+    from fintrack.store import get_items, set_item, set_category, get_categories
+    from fintrack.categories import category_for
 
     items = get_items(conn)
+    categories = get_categories(conn)
 
     # Sort items by key
     sorted_keys = sorted(items.keys())
@@ -411,14 +457,15 @@ def fix_items(conn, ask, out=print) -> int:
         item = items[key]
         kind_name = KIND_NAMES.get(item["kind"], item["kind"])
         label = item["label"]
+        category = categories.get(key, "")
         suggested_suffix = "  (suggested)" if item["source"] == "suggested" else ""
 
-        line = f"  {idx}  {key}  {kind_name}  {label}{suggested_suffix}"
+        line = f"  {idx}  {key}  {kind_name}  {category}  {label}{suggested_suffix}"
         out(line)
         key_to_idx[idx] = key
 
     # Print hint line
-    out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  later 4  stop   (Enter keeps my suggestions)")
+    out("Type e.g.  common 1 2  oneoff 3  label 1 Rent  cat 1 Household  later 4  stop   (Enter keeps my suggestions)")
 
     # Ask for answer once
     try:
@@ -435,21 +482,35 @@ def fix_items(conn, ask, out=print) -> int:
     # Count changes
     changed_count = 0
 
-    # Process each item with typed kind and/or label
-    for idx in list(set(parsed["kinds"].keys()) | set(parsed["labels"].keys())):
+    # Process each item with typed kind, label and/or cat
+    for idx in list(set(parsed["kinds"].keys()) | set(parsed["labels"].keys()) | set(parsed["cats"].keys())):
         if idx not in key_to_idx:
             continue
 
         key = key_to_idx[idx]
         old_item = items[key]
+        old_category = categories.get(key, "")
 
         # Get the new kind and label
         new_kind = parsed["kinds"].get(idx, old_item["kind"])
         new_label = parsed["labels"].get(idx, old_item["label"])
 
-        # Only count as changed if something actually changed
-        if new_kind != old_item["kind"] or new_label != old_item["label"]:
+        # Get the new category
+        new_category = parsed["cats"].get(idx, old_category)
+
+        # Check if kind or label changed
+        kind_or_label_changed = new_kind != old_item["kind"] or new_label != old_item["label"]
+
+        # Only call set_item if kind or label changed
+        if kind_or_label_changed:
             set_item(conn, key, new_kind, new_label, source="user")
+
+        # Call set_category if category changed
+        if new_category != old_category:
+            set_category(conn, key, new_category)
+
+        # Count as changed if kind, label OR cat changed
+        if kind_or_label_changed or new_category != old_category:
             changed_count += 1
 
     return changed_count
