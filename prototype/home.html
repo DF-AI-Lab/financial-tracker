@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wage Tracker Home</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #fafafa; --text: #1a1a1a; --text-muted: #666; --border: #ddd;
+      --tile-bg: white; --warning-bg: #fff3cd; --warning-text: #856404;
+      --gap-row: #f9f9f9; --gap-row-hover: #f0f0f0; --accent: #0066cc;
+      --success: #28a745; --danger: #dc3545;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1a1a; --text: #f5f5f5; --text-muted: #aaa; --border: #444;
+        --tile-bg: #2a2a2a; --warning-bg: #3d3a28; --warning-text: #ffc107;
+        --gap-row: #252525; --gap-row-hover: #333; --accent: #0099ff;
+        --success: #51cf66; --danger: #ff6b6b;
+      }
+    }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 0; line-height: 1.6; }
+    .banner { background: #f0f0f0; color: #666; text-align: center; padding: 8px 16px; font-size: 12px; border-bottom: 1px solid var(--border); }
+    @media (prefers-color-scheme: dark) { .banner { background: #333; color: #ccc; } }
+    .container { max-width: 900px; margin: 0 auto; padding: 16px; }
+    .header { text-align: center; margin-bottom: 32px; }
+    .header h1 { font-size: 24px; margin: 16px 0 8px; font-weight: 600; }
+    .header .cycle { color: var(--text-muted); font-size: 14px; }
+    .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 32px; }
+    .tile { background: var(--tile-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; text-align: center; }
+    .tile-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+    .tile-amount { font-size: 36px; font-weight: 700; color: var(--text); }
+    .tile.missing .tile-amount { color: var(--danger); }
+    .tile.success .tile-amount { color: var(--success); }
+    .warning-line { background: var(--warning-bg); border-left: 4px solid var(--warning-text); padding: 12px 16px; margin-bottom: 16px; border-radius: 4px; font-size: 14px; color: var(--warning-text); }
+    .card { background: var(--tile-bg); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 24px; }
+    .card h2 { font-size: 16px; margin: 0 0 16px; font-weight: 600; }
+    .gap-row { background: var(--gap-row); padding: 12px 16px; margin-bottom: 1px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
+    .gap-row:hover { background: var(--gap-row-hover); }
+    .gap-row-label { flex: 1; font-size: 14px; }
+    .gap-row-note { font-size: 12px; color: var(--text-muted); }
+    .gap-row-amount { font-weight: 600; text-align: right; margin-right: 8px; }
+    .gap-row.expanded .gap-row-toggle::before { content: '▼ '; }
+    .gap-row:not(.expanded) .gap-row-toggle::before { content: '▶ '; }
+    .payments { display: none; background: var(--gap-row); padding: 8px 16px 16px; }
+    .gap-row.expanded ~ .payments:not(.hidden) { display: block; }
+    .payment-item { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid var(--border); }
+    .payment-item:last-child { border-bottom: none; }
+    .wage-input-group { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .wage-input-group label { font-size: 14px; font-weight: 600; }
+    .wage-input-group input { width: 100px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 4px; font-size: 14px; background: var(--bg); color: var(--text); }
+    .wage-calculation { font-size: 13px; color: var(--text-muted); line-height: 1.8; }
+    .dropzone { border: 2px dashed var(--border); border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; background: var(--gap-row); }
+    .dropzone:hover { border-color: var(--accent); background: var(--gap-row-hover); }
+    .dropzone p { margin: 0; color: var(--text-muted); font-size: 14px; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 12px 16px; background: var(--gap-row); font-weight: 600; border-bottom: 1px solid var(--border); }
+    td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    tr:last-child td { border-bottom: none; }
+    .badge { background: var(--warning-bg); color: var(--warning-text); padding: 2px 6px; border-radius: 3px; font-size: 11px; font-weight: 600; }
+    .six-month { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 16px; }
+    .six-item { background: var(--gap-row); padding: 16px; border-radius: 4px; text-align: center; }
+    .six-item-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+    .six-item-amount { font-size: 24px; font-weight: 700; }
+    .checkmark { color: var(--success); font-weight: bold; }
+    .x-mark { color: var(--danger); font-weight: bold; }
+    .summary-row { display: flex; justify-content: space-between; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); font-weight: 600; }
+  </style>
+</head>
+<body>
+<div class="banner">Prototype – fake numbers</div>
+<div class="container">
+<div class="header">
+  <h1>💷 Where does my wage go?</h1>
+  <div class="cycle" id="cycle"></div>
+</div>
+<div class="tiles">
+  <div class="tile success">
+    <div class="tile-label">Expected spare</div>
+    <div class="tile-amount" id="expectedSpare">£0</div>
+  </div>
+  <div class="tile success">
+    <div class="tile-label">Actual spare</div>
+    <div class="tile-amount" id="actualSpare">£0</div>
+  </div>
+  <div class="tile missing">
+    <div class="tile-label">Missing</div>
+    <div class="tile-amount" id="missing">£0</div>
+  </div>
+</div>
+<div id="yearlyWarnings"></div>
+<div class="card">
+  <h2>🔍 Where did the £<span id="missingAmount">0</span> go?</h2>
+  <div class="gap-lines" id="gapLines"></div>
+  <div class="summary-row">
+    <span>Adds up to:</span>
+    <span><span id="gapSum">£0</span> <span id="match"></span></span>
+  </div>
+</div>
+<div class="card">
+  <h2>💼 This month's pay</h2>
+  <div class="wage-input-group">
+    <label for="wageInput">Wage:</label>
+    <input type="number" id="wageInput" value="2700">
+  </div>
+  <div class="wage-calculation">
+    <div>Left over: <strong id="leftOver">£200</strong> + Wage: <strong id="thisWage">£2,700</strong> − Bills: <strong id="billsTotal">−£1,450</strong> − Normal: <strong id="normalSpending">−£500</strong></div>
+    <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 14px;">= Expected spare: <strong id="expectedCalc">£250</strong></div>
+  </div>
+</div>
+<div class="card">
+  <h2>📥 Add statements</h2>
+  <div class="dropzone" onclick="alert('Prototype: would read PDF file(s)')">
+    <p>📄 Drop PDF statements here</p>
+  </div>
+</div>
+<div class="card">
+  <h2>🧾 Bills</h2>
+  <table><thead><tr><th>Name</th><th>Type</th><th style="text-align:right">6-mth avg</th><th style="text-align:right">Last month</th></tr></thead><tbody id="billsTable"></tbody></table>
+</div>
+<div class="card">
+  <h2>🔁 Other regular</h2>
+  <table><thead><tr><th>Name</th><th style="text-align:right">6-mth avg</th><th style="text-align:right">Last month</th></tr></thead><tbody id="otherTable"></tbody></table>
+</div>
+<div class="card">
+  <h2>📊 Six-month picture</h2>
+  <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px" id="basedOn"></div>
+  <div class="six-month" id="sixMonth"></div>
+</div>
+</div>
+<script id="data">
+const DATA = {
+  cycle: "27 Sep – 27 Oct", based_on: "based on 6 cycles", last_wage: 2700, left_over: 200,
+  bills_total: 1450, normal_spending: 500, yearly: [{name:"AVIVA", amount:180, paid:"Oct 2025"}],
+  actual: {other_in: 60, money_out: 2450},
+  gap_lines: [
+    {label:"One-off: CURRYS", amount:299, note:"12 Oct", payments:[{date:"12 Oct", name:"CURRYS", amount:299}]},
+    {label:"Food shop over normal", amount:180, note:"£480 vs £300", payments:[{date:"2 Oct",name:"TESCO",amount:62.10},{date:"9 Oct",name:"ASDA",amount:88.40},{date:"16 Oct",name:"TESCO",amount:120.00},{date:"23 Oct",name:"ASDA",amount:209.50}]},
+    {label:"Moved out: to savings", amount:100, note:"usually £0", payments:[{date:"28 Sep",name:"SAVINGS POT",amount:100}]},
+    {label:"Gas/Elec went up", amount:13, note:"£95 vs £82", payments:[{date:"1 Oct",name:"OCTOPUS ENERGY",amount:95}]}
+  ],
+  small_bits: 28, less_than_normal: {amount:-120, note:"Fuel −£40, Takeaways −£80"},
+  six_month: {wage:2700, bills:1450, normal:500, oneoffs:320},
+  bills: [
+    {name:"Rent", type:"SO", avg:550, last:550},
+    {name:"Gas/Elec", type:"DD", avg:82, last:95},
+    {name:"Council tax", type:"DD", avg:140, last:140},
+    {name:"Car loan", type:"DD", avg:210, last:210},
+    {name:"TV licence", type:"DD", avg:13, last:null, stopped:true}
+  ],
+  other_regular: [{name:"Netflix", avg:11, last:11},{name:"Fuel", avg:160, last:148}],
+  unsorted: 42
+};
+</script>
+<script>
+function fmt(n) { return n===null?'—':(n<0?'−':'')+'£'+Math.abs(Math.round(n)).toLocaleString(); }
+function fmtPence(n) { return '£'+n.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+let wage = DATA.last_wage;
+function update() {
+  wage = parseFloat(document.getElementById('wageInput').value) || DATA.last_wage;
+  const exp = DATA.left_over+wage-DATA.bills_total-DATA.normal_spending;
+  const act = DATA.left_over+wage+DATA.actual.other_in-DATA.actual.money_out;
+  const miss = exp-act;
+  document.getElementById('cycle').textContent = DATA.cycle;
+  document.getElementById('expectedSpare').textContent = fmt(exp);
+  document.getElementById('actualSpare').textContent = fmt(act);
+  document.getElementById('missing').textContent = fmt(Math.max(0,miss));
+  document.getElementById('missingAmount').textContent = Math.round(Math.abs(miss)).toLocaleString();
+  document.getElementById('leftOver').textContent = fmt(DATA.left_over);
+  document.getElementById('thisWage').textContent = fmt(wage);
+  document.getElementById('billsTotal').textContent = fmt(DATA.bills_total);
+  document.getElementById('normalSpending').textContent = fmt(DATA.normal_spending);
+  document.getElementById('expectedCalc').textContent = fmt(exp);
+  const yDiv = document.getElementById('yearlyWarnings');
+  yDiv.innerHTML = '';
+  DATA.yearly.forEach(y=>{
+    const d=document.createElement('div');d.className='warning-line';
+    d.textContent=`Possible yearly bill: ${y.name} ${fmt(y.amount)}, paid ${y.paid} — spare if paid: ${fmt(exp-y.amount)}`;
+    yDiv.appendChild(d);
+  });
+  const gDiv = document.getElementById('gapLines');
+  gDiv.innerHTML = '';
+  const lines = [...DATA.gap_lines].sort((a,b)=>b.amount-a.amount).slice(0,5);
+  let sum = 0;
+  lines.forEach(line=>{
+    sum+=line.amount;
+    const r=document.createElement('div');r.className='gap-row';
+    r.innerHTML=`<div class="gap-row-label"><div>${line.label}</div><div class="gap-row-note">${line.note}</div></div><div class="gap-row-amount">${fmt(line.amount)}</div><div class="gap-row-toggle"></div>`;
+    r.onclick=(e)=>{if(e.target.closest('.gap-row-toggle'))r.classList.toggle('expanded');};
+    gDiv.appendChild(r);
+    const p=document.createElement('div');p.className='payments';
+    line.payments.forEach(x=>{const i=document.createElement('div');i.className='payment-item';i.innerHTML=`<span>${x.date} – ${x.name}</span><span>${fmtPence(x.amount)}</span>`;p.appendChild(i);});
+    gDiv.appendChild(p);
+  });
+  sum+=DATA.small_bits+DATA.less_than_normal.amount-DATA.actual.other_in;
+  const sRow=document.createElement('div');sRow.className='gap-row';
+  sRow.innerHTML=`<div class="gap-row-label"><div>Small bits</div><div class="gap-row-note">under £20 each</div></div><div class="gap-row-amount">${fmt(DATA.small_bits)}</div>`;
+  gDiv.appendChild(sRow);
+  const lRow=document.createElement('div');lRow.className='gap-row';
+  lRow.innerHTML=`<div class="gap-row-label"><div>Spent LESS than normal</div><div class="gap-row-note">${DATA.less_than_normal.note}</div></div><div class="gap-row-amount">${fmt(DATA.less_than_normal.amount)}</div>`;
+  gDiv.appendChild(lRow);
+  const oRow=document.createElement('div');oRow.className='gap-row';
+  oRow.innerHTML=`<div class="gap-row-label"><div>Other money in</div><div class="gap-row-note">Katie, refunds</div></div><div class="gap-row-amount">${fmt(-DATA.actual.other_in)}</div>`;
+  gDiv.appendChild(oRow);
+  document.getElementById('gapSum').textContent = fmt(sum);
+  document.getElementById('match').innerHTML = Math.abs(sum-miss)<1?'<span class="checkmark">✅</span>':'<span class="x-mark">⚠️</span>';
+  const bBody = document.getElementById('billsTable');
+  bBody.innerHTML = '';
+  DATA.bills.forEach(b=>{const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${b.name}</td><td>${b.type}</td><td style="text-align:right">${fmt(b.avg)}</td><td style="text-align:right">${b.last===null?'<span class="badge">⚠️ stopped?</span>':fmt(b.last)}</td>`;
+    bBody.appendChild(tr);});
+  const oBody = document.getElementById('otherTable');
+  oBody.innerHTML = '';
+  DATA.other_regular.forEach(o=>{const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${o.name}</td><td style="text-align:right">${fmt(o.avg)}</td><td style="text-align:right">${fmt(o.last)}</td>`;
+    oBody.appendChild(tr);});
+  document.getElementById('basedOn').textContent = DATA.based_on;
+  const six = document.getElementById('sixMonth');
+  six.innerHTML = `<div class="six-item"><div class="six-item-label">Wage avg</div><div class="six-item-amount">${fmt(DATA.six_month.wage)}</div></div>
+  <div class="six-item"><div class="six-item-label">Bills avg</div><div class="six-item-amount">${fmt(DATA.six_month.bills)}</div></div>
+  <div class="six-item"><div class="six-item-label">Normal spending</div><div class="six-item-amount">${fmt(DATA.six_month.normal)}</div></div>
+  <div class="six-item"><div class="six-item-label">One-offs</div><div class="six-item-amount">${fmt(DATA.six_month.oneoffs)}</div></div>
+  <div class="six-item"><div class="six-item-label">Unsorted</div><div class="six-item-amount">${fmt(DATA.unsorted)}</div></div>`;
+}
+document.getElementById('wageInput').addEventListener('input', update);
+document.getElementById('wageInput').value = DATA.last_wage;
+update();
+</script>
+</body>
+</html>
