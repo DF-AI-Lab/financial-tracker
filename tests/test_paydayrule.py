@@ -147,3 +147,16 @@ def test_store_rules_round_trip_and_validation():
     assert rules[1]["kind"] == "declined" and rules[1]["max_days"] == 3 and rules[1]["source"] == "suggested"
     with pytest.raises(ValueError):
         add_rule(conn, "X", 1.0, "", kind="banana")
+
+
+def test_many_small_payday_top_ups_do_not_hide_the_rent():
+    # Real oddity (Oct 2026): small food top-ups to the same person on payday outnumbered the rent
+    # payments, so the small group won and the rent was never asked about. Amounts under MIN_USUAL
+    # are left out before looking for the usual amount.
+    extra = {k: [bp(payday(k), "Food", 50), bp(payday(k) + timedelta(days=1), "Food", 52)] for k in range(1, 7)}
+    cs = cycles(extra)
+    found = find_candidates(all_txns(cs), paydays(cs), [])
+    assert len(found) == 1
+    assert found[0]["usual"] == pytest.approx(550.0)
+    assert found[0]["suggest_label"] == "Rent"
+    assert [e["amount"] for e in found[0]["examples"]] == [550.0, 550.0, 550.0, 590.0]
