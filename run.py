@@ -6,6 +6,7 @@
                              back to the `statements` folder inside the code folder.
   python run.py test         reads the `statements` folder inside the code folder.
   python run.py fix          lets you change saved item classifications (regular/common/etc).
+  python run.py cat <n>      shows the details of category <n> from the spending list.
   python run.py folder PATH  saves the folder path for future runs.
 
 CSV files are written to `output/` inside the code folder.
@@ -27,6 +28,7 @@ from fintrack.questions import review, fix_items
 from fintrack.samebill import ask_same_bills
 from fintrack.yearly import yearly_due, yearly_lines
 from fintrack.picture import six_month_picture, format_picture
+from fintrack.bycategory import category_spending, format_categories, format_category_detail
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -216,6 +218,12 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     for line in format_picture(picture):
         print(line)
 
+    # Print spending by category
+    print()
+    cat_result = category_spending(cycles, items=answers, categories=get_categories(conn), rules=rules)
+    for line in format_categories(cat_result):
+        print(line)
+
     # Print common spending
     print("\nCOMMON (average per cycle over the last N complete cycles)")
     if analysis.common:
@@ -276,13 +284,15 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     print(format_left(wage, analysis))
 
 
-def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_dir=None) -> bool:
+def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_dir=None, wage_payer=WAGE_PAYER) -> bool:
     """Handle command-line commands. Returns True if argv was recognized, False otherwise.
 
     Commands:
     - ["folder", <path>]: save a folder path for future runs
     - ["folder"]: show usage for folder command (when no path given)
     - ["fix"]: enter fix mode to change saved item classifications
+    - ["cat", <number>]: show details of a category from the spending list
+    - ["cat"]: show usage for cat command (when no number given)
     - anything else ([], ["test"], etc): return False
     """
     if not argv:
@@ -329,6 +339,55 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
         # Open database and call fix_items
         conn = open_db(db_path)
         fix_items(conn, ask, out)
+        return True
+
+    if cmd == "cat":
+        # Handle cat command
+        if len(argv) < 2:
+            # No number given, show usage
+            out("Usage: run.py cat <number>   (the numbers are in the SPENDING BY CATEGORY list)")
+            return True
+
+        # Parse the number
+        try:
+            n = int(argv[1])
+        except ValueError:
+            out("Usage: run.py cat <number>   (the numbers are in the SPENDING BY CATEGORY list)")
+            return True
+
+        # Find in_dir and db_path
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        else:
+            in_dir = Path(in_dir)
+
+        if db_path is None:
+            db_path = in_dir.parent / "tracker.db"
+        else:
+            db_path = Path(db_path)
+
+        # Check if database exists
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+
+        # Open database, load transactions, build cycles, and get category details
+        conn = open_db(db_path)
+        txns = load_txns(conn)
+        txns.sort(key=lambda t: t.date)
+        cycles = build_cycles(txns, payer=wage_payer)
+
+        # Get items, categories, and rules
+        items = get_items(conn)
+        categories_dict = get_categories(conn)
+        from fintrack.store import get_rules
+        rules = get_rules(conn)
+
+        # Get category spending and format detail
+        cat_result = category_spending(cycles, items=items, categories=categories_dict, rules=rules)
+        for line in format_category_detail(cat_result, n):
+            out(line)
+
         return True
 
     # Unknown command

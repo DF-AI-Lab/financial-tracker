@@ -103,7 +103,8 @@ def test_payday_transfer_rule_counts_as_its_label():
     assert household["now"] == pytest.approx(1050)
     rent = next(l for l in household["labels"] if l["label"] == "Rent")
     assert rent["now"] == pytest.approx(1050)
-    assert "Food shopping" == res["rows"][0]["category"] and res["rows"][0]["now"] == pytest.approx(180)
+    assert household["avg"] == pytest.approx(500)                           # no rent transfers before
+    assert res["rows"][0]["category"] == "Household"                        # +550 is now the biggest
 
 
 def test_not_enough_cycles():
