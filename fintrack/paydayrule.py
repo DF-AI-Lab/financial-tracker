@@ -72,9 +72,10 @@ def find_candidates(txns: List[Txn], paydays: List[date], rules: List[dict], max
       (days_after_payday), are considered. Group them by payer_name.
     - Drop a payment that is already covered by an accepted rule (kind "common", using matches_rule with the
       payday before it) or that belongs to a "declined" rule (same payer and within tolerance of its usual).
-    - For each payer find the usual amount: for every payment amount a as a trial centre, take the group of
-      payments within tolerance of a (abs(amount - a) <= a * tolerance). Use the trial whose group is the
-      biggest (ties: the smaller a). usual = the median of that group's amounts and the group is the "kept" payments.
+    - For each payer find the usual amount: filter out payments under MIN_USUAL, then for every remaining payment
+      amount a as a trial centre, take the group of payments within tolerance of a (abs(amount - a) <= a * tolerance).
+      Use the trial whose group is the biggest (ties: the smaller a). usual = the median of that group's amounts and
+      the group is the "kept" payments. Skip payers with no payments left after filtering.
     - The payer is a candidate when usual >= MIN_USUAL and the kept payments number at least MIN_COUNT, or at
       least 2 when that payer already has an accepted ("common") rule (a new price).
     - examples = the kept payments in date order, each {"date": ISO string, "amount": positive float,
@@ -123,14 +124,19 @@ def find_candidates(txns: List[Txn], paydays: List[date], rules: List[dict], max
 
     result = []
     for payer, txns_list in candidates.items():
+        # Filter out payments under MIN_USUAL before finding the usual amount
+        filtered_txns = [t for t in txns_list if abs(t.amount) >= MIN_USUAL]
+        if not filtered_txns:
+            continue
+
         # Find best trial amount for this payer
-        amounts = sorted(set(abs(t.amount) for t in txns_list))
+        amounts = sorted(set(abs(t.amount) for t in filtered_txns))
         best_group = None
         best_count = 0
         best_trial = None
 
         for trial in amounts:
-            group = [t for t in txns_list if abs(abs(t.amount) - trial) <= trial * tolerance]
+            group = [t for t in filtered_txns if abs(abs(t.amount) - trial) <= trial * tolerance]
             if len(group) > best_count or (len(group) == best_count and (best_trial is None or trial < best_trial)):
                 best_group = group
                 best_count = len(group)
