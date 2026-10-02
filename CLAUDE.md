@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 1 Oct 2026._
+_Last updated: 2 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -43,13 +43,18 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (231 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (232 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 4** (six-month picture printed by run.py: `fintrack/picture.py`; analyse gives each common item "last" and "type"). Planning map: GitHub issue #1.
-Mock-up of the home page: `prototype/home.html`. **Waiting on the user** to run steps 1-4 on all 18 months.
+Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on all 18 months: works.** Rent 562.50
+(rule 570 accepted; fixed: small payday top-ups hid the rent), IVA (BENNETT JONES, finished) marked one-off + cat Debt,
+left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
 1. Build `SPEC.md` step by step from step 5 (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
-2. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
-3. Home page (step 9) last.
+2. Small fixes from real use: PAYDAY TRANSFERS prompt saves any typed sentence as a label and Enter = yes (ask to
+   confirm long labels); `fix` list hides guessed categories (show them); a "finished" kind for ended bills (IVA) instead
+   of one-off; HPI INSTANT INK (11 x 2.99) suggested Random, check why.
+3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
+4. Home page (step 9) last.
