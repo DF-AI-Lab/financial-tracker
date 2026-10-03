@@ -86,3 +86,19 @@ def test_a_shop_now_and_then_is_not_a_subscription():
 def test_a_missed_month_is_still_a_subscription():
     tx = [T(m, 5, "MUSIC APP", 9.99) for m in (1, 2, 4, 5, 6)] + [T(6, 20, "LAST THING", 1.0)]   # March missed
     assert [a["name"] for a in find_subscriptions(tx)["active"]] == ["Music App"]
+
+
+def test_a_subscription_whose_price_changes_is_still_found():
+    # Real data (Oct 2026): HP Instant Ink changed price 2.99 -> 3.99 -> 1.49 / 2.49, once a month, Jan..Nov 2024.
+    prices = [2.99, 2.99, 3.99, 3.99, 3.99, 3.99, 3.99, 1.49, 2.49, 1.49, 1.49]
+    tx = [T(m, 20, "HPI INSTANT INK UK", p) for m, p in zip(range(1, 12), prices)] + [T(12, 20, "LAST THING", 1.0)]
+    s = find_subscriptions(tx)
+    hp = s["active"][0]
+    assert (hp["name"], hp["usual"], hp["since"], hp["last"]) == (
+        "Hpi Instant Ink Uk", pytest.approx(1.49), date(2024, 1, 20), date(2024, 11, 20))   # usual = the latest price
+    assert hp["total"] == pytest.approx(sum(prices)) and hp["months"] == 11
+
+
+def test_a_shop_with_the_same_meal_deal_often_is_not_a_subscription():
+    tx = [T(m, d, "TESCO EXPRESS", 3.5) for m in range(1, 7) for d in (3, 10, 17)] + [T(6, 20, "LAST THING", 1.0)]
+    assert find_subscriptions(tx) == {"active": [], "stopped": []}

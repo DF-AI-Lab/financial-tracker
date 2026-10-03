@@ -58,7 +58,8 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - **Pay block (3 Oct 2026, the user's own layout).** After typing the pay: every-month bills (6-mth avg | last month),
   then SPARE CASH = left over + pay - bills (last month's amounts) = **the No. 1 number**, then last month's spending
   that is not bills by category (last month | 6-mth avg), then "if you spend like usual, left". Then subscriptions.
-- **Subscription spotter:** card payments of 50 or less in 3+ different months at about the same price (5%), paid in at
-  least 60% of the months of their run (so a shop now and then is not one).
+- **Subscription spotter:** card payments, about one a month, of 50 or less, at set prices (each price
+  paid at least twice, so a price change is fine: HP Instant Ink 2.99 -> 3.99 -> 1.49), in 3+ months and in at least
+  60% of the months of their run. "a month" shows the latest price.
   Still paying = paid in the last 45 days of the statements; otherwise stopped.
 - **Rent question:** an answer of more than 3 words / 25 characters is a sentence, not a label: asked once more, then skipped.

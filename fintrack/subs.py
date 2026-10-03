@@ -21,9 +21,11 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
     - Look at money-out Txns whose item_key starts with "CARD|"
     - Skip keys whose items answer kind is "oneoff" or "yearly"
     - Group by item_key
-    - Per key: usual = median of amounts; regular = payments within 5% of usual
-    - months = number of distinct (year, month) of regular payments
-    - Subscription when months >= 3, usual <= 50 and months >= 60% of the months from the first to the last one
+    - Per key: skip it when it has more than 1.5 payments per month it was paid in (a shop);
+      regular = payments whose exact price comes up at least twice for that payee (prices may change);
+      months = number of distinct (year, month) of regular payments
+    - Subscription when months >= 3, the median regular price <= 50 and months >= 60% of the months from the first
+      to the last one. usual = the latest payment's price.
     - active when (end - last).days <= 45, else stopped
     """
     if items is None:
@@ -66,12 +68,15 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
         # Get amounts (positive)
         amounts = [abs(t.amount) for t in txns_list]
 
-        # Calculate usual as median
-        usual = statistics.median(amounts)
-
-        # Find regular payments (within 5% of usual: a subscription is a fixed price)
-        regular = [t for t in txns_list if abs(abs(t.amount) - usual) <= usual * 0.05]
-
+        # A subscription is about one payment a month at a set price (the price may change now and then).
+        # "Regular" payments are the ones whose exact price (to the penny) comes up at least twice for this payee.
+        all_months = set((t.date.year, t.date.month) for t in txns_list)
+        if len(txns_list) > 1.5 * len(all_months):
+            continue                                  # several payments a month: a shop, not a subscription
+        price_count = {}
+        for t in txns_list:
+            price_count[round(abs(t.amount), 2)] = price_count.get(round(abs(t.amount), 2), 0) + 1
+        regular = [t for t in txns_list if price_count[round(abs(t.amount), 2)] >= 2]
         if not regular:
             continue
 
@@ -79,11 +84,13 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
         months_set = set((t.date.year, t.date.month) for t in regular)
         months = len(months_set)
 
-        # Check if subscription: 3+ months, small, and paid in most (60%+) of the months of its run
-        first, latest = min(months_set), max(months_set)
+        # Check if subscription: set prices in 3+ months, small, and paid in most (60%+) of the months of its run
+        first, latest = min(all_months), max(all_months)
         run_months = (latest[0] - first[0]) * 12 + latest[1] - first[1] + 1
-        if months < 3 or usual > 50 or months < 0.6 * run_months:
+        usual = abs(max(txns_list, key=lambda t: t.date).amount)     # the latest price
+        if months < 3 or statistics.median(abs(t.amount) for t in regular) > 50 or len(all_months) < 0.6 * run_months:
             continue
+        months = len(all_months)
 
         # Get name from items label or key's NAME part
         if key in items and items[key].get("label"):
@@ -97,8 +104,8 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
                 name = key
 
         # Get first and last regular date
-        since = min(t.date for t in regular)
-        last = max(t.date for t in regular)
+        since = min(t.date for t in txns_list)
+        last = max(t.date for t in txns_list)
 
         # Calculate total of all payments (positive)
         total = sum(abs(t.amount) for t in txns_list)
