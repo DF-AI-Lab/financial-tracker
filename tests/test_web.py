@@ -307,3 +307,30 @@ def test_new_pay_in_the_terminal_asks_to_clear_spends(db, tmp_path):
     run.main(in_dir=tmp_path / "statements", out_dir=tmp_path / "output", ask=lambda p: asked.append(p) or "",
              wage_payer=ACME, ask_items=lambda p: "")
     assert not any("Clear your typed spends" in p for p in asked) and len(get_spends(open_db(db))) == 1
+
+
+# ---- No. 6 (3 Oct 2026): drop PDFs on the page, sort new items on the page --------------------------
+
+import io
+
+
+def test_drop_a_pdf_on_the_page(client, db, tmp_path):
+    data = (DATA / "statement_2024_10.pdf").read_bytes()
+    r = client.post("/upload", data={"files": [(io.BytesIO(data), "again.pdf")]}, content_type="multipart/form-data")
+    got = r.get_json()
+    assert got["results"][0]["new"] is False                              # already read by run.py in the fixture
+    html = client.get("/").get_data(as_text=True)
+    assert "Drop statements here" in html
+
+
+def test_sort_items_on_the_page(client, db):
+    from fintrack.sortpage import pending_for_page
+    conn = open_db(db)
+    set_item(conn, "CARD|SOMETHING NEW|", "random", "", "user")
+    html = client.get("/").get_data(as_text=True)
+    assert "Copy for AI" in html
+    r = client.post("/sort/parse", json={"text": "1 bill Household", "count": 3})
+    assert r.get_json() == {"1": {"kind": "bill", "category": "Household"}}
+    r = client.post("/sort/save", json={"answers": [{"key": "CARD|NEW SHOP|", "kind": "random", "label": "",
+                                                       "category": "Shopping"}]})
+    assert r.status_code == 204 and get_items(open_db(db))["CARD|NEW SHOP|"]["kind"] == "random"
