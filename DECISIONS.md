@@ -54,3 +54,10 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - **Question list shortcuts:** `all` keeps the suggestions for everything left; items with 2 or fewer payments under 50
   in total are never asked about.
 
+
+- **Pay block (3 Oct 2026, the user's own layout).** After typing the pay: every-month bills (6-mth avg | last month),
+  then SPARE CASH = left over + pay - bills (last month's amounts) = **the No. 1 number**, then last month's spending
+  that is not bills by category (last month | 6-mth avg), then "if you spend like usual, left". Then subscriptions.
+- **Subscription spotter:** card payments of 50 or less in 3+ different months at about the same amount (15%).
+  Still paying = paid in the last 45 days of the statements; otherwise stopped.
+- **Rent question:** an answer of more than 3 words / 25 characters is a sentence, not a label: asked once more, then skipped.

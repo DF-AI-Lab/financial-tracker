@@ -195,8 +195,16 @@ def review_rules(conn, txns: List[Txn], paydays: List[date], ask, out=print) -> 
     usual, suggest_label, kind="common"). "n" (any case) -> add_rule(..., label="", kind="declined"). Anything
     else is taken as the label: add_rule(..., that text stripped, kind="common"). Nothing is asked when there are
     no candidates.
+
+    A sentence (>3 words or >25 characters) prompts: "That looks like a sentence. Type y, n, or a short label (up to 3 words)."
+    and asks once more. If the second answer is also a sentence, save nothing (ask again next run).
     """
     from fintrack.store import get_rules, add_rule
+
+    def is_sentence(text: str) -> bool:
+        """A sentence has >3 words or >25 characters."""
+        word_count = len(text.split())
+        return word_count > 3 or len(text) > 25
 
     rules = get_rules(conn)
     candidates = find_candidates(txns, paydays, rules)
@@ -234,7 +242,7 @@ def review_rules(conn, txns: List[Txn], paydays: List[date], ask, out=print) -> 
         # Print question
         out(f'  Count these as Common, label "{suggest_label}"?  y = yes, n = no, or type another label')
 
-        # Ask the user
+        # Ask the user (first time)
         try:
             answer = ask("> ").strip()
         except (EOFError, OSError):
@@ -249,8 +257,32 @@ def review_rules(conn, txns: List[Txn], paydays: List[date], ask, out=print) -> 
             add_rule(conn, payer, usual, "", kind="declined")
             saved += 1
         else:
-            # Custom label - strip but keep original case
-            add_rule(conn, payer, usual, answer)
-            saved += 1
+            # Check if it's a sentence
+            if is_sentence(answer):
+                out("That looks like a sentence. Type y, n, or a short label (up to 3 words).")
+                # Ask once more
+                try:
+                    answer2 = ask("> ").strip()
+                except (EOFError, OSError):
+                    break
+
+                answer2_lower = answer2.lower()
+                if answer2_lower == "y" or answer2_lower == "":
+                    add_rule(conn, payer, usual, suggest_label)
+                    saved += 1
+                elif answer2_lower == "n":
+                    add_rule(conn, payer, usual, "", kind="declined")
+                    saved += 1
+                elif is_sentence(answer2):
+                    # Second answer is also a sentence, don't save (ask again next run)
+                    pass
+                else:
+                    # Second answer is a short label
+                    add_rule(conn, payer, usual, answer2)
+                    saved += 1
+            else:
+                # First answer is a short label
+                add_rule(conn, payer, usual, answer)
+                saved += 1
 
     return saved

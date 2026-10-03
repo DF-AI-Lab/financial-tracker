@@ -1,6 +1,7 @@
 """Calculate expected spare for this cycle and last cycle check (expected vs actual)."""
 from datetime import date
 from typing import Optional, List
+import statistics
 
 from fintrack.models import Analysis, Cycle, Txn
 from fintrack.common import analyse
@@ -82,13 +83,145 @@ def expected_spare(cycles: List[Cycle], analysis: Analysis, wage: float, yearly:
     }
 
 
-def format_expected(e: dict) -> List[str]:
-    """Format expected spare as lines.
+def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=None, items=None, yearly=None) -> dict:
+    """Calculate the pay block: bills, spending, spare cash.
+
+    Returns dict with keys: "start", "cycles_used", "left_over", "wage", "bills", "bills_avg",
+    "bills_last", "spare", "spending", "spending_last", "spending_avg", "left_usual".
+    """
+    if categories is None:
+        categories = {}
+    if items is None:
+        items = {}
+    if yearly is None:
+        yearly = []
+
+    # Get the expected spare for "start", "left_over", "cycles_used"
+    e = expected_spare(cycles, analysis, wage, yearly)
+
+    # Build bills: one dict per analysis.common entry
+    bills = []
+    for key, entry in analysis.common.items():
+        bills.append({
+            "name": entry.get("label", key),
+            "avg": entry["average"],
+            "last": entry["last"]
+        })
+
+    # Sort by avg biggest first (ties: name)
+    bills.sort(key=lambda b: (-b["avg"], b["name"]))
+
+    # Calculate bills_avg and bills_last
+    bills_avg = sum(b["avg"] for b in bills)
+    bills_last = expected_bills(analysis)
+
+    # Calculate spare = (left_over or 0) + wage - bills_last
+    left_over_for_calc = e["left_over"] if e["left_over"] is not None else 0
+    spare = left_over_for_calc + wage - bills_last
+
+    # Get the last COMPLETE cycle
+    complete_cycles = [c for c in cycles if c.complete]
+    if not complete_cycles:
+        spending = []
+        spending_last = 0.0
+        spending_avg = 0.0
+    else:
+        last_cycle = complete_cycles[-1]
+
+        # Build spending dict: category -> {...}
+        spending_dict = {}
+        last_ids = {id(t) for t in last_cycle.txns}
+
+        # Get all random_txns that are in the last complete cycle
+        for txn in analysis.random_txns:
+            if id(txn) not in last_ids:
+                continue
+
+            # Get category and label
+            from fintrack.bycategory import label_and_category
+            rules = []  # No rules needed for this context
+            label, category = label_and_category(txn, items, categories, rules, last_cycle, 1000.0)
+
+            if category is None or label is None:
+                continue
+
+            if category not in spending_dict:
+                spending_dict[category] = {"last": 0.0, "labels": {}}
+
+            spending_dict[category]["last"] += abs(txn.amount)
+            if label not in spending_dict[category]["labels"]:
+                spending_dict[category]["labels"][label] = 0.0
+            spending_dict[category]["labels"][label] += abs(txn.amount)
+
+        # Calculate averages for all random_txns
+        cycles_used = analysis.cycles_used
+        for txn in analysis.random_txns:
+            from fintrack.bycategory import label_and_category
+            rules = []
+            label, category = label_and_category(txn, items, categories, rules, last_cycle, 1000.0)
+
+            if category is None or label is None:
+                continue
+
+            if category not in spending_dict:
+                spending_dict[category] = {"last": 0.0, "labels": {}}
+            if "avg" not in spending_dict[category]:
+                spending_dict[category]["avg"] = 0.0
+            if label not in spending_dict[category]["labels"]:
+                spending_dict[category]["labels"][label] = 0.0
+
+            spending_dict[category]["avg"] += abs(txn.amount) / cycles_used if cycles_used > 0 else 0.0
+
+        # Build spending list with top 3 labels per category
+        spending = []
+        for category, data in spending_dict.items():
+            # Get top 3 labels by last-cycle total
+            label_totals = [(label, total) for label, total in data["labels"].items() if total > 0]
+            label_totals.sort(key=lambda x: (-x[1], x[0]))
+            top_labels = [label for label, _ in label_totals[:3]]
+
+            row = {
+                "category": category,
+                "last": data.get("last", 0.0),
+                "avg": data.get("avg", 0.0),
+                "labels": top_labels
+            }
+            spending.append(row)
+
+        # Sort by last biggest first, then avg biggest first, then category
+        spending.sort(key=lambda s: (-s["last"], -s["avg"], s["category"]))
+
+        spending_last = sum(s["last"] for s in spending)
+        spending_avg = sum(s["avg"] for s in spending)
+
+    # Calculate left_usual
+    left_usual = spare - spending_avg
+
+    return {
+        "start": e["start"],
+        "cycles_used": e["cycles_used"],
+        "left_over": e["left_over"],
+        "wage": wage,
+        "bills": bills,
+        "bills_avg": bills_avg,
+        "bills_last": bills_last,
+        "spare": spare,
+        "spending": spending,
+        "spending_last": spending_last,
+        "spending_avg": spending_avg,
+        "left_usual": left_usual,
+        "yearly": [dict(label=y["label"], amount=y["amount"], paid=y["paid"], left_if_paid=left_usual - y["amount"])
+                   for y in yearly]
+    }
+
+
+def format_pay_block(p: dict) -> List[str]:
+    """Format the pay block as lines.
 
     cycles_used == 0 -> a single "not enough" line.
     """
-    if e["cycles_used"] == 0:
-        return ["Not enough finished paydays yet to work out the expected spare."]
+    if p["cycles_used"] == 0:
+        return ["Not enough finished paydays yet to work out the spare cash."]
 
     lines = []
 
@@ -96,39 +229,55 @@ def format_expected(e: dict) -> List[str]:
         return f"{val:,.2f}"
 
     # Header line
-    lines.append(f"IF YOUR PAY IS {fmt_money(e['wage'])}   (this cycle, from {e['start']:%d %b %Y})")
+    lines.append(f"IF YOUR PAY IS {fmt_money(p['wage'])}   (this cycle, from {p['start']:%d %b %Y})")
+    lines.append("")
 
-    # Left over line
-    if e["left_over"] is not None:
-        left_str = fmt_money(e['left_over'])
+    # Bills section
+    lines.append(f"{'BILLS (every month)':<34}{'3-mth avg':>10}  {'Last month':>10}")
+    for bill in p["bills"]:
+        last_str = fmt_money(bill["last"]) if bill["last"] > 0 else "-"
+        lines.append(f"  {bill['name']:<32}{fmt_money(bill['avg']):>10}  {last_str:>10}")
+
+    lines.append(f"  {'Bills total':<32}{fmt_money(p['bills_avg']):>10}  {fmt_money(p['bills_last']):>10}")
+    lines.append("")
+
+    # Left over calculation
+    if p["left_over"] is not None:
+        left_str = fmt_money(p["left_over"])
         left_note = "   (balance just before this payday)"
     else:
         left_str = "unknown"
         left_note = "   (counted as 0)"
-    lines.append(f"  {'Left over from last month':<28}{left_str:>10}{left_note}")
 
-    # Wage line
-    lines.append(f"+ {'Wage':<28}{fmt_money(e['wage']):>10}")
+    lines.append(f"  {'Left over from last month':<32}{left_str:>10}{left_note}")
+    lines.append(f"+ {'Pay':<32}{fmt_money(p['wage']):>10}")
+    lines.append(f"- {'Bills (last month amounts)':<32}{fmt_money(p['bills_last']):>10}")
+    lines.append(f"= {'SPARE CASH':<32}{fmt_money(p['spare']):>10}")
+    lines.append("")
 
-    # Bills line
-    lines.append(f"- {'Bills':<28}{fmt_money(e['bills']):>10}   (last month's amount of each bill)")
+    # Spending section
+    if p["spending"]:
+        lines.append(f"{'LAST MONTH SPENDING (not bills)':<34}{'Last month':>10}  {'3-mth avg':>10}")
+        for spend in p["spending"]:
+            labels_str = f"   ({', '.join(spend['labels'])})" if spend["labels"] else ""
+            lines.append(f"  {spend['category']:<32}{fmt_money(spend['last']):>10}  {fmt_money(spend['avg']):>10}{labels_str}")
 
-    # Normal spending line
-    lines.append(f"- {'Normal spending':<28}{fmt_money(e['normal']):>10}   ({e['cycles_used']}-cycle average, no one-offs)")
+        lines.append(f"  {'Total':<32}{fmt_money(p['spending_last']):>10}  {fmt_money(p['spending_avg']):>10}")
+        lines.append("")
 
-    # Expected spare line
-    lines.append(f"= {'Expected spare':<28}{fmt_money(e['expected']):>10}")
+    # Left usual
+    lines.append(f"= {'If you spend like usual, left':<32}{fmt_money(p['left_usual']):>10}   (spare cash - 3-mth avg spending)")
 
-    # Yearly lines
-    for item in e["yearly"]:
-        # Add the warning line from yearly_lines
-        warning_lines = yearly_lines([item])
-        for warning in warning_lines:
+    # Yearly items
+    from fintrack.yearly import yearly_lines
+    for item in p.get("yearly", []):
+        for warning in yearly_lines([item]):
             lines.append(warning)
-        # Add the spare_if_paid line
-        lines.append(f"  {'Expected spare if paid':<28}{fmt_money(item['spare_if_paid']):>10}")
+        lines.append(f"  {'If that is paid too, left':<32}{fmt_money(item['left_if_paid']):>10}")
 
     return lines
+
+
 
 
 def last_cycle_check(cycles: List[Cycle], answers: Optional[dict] = None, rules: Optional[list] = None) -> Optional[dict]:

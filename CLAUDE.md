@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (280 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (290 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -58,9 +58,9 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
 ## Next
 1. Steps 1-8 built; step 9 (home page) next, user to try step 8 first. (3 Oct: step 7 checked on real data, adds up: 7.34 = IVA 279 paid - food shopping 240 less ...) (3 Oct: steps 5-6 checked on real data; last cycle missing only 7.34,
 expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
-2. Small fixes from real use: PAYDAY TRANSFERS prompt saves any typed sentence as a label and Enter = yes (ask to
-   confirm long labels); `fix` list hides guessed categories (show them); a "finished" kind for ended bills (IVA) instead
-   of one-off; HPI INSTANT INK (11 x 2.99) suggested Random, check why;
-   where.py bill note says "last month" even when the usual is the average (bill not paid the month before).
+2. 3 Oct small fixes DONE: pay block redone to the user's layout (bills avg/last -> SPARE CASH = No. 1 -> last month's
+   non-bill spending by category -> left if usual; `spare.pay_block`), subscription spotter (`fintrack/subs.py`), a typed
+   sentence at the rent question is not saved as a label. User skipped: show guessed categories in `fix`, "finished" kind.
+   Still open: where.py bill note says "last month" even when the usual is the average.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Home page (step 9) last.

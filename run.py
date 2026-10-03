@@ -22,7 +22,7 @@ from fintrack.sort import bills_summary, classify, statement_report, big_items
 from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
 from fintrack.common import analyse
 from fintrack.left import parse_money
-from fintrack.spare import expected_spare, format_expected, last_cycle_check, format_last_cycle
+from fintrack.spare import expected_spare, last_cycle_check, format_last_cycle, pay_block, format_pay_block
 from fintrack.settings import saved_folder, save_folder, SAVED_FILE
 from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items, get_categories, set_value, get_spends, get_value
 from fintrack.questions import review, fix_items
@@ -31,6 +31,7 @@ from fintrack.yearly import yearly_due, yearly_lines
 from fintrack.picture import six_month_picture, format_picture
 from fintrack.bycategory import category_spending, format_categories, format_category_detail
 from fintrack.where import where_did_it_go, format_where, show_lines
+from fintrack.subs import find_subscriptions, format_subscriptions
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -300,9 +301,14 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     if tries >= 3:
         return
 
-    # Save the wage and print the expected spare
+    # Save the wage and print the pay block
     set_value(conn, "pay", str(wage))
-    for line in format_expected(expected_spare(cycles, analysis, wage, yearly=due)):
+    for line in format_pay_block(pay_block(cycles, analysis, wage, categories=get_categories(conn), items=answers, yearly=due)):
+        print(line)
+
+    # Print subscriptions
+    print()
+    for line in format_subscriptions(find_subscriptions(all_txns, items=answers)):
         print(line)
 
     # Print the typed spends block if there are any
