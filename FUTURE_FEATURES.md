@@ -43,3 +43,6 @@ _Ideas agreed but not built yet. Newest at the bottom._
 - **Home page order (user, 3 Oct):** 1 This month's pay, 2 Add a spend, 3 Bills, 4 Subscriptions,
   5 Where did last cycle's money go?, then the rest (Last month's spending, Spending by category,
   6 / 12 months / this year). Only `templates/home.html` changes (cards move, nothing else).
+- **Easier question list (user, 3 Oct):** after showing the 10 items, ask one question at a time:
+  "Which are Common? (numbers)" -> "Which are One-off?" -> "Which are Yearly?" -> the rest are Random.
+  Then "Any categories to change?" Enter = skip each step. No keywords to remember.
