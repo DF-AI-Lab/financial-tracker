@@ -160,3 +160,19 @@ def test_many_small_payday_top_ups_do_not_hide_the_rent():
     assert found[0]["usual"] == pytest.approx(550.0)
     assert found[0]["suggest_label"] == "Rent"
     assert [e["amount"] for e in found[0]["examples"]] == [550.0, 550.0, 550.0, 590.0]
+
+
+def test_a_typed_sentence_is_not_saved_as_a_label():
+    # Real oddity (Oct 2026): the user typed a sentence at this question and it became the rule's label.
+    conn, lines = open_db(":memory:"), []
+    ask = scripted("this more depends on so or not (other than rent)", "Rent")
+    assert review_rules(conn, all_txns(), paydays(), ask, out=lines.append) == 1
+    assert get_rules(conn)[0]["label"] == "Rent"
+    assert "That looks like a sentence. Type y, n, or a short label (up to 3 words)." in lines
+
+
+def test_a_second_sentence_skips_and_asks_again_next_time():
+    conn = open_db(":memory:")
+    ask = scripted("this is a long sentence again", "and another long sentence here")
+    assert review_rules(conn, all_txns(), paydays(), ask, out=lambda s: None) == 0
+    assert get_rules(conn) == []

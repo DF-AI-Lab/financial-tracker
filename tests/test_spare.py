@@ -6,7 +6,7 @@ import pytest
 from fintrack.common import analyse
 from fintrack.cycles import build_cycles
 from fintrack.models import Analysis, Txn
-from fintrack.spare import (balance_before, expected_bills, expected_spare, format_expected, format_last_cycle,
+from fintrack.spare import (balance_before, expected_bills, expected_spare, format_last_cycle,
                             last_cycle_check)
 
 PAYER = "ACME MOTORS PLC"
@@ -80,35 +80,17 @@ def test_expected_spare_with_a_yearly_bill_due():
                             "spare_if_paid": pytest.approx(4330)}]
 
 
-def test_format_expected():
-    cs = cycles()
-    due = [{"key": "DD|AVIVA|", "label": "AVIVA", "amount": 180.0, "paid": date(2023, 4, 30)}]
-    lines = format_expected(expected_spare(cs, analyse(cs), 2500.0, yearly=due))
-    assert lines == [
-        "IF YOUR PAY IS 2,500.00   (this cycle, from 28 Apr 2024)",
-        f"  {'Left over from last month':<28}{'2,755.00':>10}   (balance just before this payday)",
-        f"+ {'Wage':<28}{'2,500.00':>10}",
-        f"- {'Bills':<28}{'595.00':>10}   (last month's amount of each bill)",
-        f"- {'Normal spending':<28}{'150.00':>10}   (3-cycle average, no one-offs)",
-        f"= {'Expected spare':<28}{'4,510.00':>10}",
-        "WARNING Possible yearly bill: AVIVA 180.00, paid Apr 2023",
-        f"  {'Expected spare if paid':<28}{'4,330.00':>10}",
-    ]
-    assert all(line.isascii() for line in lines)
-
-
 def test_unknown_left_over_counts_as_zero():
     tx = [Txn(t.date, t.type, t.description, t.detail, t.amount) for t in fake_txns()]   # no balances
     cs = build_cycles(tx, payer=PAYER)
     e = expected_spare(cs, analyse(cs), 2500.0)
     assert e["left_over"] is None and e["expected"] == pytest.approx(1755)
-    assert format_expected(e)[1] == f"  {'Left over from last month':<28}{'unknown':>10}   (counted as 0)"
 
 
 def test_not_enough_finished_cycles():
     cs = build_cycles([Txn(date(2024, 1, 28), "CR", PAYER, "", 2000.0)], payer=PAYER)
     e = expected_spare(cs, analyse(cs), 2000.0)
-    assert format_expected(e) == ["Not enough finished paydays yet to work out the expected spare."]
+    assert e["cycles_used"] == 0
 
 
 # ---- the last finished cycle: expected vs actual ---------------------------------------------------
