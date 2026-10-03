@@ -70,3 +70,19 @@ def test_run_prints_subscriptions_after_the_pay_block(tmp_path, capsys):
              ask_items=lambda p: "")
     text = capsys.readouterr().out
     assert "SUBSCRIPTION" in text and text.index("SPARE CASH") < text.index("SUBSCRIPTION")
+
+
+def test_a_shop_now_and_then_is_not_a_subscription():
+    # Real oddity (Oct 2026): Sainsburys, Tesco and Taco Bell showed as stopped subscriptions: a similar amount in
+    # 3 months, but spread over a year. A subscription is (nearly) the same price in most months of its run.
+    tx = [T(1, 3, "SAINSBURYS", 40.0), T(5, 3, "SAINSBURYS", 40.5), T(11, 3, "SAINSBURYS", 39.8),
+          T(2, 3, "SAINSBURYS", 12.0), T(7, 3, "SAINSBURYS", 75.0),
+          T(3, 1, "TAKEAWAY", 18.0), T(4, 1, "TAKEAWAY", 20.5), T(5, 1, "TAKEAWAY", 18.4),    # 20.5 is 11% off
+          T(12, 20, "LAST THING", 1.0)]
+    s = find_subscriptions(sorted(tx, key=lambda t: t.date))
+    assert s == {"active": [], "stopped": []}
+
+
+def test_a_missed_month_is_still_a_subscription():
+    tx = [T(m, 5, "MUSIC APP", 9.99) for m in (1, 2, 4, 5, 6)] + [T(6, 20, "LAST THING", 1.0)]   # March missed
+    assert [a["name"] for a in find_subscriptions(tx)["active"]] == ["Music App"]

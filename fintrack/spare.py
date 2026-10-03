@@ -233,7 +233,8 @@ def format_pay_block(p: dict) -> List[str]:
     lines.append("")
 
     # Bills section
-    lines.append(f"{'BILLS (every month)':<34}{'3-mth avg':>10}  {'Last month':>10}")
+    avg_head = f"{p['cycles_used']}-mth avg"
+    lines.append(f"{'BILLS (every month)':<34}{avg_head:>10}  {'Last month':>10}")
     for bill in p["bills"]:
         last_str = fmt_money(bill["last"]) if bill["last"] > 0 else "-"
         lines.append(f"  {bill['name']:<32}{fmt_money(bill['avg']):>10}  {last_str:>10}")
@@ -257,7 +258,7 @@ def format_pay_block(p: dict) -> List[str]:
 
     # Spending section
     if p["spending"]:
-        lines.append(f"{'LAST MONTH SPENDING (not bills)':<34}{'Last month':>10}  {'3-mth avg':>10}")
+        lines.append(f"{'LAST MONTH SPENDING (not bills)':<34}{'Last month':>10}  {avg_head:>10}")
         for spend in p["spending"]:
             labels_str = f"   ({', '.join(spend['labels'])})" if spend["labels"] else ""
             lines.append(f"  {spend['category']:<32}{fmt_money(spend['last']):>10}  {fmt_money(spend['avg']):>10}{labels_str}")
@@ -266,7 +267,7 @@ def format_pay_block(p: dict) -> List[str]:
         lines.append("")
 
     # Left usual
-    lines.append(f"= {'If you spend like usual, left':<32}{fmt_money(p['left_usual']):>10}   (spare cash - 3-mth avg spending)")
+    lines.append(f"= {'If you spend like usual, left':<32}{fmt_money(p['left_usual']):>10}   (spare cash - {p['cycles_used']}-mth avg spending)")
 
     # Yearly items
     from fintrack.yearly import yearly_lines

@@ -58,6 +58,7 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - **Pay block (3 Oct 2026, the user's own layout).** After typing the pay: every-month bills (6-mth avg | last month),
   then SPARE CASH = left over + pay - bills (last month's amounts) = **the No. 1 number**, then last month's spending
   that is not bills by category (last month | 6-mth avg), then "if you spend like usual, left". Then subscriptions.
-- **Subscription spotter:** card payments of 50 or less in 3+ different months at about the same amount (15%).
+- **Subscription spotter:** card payments of 50 or less in 3+ different months at about the same price (5%), paid in at
+  least 60% of the months of their run (so a shop now and then is not one).
   Still paying = paid in the last 45 days of the statements; otherwise stopped.
 - **Rent question:** an answer of more than 3 words / 25 characters is a sentence, not a label: asked once more, then skipped.

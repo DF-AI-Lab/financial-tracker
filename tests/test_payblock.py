@@ -91,3 +91,12 @@ def test_unknown_left_over_and_not_enough_cycles():
     cs = build_cycles([Txn(date(2024, 1, 28), "CR", PAYER, "", 2000.0)], payer=PAYER)
     assert format_pay_block(pay_block(cs, analyse(cs), 2000.0)) == [
         "Not enough finished paydays yet to work out the spare cash."]
+
+
+def test_the_average_columns_say_how_many_cycles():
+    # Real oddity (Oct 2026): the headers said "3-mth avg" on 6 cycles of real data (it was hard-coded)
+    p = dict(block(), cycles_used=6)
+    lines = format_pay_block(p)
+    assert lines[2].endswith("6-mth avg  Last month")
+    assert any(l.startswith("LAST MONTH SPENDING") and l.endswith("6-mth avg") for l in lines)
+    assert any("(spare cash - 6-mth avg spending)" in l for l in lines)
