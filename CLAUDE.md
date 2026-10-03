@@ -80,5 +80,8 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    with X-Requested-With: fetch -> 204), several at once, x puts back. 'Left from last month' box under the pay box
    (POST /left, x removes; billchange.get_left, kv 'left_over_typed' with the cycle start): spare = pay + left - bills,
    hero line 'Pay + left - bills', terminal '+ Left from last month'.
+   TODO 3 Oct (user asked, not built, confirm first): drag and drop on the home page: whole cards up/down, and rows
+   inside cards (Bills, Last month's spending, Spending by category, Subscriptions). Totals stay at the bottom; the
+   6/12 months table stays as it is. Planned: order remembered for good (kv), new rows go to the bottom; a reset link.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
