@@ -28,6 +28,9 @@
   .hero .label { font-size: 14px; letter-spacing: .6px; text-transform: uppercase; opacity: .9; }
   .hero .big { font-size: 48px; font-weight: 800; line-height: 1.1; margin: 6px 0; }
   .hero .how { font-size: 14px; opacity: .9; }
+  .tiles.toprow { grid-template-columns: 1.4fr 1fr 1fr; }
+  .paybox { justify-content: center; margin-top: 6px; }
+  @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
   .tile .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
@@ -87,7 +90,12 @@
     <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</div>
   </div>
 
-  <div class="tiles">
+  <div class="tiles toprow">
+    <div class="tile"><div class="label">✏️ This month's pay</div>
+      <form class="inline paybox" method="post" action="/pay">
+        <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
+        <button type="submit">Work it out</button>
+      </form></div>
     {% if d.history %}
     <div class="tile"><div class="label">Spare cash last month</div>
       <div class="num">{{ d.history.last|money }}</div></div>
@@ -96,17 +104,31 @@
     {% endif %}
   </div>
 
+  <div class="card">
+    <h2>➕ Add a spend</h2>
+    <form class="inline" method="post" action="/add">
+      <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
+      <input class="name" type="text" name="name" placeholder="Costa" aria-label="What">
+      <button type="submit">Add</button>
+    </form>
+    {% if d.spends %}
+      <table style="margin-top:12px">
+        {% for s in d.spends %}
+          <tr><td>{{ s.date|day }}</td><td>{{ s.name }}<span class="labels">{{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
+              <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+    <div class="sum" style="margin-top:12px">
+      <span>Money for spending</span><span class="n">{{ d.money_for_spending|money }}</span>
+      <span>Typed so far</span><span class="n">{{ (d.money_for_spending - d.left_now)|money }}</span>
+      <span class="eq">Left now</span><span class="n eq">{{ d.left_now|money }}</span>
+    </div>
+  </div>
+
   {% for y in d.pay.yearly %}
     <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b>{{ y.left_if_paid|money }}</b></div>
   {% endfor %}
-
-  <div class="card">
-    <h2>✏️ This month's pay</h2>
-    <form class="inline" method="post" action="/pay">
-      <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
-      <button type="submit">Work it out</button>
-    </form>
-  </div>
 
   <!-- No. 2: last month's spending, bills first -->
   {% set bills_last = d.pay.bills|sum(attribute='last') %}
@@ -171,28 +193,6 @@
           {% for l in r.labels %}<div><span>{{ l.label }}</span><span>{{ l.now|money }} now · {{ l.avg|money }} usual</span></div>{% endfor %}
         </div></details>
     {% endfor %}
-  </div>
-
-  <div class="card">
-    <h2>➕ Add a spend</h2>
-    <form class="inline" method="post" action="/add">
-      <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
-      <input class="name" type="text" name="name" placeholder="Costa" aria-label="What">
-      <button type="submit">Add</button>
-    </form>
-    {% if d.spends %}
-      <table style="margin-top:12px">
-        {% for s in d.spends %}
-          <tr><td>{{ s.date|day }}</td><td>{{ s.name }}<span class="labels">{{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
-              <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
-        {% endfor %}
-      </table>
-    {% endif %}
-    <div class="sum" style="margin-top:12px">
-      <span>Money for spending</span><span class="n">{{ d.money_for_spending|money }}</span>
-      <span>Typed so far</span><span class="n">{{ (d.money_for_spending - d.left_now)|money }}</span>
-      <span class="eq">Left now</span><span class="n eq">{{ d.left_now|money }}</span>
-    </div>
   </div>
 
   <div class="card">
