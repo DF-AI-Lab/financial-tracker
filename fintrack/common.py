@@ -108,7 +108,7 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
     # Filter to complete cycles and take the last window
     complete_cycles = [c for c in cycles if c.complete]
     if not complete_cycles:
-        return Analysis(0, {}, 0.0, 0.0, [])
+        return Analysis(0, {}, 0.0, 0.0, [], common_txns={}, random_txns=[])
 
     window_cycles = complete_cycles[-window:]
     cycles_used = len(window_cycles)
@@ -302,7 +302,10 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
             }
 
     # Compute "last" and "type" for each common entry from txn_list
+    # Also build common_txns dict to keep the txns
     newest_cycle_idx = cycles_used - 1
+    common_txns_dict = {}
+
     for label in common:
         txn_list = common[label].get("txn_list", [])
 
@@ -324,7 +327,10 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
         common[label]["last"] = last_amount
         common[label]["type"] = most_recent_txn.type if most_recent_txn else ""
 
-        # Clean up: remove txn_list since it's no longer needed
+        # Keep the txns in common_txns_dict, but extract just the Txn objects
+        common_txns_dict[label] = [txn for _, txn in txn_list]
+
+        # Clean up: remove txn_list from common since it's no longer needed
         del common[label]["txn_list"]
 
     # Merge one-offs and random
@@ -340,4 +346,5 @@ def analyse(cycles: List[Cycle], window: int = 6, min_cycles: int = 4, tolerance
     random_total = sum(abs(t.amount) for t in random_payments)
     random_per_cycle = random_total / cycles_used if cycles_used > 0 else 0.0
 
-    return Analysis(cycles_used, common, common_per_cycle, random_per_cycle, one_offs)
+    return Analysis(cycles_used, common, common_per_cycle, random_per_cycle, one_offs,
+                    common_txns=common_txns_dict, random_txns=random_payments)

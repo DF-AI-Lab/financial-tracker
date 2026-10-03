@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Optional
 
@@ -46,3 +46,5 @@ class Analysis:
     common_per_cycle: float   # average total of all common payments per cycle
     random_per_cycle: float   # average total of random payments per cycle
     one_offs: list            # list[Txn]: big rare payments left out of the averages
+    common_txns: dict = field(default_factory=dict)   # common key -> list of the window's Txns behind that entry
+    random_txns: list = field(default_factory=list)   # the window's random Txns

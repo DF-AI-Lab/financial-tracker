@@ -67,7 +67,7 @@ def category_spending(cycles, items=None, categories=None, rules=None, window=6,
             continue
 
         # Find label and category
-        label, category = _get_label_and_category(txn, items, categories, rules, now_cycle, oneoff_limit)
+        label, category = label_and_category(txn, items, categories, rules, now_cycle, oneoff_limit)
 
         if label is None or category is None:  # Skip one-offs
             continue
@@ -86,7 +86,7 @@ def category_spending(cycles, items=None, categories=None, rules=None, window=6,
                 continue
 
             # Find label and category
-            label, category = _get_label_and_category(txn, items, categories, rules, cycle, oneoff_limit)
+            label, category = label_and_category(txn, items, categories, rules, cycle, oneoff_limit)
 
             if label is None or category is None:  # Skip one-offs
                 continue
@@ -143,8 +143,8 @@ def category_spending(cycles, items=None, categories=None, rules=None, window=6,
     }
 
 
-def _get_label_and_category(txn, items, categories, rules, cycle, oneoff_limit):
-    """Helper to get label and category for a transaction, or (None, None) if it should be skipped."""
+def label_and_category(txn, items, categories, rules, cycle, oneoff_limit):
+    """Get label and category for a transaction, or (None, None) if it should be skipped."""
     key = store_item_key(txn)
 
     # Check if covered by a rule with kind "common"

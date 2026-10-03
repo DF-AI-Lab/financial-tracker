@@ -182,3 +182,14 @@ def test_run_prints_where_and_show_command(tmp_path, capsys):
     assert run.run_command(["show", "1"], out=lines.append, db_path=tmp_path / "x.db", in_dir=inbox,
                            wage_payer=PAYER) is True
     assert lines == ["No database yet. Run run.py first."]
+
+
+def test_small_extra_payment_from_the_employer_is_other_money_in():
+    # Real data has a 235 PAYROLL credit from the employer: under 500, so not a wage. It must still add up.
+    tx = fake_txns() + [Txn(date(2024, 5, 8), "CR", PAYER, "PAYROLL", 235.0)]
+    tx.sort(key=lambda t: t.date)
+    w = where_did_it_go(build_cycles(tx, payer=PAYER))
+    other = next(r for r in w["reasons"] if r["kind"] == "other_in")
+    assert other["amount"] == pytest.approx(-295)
+    assert sorted(t.amount for t in other["txns"]) == [60.0, 235.0]
+    assert sum(r["amount"] for r in w["reasons"]) == pytest.approx(w["missing"]) == pytest.approx(1279)

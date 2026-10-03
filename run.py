@@ -30,6 +30,7 @@ from fintrack.samebill import ask_same_bills
 from fintrack.yearly import yearly_due, yearly_lines
 from fintrack.picture import six_month_picture, format_picture
 from fintrack.bycategory import category_spending, format_categories, format_category_detail
+from fintrack.where import where_did_it_go, format_where, show_lines
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -231,6 +232,14 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     for line in format_last_cycle(last_cycle_check(cycles, answers=answers, rules=rules)):
         print(line)
 
+    # Print where did it go
+    w = where_did_it_go(cycles, answers=answers, rules=rules, categories=get_categories(conn), items=answers)
+    where_lines = format_where(w)
+    if where_lines:
+        print()
+    for line in where_lines:
+        print(line)
+
     # Print common spending
     print("\nCOMMON (average per cycle over the last N complete cycles)")
     if analysis.common:
@@ -301,6 +310,8 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
     - ["fix"]: enter fix mode to change saved item classifications
     - ["cat", <number>]: show details of a category from the spending list
     - ["cat"]: show usage for cat command (when no number given)
+    - ["show", <number>]: show payments behind a line in the WHERE DID IT GO list
+    - ["show"]: show usage for show command (when no number given)
     - anything else ([], ["test"], etc): return False
     """
     if not argv:
@@ -394,6 +405,59 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
         # Get category spending and format detail
         cat_result = category_spending(cycles, items=items, categories=categories_dict, rules=rules)
         for line in format_category_detail(cat_result, n):
+            out(line)
+
+        return True
+
+    if cmd == "show":
+        # Handle show command
+        if len(argv) < 2:
+            # No number given, show usage
+            out("Usage: run.py show <number>   (the numbers are in the WHERE DID list)")
+            return True
+
+        # Parse the number
+        try:
+            n = int(argv[1])
+        except ValueError:
+            out("Usage: run.py show <number>   (the numbers are in the WHERE DID list)")
+            return True
+
+        # Find in_dir and db_path
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        else:
+            in_dir = Path(in_dir)
+
+        if db_path is None:
+            db_path = in_dir.parent / "tracker.db"
+        else:
+            db_path = Path(db_path)
+
+        # Check if database exists
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+
+        # Open database, load transactions, build cycles
+        conn = open_db(db_path)
+        txns = load_txns(conn)
+        txns.sort(key=lambda t: t.date)
+        cycles = build_cycles(txns, payer=wage_payer)
+
+        # Get items, categories, and rules
+        items = get_items(conn)
+        categories_dict = get_categories(conn)
+        from fintrack.store import get_rules
+        rules = get_rules(conn)
+
+        # Get where_did_it_go and show the line
+        w = where_did_it_go(cycles, answers=items, rules=rules, categories=categories_dict, items=items)
+        if w is None:
+            out("Not enough finished paydays yet.")
+            return True
+
+        for line in show_lines(w, n):
             out(line)
 
         return True
