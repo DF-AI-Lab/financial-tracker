@@ -36,7 +36,7 @@ def test_period_totals():
     got = period_totals(build_cycles(txns(), payer=PAYER))
     want = [("Last 6 months", 6, 12000, 50, 3000, 1200, 0, 7850),
             ("Last 12 months", 12, 24000, 50, 6000, 2400, 1500, 14150),
-            ("2025 so far", 5, 10000, 50, 2500, 600, 0, 6950)]
+            ("2025 so far", 5, 10000, 50, 2500, 900, 0, 6650)]
     assert [(p["name"], p["cycles"]) for p in got] == [(w[0], w[1]) for w in want]
     for p, w in zip(got, want):
         assert (p["wage"], p["other_in"], p["bills"], p["spending"], p["oneoffs"], p["left"]) == pytest.approx(w[2:]), p["name"]

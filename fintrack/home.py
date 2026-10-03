@@ -11,6 +11,7 @@ from fintrack.subs import find_subscriptions
 from fintrack.typed import money_for_spending
 from fintrack.picture import six_month_picture
 from fintrack.yearly import yearly_due
+from fintrack.periods import period_totals
 from fintrack.store import load_txns, get_items, get_rules, get_categories, get_spends, get_value
 
 
@@ -94,6 +95,9 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     # Get statements_to (max transaction date)
     statements_to = max(t.date for t in txns)
 
+    # Get periods data
+    periods = period_totals(cycles, answers=answers, rules=rules)
+
     return {
         "ready": True,
         "pay": pay,
@@ -105,5 +109,6 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         "money_for_spending": money,
         "left_now": left_now,
         "picture": picture,
-        "statements_to": statements_to
+        "statements_to": statements_to,
+        "periods": periods
     }

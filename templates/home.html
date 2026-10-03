@@ -62,6 +62,8 @@
   .sum .eq { font-weight: 700; border-top: 1px solid var(--border); padding-top: 4px; }
   .against { display: flex; justify-content: space-between; gap: 10px; padding: 6px 2px; color: var(--muted); font-size: 14px; }
   .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
+  .scroll { overflow-x: auto; }
+  @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -106,16 +108,19 @@
     </form>
   </div>
 
-  <!-- No. 2: last month's spending -->
+  <!-- No. 2: last month's spending, bills first -->
+  {% set bills_last = d.pay.bills|sum(attribute='last') %}
   <div class="card">
-    <h2>🛒 Last month's spending (not bills)</h2>
+    <h2>🛒 Last month's spending</h2>
     <table>
       <tr><th>What</th><th class="n">Last month</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th></tr>
+      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are listed below</span></td>
+          <td class="n"><b>{{ bills_last|money }}</b></td><td class="n"><b>{{ d.pay.bills_avg|money }}</b></td></tr>
       {% for s in d.pay.spending %}
         <tr><td>{{ s.category }}{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
             <td class="n">{{ s.last|money }}</td><td class="n">{{ s.avg|money }}</td></tr>
       {% endfor %}
-      <tr class="total"><td>Total</td><td class="n">{{ d.pay.spending_last|money }}</td><td class="n">{{ d.pay.spending_avg|money }}</td></tr>
+      <tr class="total"><td>Total</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td></tr>
     </table>
   </div>
 
@@ -208,7 +213,19 @@
   </div>
 
   <div class="card">
-    <h2>🗓️ Six-month picture</h2>
+    <h2>🗓️ 6 months, 12 months and this year</h2>
+    {% if d.periods %}
+    <div class="scroll"><table class="periods">
+      <tr><th></th>{% for p in d.periods %}<th class="n">{{ p.name }}<span class="labels">{{ p.cycles }} pay cycle{{ 's' if p.cycles != 1 else '' }}</span></th>{% endfor %}</tr>
+      <tr><td>Wage</td>{% for p in d.periods %}<td class="n">{{ p.wage|money }}</td>{% endfor %}</tr>
+      <tr><td>Other money in</td>{% for p in d.periods %}<td class="n">{{ p.other_in|money }}</td>{% endfor %}</tr>
+      <tr><td>Bills</td>{% for p in d.periods %}<td class="n">{{ p.bills|money }}</td>{% endfor %}</tr>
+      <tr><td>Spending</td>{% for p in d.periods %}<td class="n">{{ p.spending|money }}</td>{% endfor %}</tr>
+      <tr><td>One-offs</td>{% for p in d.periods %}<td class="n">{{ p.oneoffs|money }}</td>{% endfor %}</tr>
+      <tr class="total"><td>Left over</td>{% for p in d.periods %}<td class="n {{ 'good' if p.left >= 0 else 'bad' }}">{{ p.left|money }}</td>{% endfor %}</tr>
+    </table></div>
+    {% endif %}
+    <div class="sub" style="margin:14px 0 4px">Six-month picture (averages per pay cycle)</div>
     <div class="sum">
       <span>Wage (average)</span><span class="n">{{ d.picture.wage_avg|money }}</span>
       <span>Bills (average)</span><span class="n">{{ d.picture.bills_avg|money }}</span>
