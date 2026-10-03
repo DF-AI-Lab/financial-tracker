@@ -25,7 +25,7 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
       regular = payments whose exact price comes up at least twice for that payee (prices may change);
       months = number of distinct (year, month) of regular payments
     - Subscription when months >= 3, the median regular price <= 50 and months >= 60% of the months from the first
-      to the last one. usual = the latest payment's price.
+      to the last one, and the set prices are in 60%+ of the months it was paid in. usual = the latest payment's price.
     - active when (end - last).days <= 45, else stopped
     """
     if items is None:
@@ -88,7 +88,8 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
         first, latest = min(all_months), max(all_months)
         run_months = (latest[0] - first[0]) * 12 + latest[1] - first[1] + 1
         usual = abs(max(txns_list, key=lambda t: t.date).amount)     # the latest price
-        if months < 3 or statistics.median(abs(t.amount) for t in regular) > 50 or len(all_months) < 0.6 * run_months:
+        if months < 3 or statistics.median(abs(t.amount) for t in regular) > 50 or len(all_months) < 0.6 * run_months \
+                or months < 0.6 * len(all_months):
             continue
         months = len(all_months)
 

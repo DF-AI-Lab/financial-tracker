@@ -60,6 +60,6 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
   that is not bills by category (last month | 6-mth avg), then "if you spend like usual, left". Then subscriptions.
 - **Subscription spotter:** card payments, about one a month, of 50 or less, at set prices (each price
   paid at least twice, so a price change is fine: HP Instant Ink 2.99 -> 3.99 -> 1.49), in 3+ months and in at least
-  60% of the months of their run. "a month" shows the latest price.
+  60% of the months of their run, and the set prices make up 60%+ of those months (a shop with a few round amounts is not one). "a month" shows the latest price.
   Still paying = paid in the last 45 days of the statements; otherwise stopped.
 - **Rent question:** an answer of more than 3 words / 25 characters is a sentence, not a label: asked once more, then skipped.

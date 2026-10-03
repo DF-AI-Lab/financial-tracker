@@ -102,3 +102,11 @@ def test_a_subscription_whose_price_changes_is_still_found():
 def test_a_shop_with_the_same_meal_deal_often_is_not_a_subscription():
     tx = [T(m, d, "TESCO EXPRESS", 3.5) for m in range(1, 7) for d in (3, 10, 17)] + [T(6, 20, "LAST THING", 1.0)]
     assert find_subscriptions(tx) == {"active": [], "stopped": []}
+
+
+def test_a_shop_once_a_month_with_a_few_round_amounts_is_not_a_subscription():
+    # Real oddity (Oct 2026): Sainsburys, once a month for 13 months, 50.00 three times and other amounts the rest.
+    amounts = [50.0, 23.4, 50.0, 61.2, 18.9, 50.0, 33.3, 47.1, 29.8, 55.5, 12.6, 40.4, 36.0]
+    tx = [Txn(date(2024 + (i // 12), i % 12 + 1, 4), "VIS", "SAINSBURYS S/MKTS", "", -a) for i, a in enumerate(amounts)]
+    tx.append(Txn(date(2025, 2, 1), "VIS", "LAST THING", "", -1.0))
+    assert find_subscriptions(tx) == {"active": [], "stopped": []}
