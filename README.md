@@ -40,6 +40,7 @@ The page runs on your PC only (no login, no upload). New statements still go thr
 - `run.py test` uses the `statements` folder inside the code folder
 - `run.py fix` lists your saved answers so you can change them (e.g. `oneoff 3`, `label 2 Rent`)
 - `run.py folder "C:\path\to\statements"` remembers your statements folder
+- `run.py early` lists payments made in the 3 days before a payday; `run.py early 1` counts one from that payday (e.g. rent sent a day early; same again = undo)
 - `run.py wage "NEW EMPLOYER"` after a job change: money in from that name (500 or more) also counts as your wage (`run.py wage` lists them)
 
 Your data lives in `tracker.db` next to the statements folder. It is never committed to Git.

@@ -21,6 +21,7 @@ from fintrack.dedupe import unique_statements
 from fintrack.sort import bills_summary, classify, statement_report, big_items
 from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
 from fintrack.wages import add_payer, all_payers
+from fintrack.early import load_moved
 from fintrack.common import analyse
 from fintrack.left import parse_money
 from fintrack.spare import expected_spare, last_cycle_check, format_last_cycle, pay_block, format_pay_block
@@ -122,7 +123,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
 
     # Load everything from database
     all_stmts = load_statements(conn)
-    all_txns = load_txns(conn)
+    all_txns = load_moved(conn, all_payers(conn, wage_payer))
 
     # Sort transactions early for cycle building
     all_txns.sort(key=lambda t: t.date)
@@ -327,7 +328,7 @@ def _print_spends_block(conn, wage_payer, out):
     from fintrack.store import get_rules
     from fintrack.typed import format_spends, money_for_spending
 
-    txns = load_txns(conn)
+    txns = load_moved(conn, all_payers(conn, wage_payer))
     txns.sort(key=lambda t: t.date)
     cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
     if not cycles:
@@ -353,6 +354,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
     - ["add", <amount>, <name>...]: add a typed spend
     - ["spends"]: show the current typed spends block
     - ["remove", <number>]: remove a typed spend by number
+    - ["early"]: list payments made just before a payday; ["early", <number>]: count it from that payday (again = undo)
     - ["wage", <name>...]: add another wage payer name (new job); ["wage"] lists them
     - anything else ([], ["test"], etc): return False
     """
@@ -378,6 +380,41 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
             saved_file = SAVED_FILE
         save_folder(path, saved_file)
         out(f"Saved. From now on I read statements from: {path}")
+        return True
+
+    if cmd == "early":
+        from fintrack import early
+        from fintrack.early import candidates, moved_keys, toggle
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        db_path = Path(db_path) if db_path is not None else Path(in_dir).parent / "tracker.db"
+        conn = open_db(db_path)
+        found = candidates(early.load_txns(conn), all_payers(conn, wage_payer))[:15]
+        if len(argv) > 1:
+            try:
+                n = int(argv[1])
+            except ValueError:
+                n = 0
+            if not 1 <= n <= len(found):
+                out(f"There is no number {argv[1]}. Run: run.py early")
+                return True
+            t, payday = found[n - 1]
+            if toggle(conn, t):
+                out(f"Moved: {t.date:%d %b} {t.description} {t.detail} {-t.amount:.2f} now counts from payday {payday:%d %b}.")
+            else:
+                out(f"Put back: {t.date:%d %b} {t.description} {t.detail} {-t.amount:.2f} counts on its own date again.")
+            out("Run run.py again (and press F5 on the home page) to see the new numbers.")
+            return True
+        if not found:
+            out("Nothing paid in the 3 days before a payday.")
+            return True
+        keys = moved_keys(conn)
+        out("PAID JUST BEFORE PAYDAY (newest first)")
+        for i, (t, payday) in enumerate(found, 1):
+            mark = "   MOVED to payday" if early.key(t) in keys else ""
+            name = f"{t.description} {t.detail}".strip()[:34]
+            out(f"  {i:>2}  {t.date:%d %b %Y}  {name:<34} {-t.amount:>9.2f}   payday {payday:%d %b}{mark}")
+        out("Count one from its payday (e.g. rent sent early):  run.py early 1   (same again = undo)")
         return True
 
     if cmd == "wage":
@@ -447,7 +484,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
 
         # Open database, load transactions, build cycles, and get category details
         conn = open_db(db_path)
-        txns = load_txns(conn)
+        txns = load_moved(conn, all_payers(conn, wage_payer))
         txns.sort(key=lambda t: t.date)
         cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
 
@@ -496,7 +533,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
 
         # Open database, load transactions, build cycles
         conn = open_db(db_path)
-        txns = load_txns(conn)
+        txns = load_moved(conn, all_payers(conn, wage_payer))
         txns.sort(key=lambda t: t.date)
         cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
 

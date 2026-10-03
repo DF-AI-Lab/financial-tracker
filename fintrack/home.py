@@ -28,7 +28,9 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         dict with ready=False if no data, else dict with all page data
     """
     # Load all the data
-    txns = sorted(load_txns(conn), key=lambda t: t.date)
+    from fintrack.early import load_moved
+    from fintrack.wages import all_payers
+    txns = sorted(load_moved(conn, all_payers(conn, wage_payer)), key=lambda t: t.date)
 
     if not txns:
         return {"ready": False}

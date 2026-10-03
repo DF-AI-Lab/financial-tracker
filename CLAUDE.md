@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (310 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (318 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -59,7 +59,8 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
 
 ## Next
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
-   Also added setup.bat (shortcuts + start with Windows). v2 ideas from today are in FUTURE_FEATURES.md.
+   Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
+   (moved payments are re-dated to the payday in load_moved; kv key moved_early). Also added setup.bat (shortcuts + start with Windows). v2 ideas from today are in FUTURE_FEATURES.md.
 1. All 9 SPEC steps built (3 Oct). Home page tried on real data: liked it. Then added: bills first in "Last month's
    spending", and a 6 months / 12 months / year-so-far totals table (`fintrack/periods.py`, per-payment rule).
    Haiku warning (3 Oct): it hard-coded "3-mth avg", reverted the template it was told not to touch, and skipped a
