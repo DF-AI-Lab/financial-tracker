@@ -72,5 +72,8 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    non-bill spending by category -> left if usual; `spare.pay_block`), subscription spotter (`fintrack/subs.py`), a typed
    sentence at the rent question is not saved as a label. User skipped: show guessed categories in `fix`, "finished" kind.
    Still open: where.py bill note says "last month" even when the usual is the average.
+   TODO (3 Oct, user asked, not built yet): Bills table 'Last month' total adds the AVERAGE for bills not paid last month
+   (Tesco Mobile, ChatGPT = 102.49) but the row shows '-'. Show the avg with a * in grey (e.g. 100.16*) + footnote
+   '* not paid last month, average used' on the home page (templates/home.html) and terminal (spare.py format).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
