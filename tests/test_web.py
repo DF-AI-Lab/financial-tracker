@@ -186,3 +186,27 @@ def test_subscriptions_columns(client):
     part = html[html.index("Subscriptions"):]
     assert "Monthly price" in part and "Last 12 months" in part and "This year" in part
     assert "Paid so far" not in part
+
+
+def test_left_from_last_month_box(client, db):
+    base = home_data(open_db(db), wage_payer=ACME)
+    assert client.post("/left", data={"amount": "220"}).status_code == 303
+    d = home_data(open_db(db), wage_payer=ACME)
+    assert d["pay"]["spare"] == pytest.approx(base["pay"]["spare"] + 220)
+    assert d["left_now"] == pytest.approx(d["pay"]["spare"])
+    html = client.get("/").get_data(as_text=True)
+    assert "+ left £220.00" in html and "Left from last month" in html
+    client.post("/left", data={"amount": ""})                                # the x
+    assert home_data(open_db(db), wage_payer=ACME)["pay"]["spare"] == pytest.approx(base["pay"]["spare"])
+    r = client.post("/left", data={"amount": "abc"}, follow_redirects=True)
+    assert "Sorry, I could not read that as money." in r.get_data(as_text=True)
+
+
+def test_bill_change_from_the_page_script_does_not_reload(client, db):
+    # 3 Oct 2026: typing in a bill box updates the page as you type and saves quietly in the background
+    key = home_data(open_db(db), wage_payer=ACME)["pay"]["bills"][0]["key"]
+    r = client.post("/bill", data={"key": key, "amount": "123"}, headers={"X-Requested-With": "fetch"})
+    assert r.status_code == 204
+    assert any(b["changed"] and b["used"] == 123 for b in home_data(open_db(db), wage_payer=ACME)["pay"]["bills"])
+    html = client.get("/").get_data(as_text=True)
+    assert 'data-key="' in html and 'id="spare-big"' in html

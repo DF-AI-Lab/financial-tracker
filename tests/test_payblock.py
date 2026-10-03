@@ -122,3 +122,13 @@ def test_a_bill_changed_for_this_cycle_is_used_for_the_spare_cash():
     line = next(l for l in format_pay_block(p) if l.startswith("  ENERGY CO"))
     assert line == f"  {'ENERGY CO':<32}{'85.00':>10}  {'151.00':>10}  (changed)"
     assert block(changes={"NOT A BILL": 5.0})["bills_last"] == pytest.approx(595)       # unknown keys are ignored
+
+
+def test_left_from_last_month_is_added_to_the_spare_cash():
+    p = block(left=220.0)
+    assert p["left"] == 220.0 and p["spare"] == pytest.approx(2500 + 220 - 595)
+    lines = format_pay_block(p)
+    i = lines.index(f"  {'Pay':<32}{'2,500.00':>10}")
+    assert lines[i + 1] == f"+ {'Left from last month':<32}{'220.00':>10}"
+    assert block()["left"] == 0.0
+    assert not any("Left from last month" in l for l in format_pay_block(block()))
