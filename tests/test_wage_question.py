@@ -77,7 +77,8 @@ def test_run_shows_cycles_common_and_asks_for_pay(tmp_path, capsys):
     text = capsys.readouterr().out
     assert "PAYDAY TO PAYDAY" in text and "(so far)" in text
     assert "COMMON" in text and "ONE-OFFS" in text
-    assert "IF YOUR PAY IS 2,500.00" in text and "Left after typical month" in text
+    assert "IF YOUR PAY IS 2,500.00" in text and "Expected spare" in text
+    assert "LAST CYCLE: EXPECTED vs ACTUAL" in text and text.index("LAST CYCLE") < text.index("IF YOUR PAY IS")
     assert len(ask.prompts) == 1 and "2,462.62" in ask.prompts[0]   # last wage offered
     assert (out / "cycles.csv").exists() and (out / "common.csv").exists()
     assert all(ord(c) < 128 for c in text)
