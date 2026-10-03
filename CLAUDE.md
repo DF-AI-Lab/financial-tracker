@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (333 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (337 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -80,10 +80,9 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    with X-Requested-With: fetch -> 204), several at once, x puts back. 'Left from last month' box under the pay box
    (POST /left, x removes; billchange.get_left, kv 'left_over_typed' with the cycle start): spare = pay + left - bills,
    hero line 'Pay + left - bills', terminal '+ Left from last month'.
-   TODO 3 Oct (user asked, not built, confirm first): drag and drop on the home page: whole cards up/down, and rows
-   inside cards (Bills, Last month's spending, Spending by category, Subscriptions). Totals stay at the bottom; the
-   6/12 months table stays as it is. Planned: order remembered for good (kv), new rows go to the bottom; a reset link.
-   TODO 3 Oct (with drag and drop): rename rows on the home page (display name only, e.g. 'City Of York Gener' ->
-   'Council Tax'), saved for good like the order (kv), not in items/rules. Bill amount changes still reset each payday.
+   3 Oct BUILT (337 tests): '✏️ Move & rename' button on the home page: drag cards and rows (Bills, Last month's
+   spending, Spending by category, Subscriptions) by the handle, click a name to rename it (empty = normal name),
+   '↺ Put the order back'. Kept for good (`fintrack/layout.py`, kv 'layout'; POST /layout, /name, /layout/reset);
+   page only. Cards are rendered in the saved order (Jinja set-blocks in home.html). Bill changes still reset at payday.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).

@@ -103,8 +103,31 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     # Get periods data
     periods = period_totals(cycles, answers=answers, rules=rules)
 
+    # The user's own order and names (page only, fintrack/layout.py)
+    from fintrack.layout import get_layout, apply_order, CARDS
+    lay = get_layout(conn)
+    order, names = lay["order"], lay["names"]
+
+    def named(rows, make_id, field):
+        for r in rows:
+            r["id"] = make_id(r)
+            r["orig"] = r[field]
+            r["name"] = names.get(r["id"], r[field])
+        return rows
+
+    pay["bills"] = apply_order(named(pay["bills"], lambda b: "bill:" + b["key"], "name"), order.get("bills", []), lambda r: r["id"])
+    pay["spending"] = apply_order(named(pay["spending"], lambda r: "cat:" + r["category"], "category"),
+                                  order.get("lastmonth", []), lambda r: r["id"])
+    cats["rows"] = apply_order(named(cats["rows"], lambda r: "cat:" + r["category"], "category"),
+                               order.get("cats", []), lambda r: r["id"])
+    for group in ("active", "stopped"):
+        subs[group] = apply_order(named(subs[group], lambda r: "sub:" + r["name"], "name"),
+                                  order.get("subs-" + group, []), lambda r: r["id"])
+    cards = apply_order(list(CARDS), order.get("cards", []), lambda c: c)
+
     return {
         "ready": True,
+        "cards": cards,
         "pay": pay,
         "last": last,
         "where": where,

@@ -76,6 +76,15 @@
   input.billbox { width: 90px; padding: 4px 6px; text-align: right; }
   input.billbox.badval { border-color: var(--bad); }
   td button.small.x { padding: 0 6px; margin-left: 4px; }
+  .handle, .onlyedit { display: none; }
+  body.editing .handle { display: inline-block; cursor: grab; color: var(--muted); margin-right: 6px; user-select: none; }
+  body.editing .onlyedit { display: inline-block; }
+  body.editing div.onlyedit { display: block; }
+  .editbar { display: flex; justify-content: flex-end; gap: 8px; margin: -12px 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+  body.editing .rname { outline: 1px dashed var(--border); border-radius: 4px; padding: 0 3px; cursor: text; }
+  body.editing .card { outline: 1px dashed var(--border); }
+  .dragging { opacity: .4; }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -89,6 +98,12 @@
     </div>
   {% else %}
   <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
+
+  <div class="editbar">
+    <button type="button" class="small" id="editbtn">✏️ Move &amp; rename</button>
+    <form method="post" action="/layout/reset" class="onlyedit"><button class="small" type="submit">↺ Put the order back</button></form>
+  </div>
+  <div class="onlyedit hint">Drag ⠿ to move a card or a row. Click a name to rename it (empty = the normal name). Press <b>Done</b> when finished.</div>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
@@ -121,8 +136,14 @@
     {% endif %}
   </div>
 
-  <div class="card">
-    <h2>➕ Add a spend</h2>
+  {% for y in d.pay.yearly %}
+    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b class="yleft" data-amount="{{ y.amount }}">{{ y.left_if_paid|money }}</b></div>
+  {% endfor %}
+
+  {% set bills_last = d.pay.bills|sum(attribute='last') %}
+  {% set c_spend %}
+  <div class="card" data-id="spend" data-card="spend">
+    <h2><span class="handle" title="Drag to move">⠿</span> ➕ Add a spend</h2>
     <form class="inline" method="post" action="/add">
       <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
       <input class="name" type="text" name="name" placeholder="Costa" aria-label="What">
@@ -142,16 +163,17 @@
       <span class="eq">Left now</span><span class="n eq" id="leftnow">{{ d.left_now|money }}</span>
     </div>
   </div>
-
-  <!-- Bills right under 'Add a spend' (user, 3 Oct 2026). Tap a Last month amount to change it for this cycle only. -->
-  <div class="card">
-    <h2>🏠 Bills (every month)</h2>
+  {% endset %}
+  {% set c_bills %}
+  <div class="card" data-id="bills" data-card="bills">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🏠 Bills (every month)</h2>
     <table id="bills">
-      <tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
+      <thead><tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr></thead>
+      <tbody data-sort="bills">
       {% for b in d.pay.bills %}
         {% set dflt = b.last if b.last > 0 else b.avg %}
-        <tr class="bill" data-key="{{ b.key }}" data-avg="{{ b.avg }}" data-default="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}">
-          <td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td>
+        <tr class="bill" data-id="{{ b.id }}" data-key="{{ b.key }}" data-avg="{{ b.avg }}" data-default="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}">
+          <td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ b.id }}" data-orig="{{ b.orig }}">{{ b.name }}</span></td><td class="n">{{ b.avg|money }}</td>
           <td class="n">
             <button type="button" class="link {{ 'muted' if b.estimated else '' }}" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% elif b.changed %} ✏️{% endif %}</button>
             <input class="amount billbox" type="text" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}" hidden>
@@ -159,45 +181,44 @@
           </td>
           <td class="n diff {{ 'good' if b.diff is not none and b.diff < -0.005 else ('bad' if b.diff is not none and b.diff > 0.005 else 'muted') }}">{{ b.diff|diff }}</td></tr>
       {% endfor %}
+      </tbody>
       {% set bdiff = d.pay.bills_last - d.pay.bills_avg %}
-      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n" id="btotal">{{ d.pay.bills_last|money }}</td>
-        <td class="n {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}" id="bdiff">{{ bdiff|diff }}</td></tr>
+      <tbody><tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n" id="btotal">{{ d.pay.bills_last|money }}</td>
+        <td class="n {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}" id="bdiff">{{ bdiff|diff }}</td></tr></tbody>
     </table>
     <div class="labels" style="margin-top:8px">
       {% if d.pay.bills|selectattr('estimated')|list %}* not paid last month, average used<br>{% endif %}
       ✏️ Tap a Last month amount to change it for this pay cycle only. Spare cash updates as you type; ✖ puts it back.
     </div>
   </div>
-
-  {% for y in d.pay.yearly %}
-    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b class="yleft" data-amount="{{ y.amount }}">{{ y.left_if_paid|money }}</b></div>
-  {% endfor %}
-
-  <!-- No. 2: last month's spending, bills first -->
-  {% set bills_last = d.pay.bills|sum(attribute='last') %}
-  <div class="card">
-    <h2>🛒 Last month's spending</h2>
+  {% endset %}
+  {% set c_last %}
+  <div class="card" data-id="lastmonth" data-card="lastmonth">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🛒 Last month's spending</h2>
     <table>
-      <tr><th>What</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
+      <thead><tr><th>What</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
       {% set bd = bills_last - d.pay.bills_avg %}
-      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are listed above</span></td>
+      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are in the 🏠 Bills card</span></td>
           <td class="n"><b>{{ d.pay.bills_avg|money }}</b></td><td class="n"><b>{{ bills_last|money }}</b></td>
-          <td class="n {{ 'good' if bd < -0.005 else ('bad' if bd > 0.005 else '') }}"><b>{{ bd|diff }}</b></td></tr>
+          <td class="n {{ 'good' if bd < -0.005 else ('bad' if bd > 0.005 else '') }}"><b>{{ bd|diff }}</b></td></tr></thead>
+      <tbody data-sort="lastmonth">
       {% for s in d.pay.spending %}
         {% set sd = s.last - s.avg %}
-        <tr><td>{{ s.category }}{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
+        <tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span>{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
             <td class="n">{{ s.avg|money }}</td><td class="n">{{ s.last|money }}</td>
             <td class="n {{ 'good' if sd < -0.005 else ('bad' if sd > 0.005 else '') }}">{{ sd|diff }}</td></tr>
       {% endfor %}
+      </tbody>
       {% set td = bills_last + d.pay.spending_last - d.pay.bills_avg - d.pay.spending_avg %}
-      <tr class="total"><td>Total</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td>
-        <td class="n {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td></tr>
+      <tbody><tr class="total"><td>Total</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td>
+        <td class="n {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td></tr></tbody>
     </table>
   </div>
-
+  {% endset %}
+  {% set c_where %}
   {% if d.last %}
-  <div class="card">
-    <h2>🔍 Where did last cycle's money go?</h2>
+  <div class="card" data-id="where" data-card="where">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🔍 Where did last cycle's money go?</h2>
     <div class="sub">{{ d.last.start|day }} to {{ d.last.end|day }}</div>
     <div class="tiles">
       <div class="tile"><div class="label">Expected spare</div><div class="num">{{ d.last.expected|money }}</div></div>
@@ -220,36 +241,45 @@
     {% endif %}
   </div>
   {% endif %}
-
-  <div class="card">
-    <h2>📊 Spending by category</h2>
+  {% endset %}
+  {% set c_cats %}
+  <div class="card" data-id="cats" data-card="cats">
+    <h2><span class="handle" title="Drag to move">⠿</span> 📊 Spending by category</h2>
     <div class="sub">This cycle so far vs the {{ d.categories.cycles_used }}-cycle average. Tap one to see inside.</div>
+    <div data-sort="cats">
     {% for r in d.categories.rows %}
-      <details><summary><span class="what">{{ r.category }}<span class="note">now {{ r.now|money }} · usual {{ r.avg|money }}</span></span>
+      <details data-id="{{ r.id }}"><summary><span class="what"><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ r.id }}" data-orig="{{ r.orig }}">{{ r.name }}</span><span class="note">now {{ r.now|money }} · usual {{ r.avg|money }}</span></span>
         <span class="val {{ 'bad' if r.diff > 0.005 else 'good' }}">{{ '+' if r.diff > 0.005 else '' }}{{ r.diff|money }}</span></summary>
         <div class="inside">
           {% for l in r.labels %}<div><span>{{ l.label }}</span><span>{{ l.now|money }} now · {{ l.avg|money }} usual</span></div>{% endfor %}
         </div></details>
     {% endfor %}
+    </div>
   </div>
-
-  <div class="card">
-    <h2>🔁 Subscriptions</h2>
+  {% endset %}
+  {% set c_subs %}
+  <div class="card" data-id="subs" data-card="subs">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🔁 Subscriptions</h2>
     {% if d.subs.active or d.subs.stopped %}
       <table>
-        <tr><th>Still paying</th><th class="n">Monthly price</th><th class="n">Last 12 months</th><th class="n">This year</th></tr>
-        {% for s in d.subs.active %}<tr><td>{{ s.name }}<span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+        <thead><tr><th>Still paying</th><th class="n">Monthly price</th><th class="n">Last 12 months</th><th class="n">This year</th></tr></thead>
+        <tbody data-sort="subs-active">
+        {% for s in d.subs.active %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span><span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+        </tbody>
         {% if d.subs.stopped %}
-          <tr><td colspan="4" class="muted" style="padding-top:14px">Stopped</td></tr>
-          {% for s in d.subs.stopped %}<tr><td>{{ s.name }}<span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+          <tbody><tr><td colspan="4" class="muted" style="padding-top:14px">Stopped</td></tr></tbody>
+          <tbody data-sort="subs-stopped">
+          {% for s in d.subs.stopped %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span><span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+          </tbody>
         {% endif %}
       </table>
     {% endif %}
     {% if not d.subs.active and not d.subs.stopped %}<p class="muted">None found.</p>{% endif %}
   </div>
-
-  <div class="card">
-    <h2>🗓️ 6 months, 12 months and this year</h2>
+  {% endset %}
+  {% set c_periods %}
+  <div class="card" data-id="periods" data-card="periods">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🗓️ 6 months, 12 months and this year</h2>
     {% if d.periods %}
     <div class="scroll"><table class="periods">
       <tr><th></th>{% for p in d.periods %}<th class="n">{{ p.name }}<span class="labels">{{ p.cycles }} pay cycle{{ 's' if p.cycles != 1 else '' }}</span></th>{% endfor %}</tr>
@@ -269,6 +299,12 @@
       <span>One-offs (not counted)</span><span class="n">{{ d.picture.oneoffs_total|money }}</span>
       <span>Unsorted (average)</span><span class="n">{{ d.picture.unsorted_avg|money }}</span>
     </div>
+  </div>
+  {% endset %}
+  {% set cards = {"spend": c_spend, "bills": c_bills, "lastmonth": c_last, "where": c_where, "cats": c_cats, "subs": c_subs, "periods": c_periods} %}
+  <!-- Cards and rows in the user's own order, rows renamed (fintrack/layout.py, 3 Oct 2026) -->
+  <div id="cards" data-sort="cards">
+  {% for id in d.cards %}{{ cards[id] }}{% endfor %}
   </div>
   {% endif %}
 
@@ -333,6 +369,54 @@
       row.dataset.used = row.dataset.default; row.dataset.changed = '0';
       box.value = parseFloat(row.dataset.default).toFixed(2);
       showRow(row); recalc(); save(row, '');
+    });
+  });
+
+  // Move & rename (3 Oct 2026): drag cards and rows by the handle, click a name to rename it. Saved for good.
+  const post = (url, data) => fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  const editBtn = document.getElementById('editbtn');
+  if (editBtn) editBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('editing');
+    editBtn.textContent = on ? '✅ Done' : '✏️ Move & rename';
+    document.querySelectorAll('.rname').forEach(n => n.contentEditable = on ? 'plaintext-only' : 'false');
+  });
+  document.querySelectorAll('summary').forEach(sm => sm.addEventListener('click', e => {
+    if (document.body.classList.contains('editing')) e.preventDefault();      // no opening while editing
+  }));
+  document.querySelectorAll('.rname').forEach(n => {
+    n.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); n.blur(); } });
+    n.addEventListener('blur', () => {
+      const name = n.textContent.trim();
+      if (name === '') n.textContent = n.dataset.orig;
+      post('/name', {id: n.dataset.id, name: name === n.dataset.orig ? '' : name});
+    });
+  });
+
+  let dragEl = null;
+  const childOf = (box, node) => { while (node && node.parentElement !== box) node = node.parentElement; return node; };
+  document.querySelectorAll('.handle').forEach(h => h.addEventListener('mousedown', () => {
+    const el = h.closest('[data-id]'); if (el) el.draggable = true;
+  }));
+  document.querySelectorAll('[data-sort]').forEach(box => {
+    box.addEventListener('dragstart', e => {
+      const el = childOf(box, e.target);
+      if (!el || !el.dataset.id || dragEl) return;
+      dragEl = el; el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', el.dataset.id);
+    });
+    box.addEventListener('dragover', e => {
+      if (!dragEl || dragEl.parentElement !== box) return;
+      e.preventDefault();
+      const over = childOf(box, e.target);
+      if (!over || over === dragEl || !over.dataset.id) return;
+      const r = over.getBoundingClientRect();
+      box.insertBefore(dragEl, e.clientY > r.top + r.height / 2 ? over.nextSibling : over);
+    });
+    box.addEventListener('drop', e => { if (dragEl && dragEl.parentElement === box) e.preventDefault(); });
+    box.addEventListener('dragend', () => {
+      if (!dragEl || dragEl.parentElement !== box) return;
+      dragEl.classList.remove('dragging'); dragEl.draggable = false; dragEl = null;
+      post('/layout', {sort: box.dataset.sort, ids: [...box.children].filter(c => c.dataset.id).map(c => c.dataset.id)});
     });
   });
 </script>

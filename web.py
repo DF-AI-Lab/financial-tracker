@@ -168,6 +168,38 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         conn.close()
         return redirect(url_for("home"), code=303)
 
+    # Layout (page only, kept for good): POST /layout {"sort", "ids"} after a drag, POST /name {"id", "name"},
+    # POST /layout/reset puts the order back (names are kept).
+    @app.route("/layout", methods=["POST"])
+    def layout():
+        from fintrack.layout import save_order, SORTS
+        data = request.get_json(silent=True) or {}
+        if data.get("sort") not in SORTS or not isinstance(data.get("ids"), list):
+            return ("", 400)
+        conn = open_db(db_path)
+        save_order(conn, data["sort"], data["ids"])
+        conn.close()
+        return ("", 204)
+
+    @app.route("/name", methods=["POST"])
+    def name():
+        from fintrack.layout import set_name
+        data = request.get_json(silent=True) or {}
+        if not isinstance(data.get("id"), str):
+            return ("", 400)
+        conn = open_db(db_path)
+        set_name(conn, data["id"], str(data.get("name", ""))[:60])
+        conn.close()
+        return ("", 204)
+
+    @app.route("/layout/reset", methods=["POST"])
+    def layout_reset():
+        from fintrack.layout import reset_order
+        conn = open_db(db_path)
+        reset_order(conn)
+        conn.close()
+        return redirect(url_for("home"), code=303)
+
     # POST /remove
     @app.route("/remove", methods=["POST"])
     def remove():
