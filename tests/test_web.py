@@ -76,6 +76,7 @@ def test_home_data_matches_the_terminal_numbers(db):
     assert d["categories"]["rows"] and "active" in d["subs"]
     assert d["spends"] == [] and d["left_now"] == pytest.approx(d["money_for_spending"])
     assert d["statements_to"] == max(t.date for t in txns)
+    assert [p["name"] for p in d["periods"]][:2] == ["Last 6 months", "Last 12 months"]
 
 
 def test_home_data_uses_the_wage_given_and_the_typed_spends(db):
@@ -102,7 +103,7 @@ def test_page_shows_spare_cash_first(client, db):
     d = home_data(open_db(db), wage_payer=ACME)
     assert "Spare cash" in html and money(d["pay"]["spare"]) in html
     assert html.index("Spare cash") < html.index("Bills") < html.index("Subscriptions")
-    for section in ("Last month", "Where did", "Spending by category", "Add a spend", "Six-month picture"):
+    for section in ("Last month", "Where did", "Spending by category", "Add a spend", "6 months, 12 months and this year"):
         assert section in html, section
     assert "127.0.0.1" not in html                    # nothing about servers on the page
 
@@ -140,3 +141,12 @@ def test_page_without_data(tmp_path):
     app = web.create_app(tmp_path / "empty.db", wage_payer=ACME)
     html = app.test_client().get("/").get_data(as_text=True)
     assert "Run run.py first" in html
+
+
+def test_last_month_spending_starts_with_the_bills(client, db):
+    html = client.get("/").get_data(as_text=True)
+    card = html.split("Last month's spending")[1].split("</table>")[0]
+    assert "Bills (rent, direct debits, standing orders)" in card
+    d = home_data(open_db(db), wage_payer=ACME)
+    last_bills = sum(b["last"] for b in d["pay"]["bills"])
+    assert money(last_bills + d["pay"]["spending_last"]) in card       # the total now includes the bills
