@@ -42,7 +42,7 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     sort = pending_for_page(conn, txns)
     # No. 6c: same bill / rent / typed spend questions (typed spends found in the statements are removed here)
     from fintrack.pagequestions import questions
-    more = questions(conn, txns, [c.start for c in cycles])
+    more = questions(conn, txns, [c.start for c in cycles], payers=all_payers(conn, wage_payer))
     answers = get_items(conn)
     rules = get_rules(conn)
     categories = get_categories(conn)
@@ -163,4 +163,4 @@ def txns_and_paydays(conn, wage_payer):
     from fintrack.wages import all_payers
     txns = sorted(load_moved(conn, all_payers(conn, wage_payer)), key=lambda t: t.date)
     cycles = build_cycles(txns, payer=all_payers(conn, wage_payer)) if txns else []
-    return txns, [c.start for c in cycles]
+    return txns, [c.start for c in cycles], all_payers(conn, wage_payer)

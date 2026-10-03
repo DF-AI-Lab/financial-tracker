@@ -255,8 +255,8 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         from fintrack.home import txns_and_paydays
         from fintrack.pagequestions import answer
         conn = open_db(db_path)
-        txns, paydays = txns_and_paydays(conn, wage_payer)
-        answer(conn, request.get_json(silent=True) or {}, txns, paydays)
+        txns, paydays, payers = txns_and_paydays(conn, wage_payer)
+        answer(conn, request.get_json(silent=True) or {}, txns, paydays, payers=payers)
         conn.close()
         return ("", 204)
 

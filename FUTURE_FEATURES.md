@@ -40,16 +40,16 @@ _Ideas agreed but not built yet. Newest at the bottom._
   **User's answer (3 Oct):** tie it to the pay box. When a new pay is typed in (home page or `run.py`), ask
   "New pay. Clear your typed spends? y/n". Typing the pay = "I got paid", so no date guessing. It is a question,
   not automatic, so fixing a typo in the pay does not wipe anything.
-- **Home page order (user, 3 Oct):** 1 This month's pay, 2 Add a spend, 3 Bills, 4 Subscriptions,
+- **(BUILT 3 Oct) Home page order (user, 3 Oct):** 1 This month's pay, 2 Add a spend, 3 Bills, 4 Subscriptions,
   5 Where did last cycle's money go?, then the rest (Last month's spending, Spending by category,
   6 / 12 months / this year). Only `templates/home.html` changes (cards move, nothing else).
-- **Easier question list (user, 3 Oct):** after showing the 10 items, ask one question at a time:
+- **(BUILT 3 Oct) Easier question list (user, 3 Oct):** after showing the 10 items, ask one question at a time:
   "Which are Common? (numbers)" -> "Which are One-off?" -> "Which are Yearly?" -> the rest are Random.
   Then "Any categories to change?" Enter = skip each step. No keywords to remember.
-- **DD / SO are Common by default (user, 3 Oct):** direct debits and standing orders go straight to Common
+- **(BUILT 3 Oct) DD / SO are Common by default (user, 3 Oct):** direct debits and standing orders go straight to Common
   without a question; only ask when one stops. Fewer questions. (Card and BP stay as now.)
-- **New job spotted by itself (user, 3 Oct):** when no wage from a known payer for about 35 days but another
+- **(BUILT 3 Oct) New job spotted by itself (user, 3 Oct):** when no wage from a known payer for about 35 days but another
   credit of 500+ arrives (around payday, 2+ months), ask once: "Is PENDRAGON PAYROLL your new job? y/n".
   y -> saved with fintrack/wages.add_payer (no `run.py wage` command needed).
-- **Updates without downloading ZIPs (user, 3 Oct):** an `update.bat` (or a button on the home page) that
+- **(BUILT 3 Oct) Updates without downloading ZIPs (user, 3 Oct):** an `update.bat` (or a button on the home page) that
   fetches the latest code from GitHub and replaces the code folder, leaving statements + tracker.db alone.

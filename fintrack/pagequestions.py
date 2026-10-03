@@ -15,6 +15,7 @@ from fintrack.store import add_rule, delete_spend, get_items, get_rules, get_spe
 from fintrack.typed import match_spends
 
 KEPT = "kept_spends"                         # kv: ids of typed spends the user chose to keep
+NOT_JOB = "not_wage"                         # kv: payer names the user said are not a new job (No. 4)
 
 
 def _kept(conn) -> List[int]:
@@ -29,9 +30,18 @@ def _readable(key: str) -> str:
     return f"{group} {name}" + (f' "{ref}"' if ref else "")
 
 
-def questions(conn, txns, paydays) -> List[dict]:
-    """Every question still to answer, as dicts with a "type" of "same", "rent" or "spend"."""
+def _declined_jobs(conn) -> List[str]:
+    return [n for n in (get_value(conn, NOT_JOB) or "").split("\n") if n]
+
+
+def questions(conn, txns, paydays, payers=None) -> List[dict]:
+    """Every question still to answer, as dicts with a "type" of "job", "same", "rent" or "spend".
+    payers = the known wage payers (fintrack.wages.all_payers); None = no new-job question."""
     out = []
+    if payers:
+        from fintrack.newjob import new_job_candidates
+        for c in new_job_candidates(txns, payers, _declined_jobs(conn)):
+            out.append(dict(c, type="job"))
     saved = get_items(conn)
     for big, small in pending_same_bills(conn, txns):
         out.append({"type": "same", "big": big, "small": small, "big_text": _readable(big),
@@ -53,9 +63,20 @@ def questions(conn, txns, paydays) -> List[dict]:
     return out
 
 
-def answer(conn, a: dict, txns, paydays) -> bool:
+def answer(conn, a: dict, txns, paydays, payers=None) -> bool:
     """Save one answer from the page. Anything that does not match a question still open is ignored (False)."""
     t = a.get("type")
+    if t == "job":
+        from fintrack.newjob import new_job_candidates
+        names = [c["name"] for c in new_job_candidates(txns, payers or [], _declined_jobs(conn))]
+        if a.get("name") not in names:
+            return False
+        if a.get("yes"):
+            from fintrack.wages import add_payer
+            add_payer(conn, a["name"])
+        else:
+            set_value(conn, NOT_JOB, "\n".join(_declined_jobs(conn) + [a["name"]]))
+        return True
     if t == "same":
         if (a.get("big"), a.get("small")) not in pending_same_bills(conn, txns):
             return False

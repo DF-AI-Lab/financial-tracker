@@ -348,12 +348,14 @@ def test_more_questions_on_the_page(client, db):
 
 def test_every_kind_of_question_shows(client, monkeypatch):
     import fintrack.pagequestions as pq
-    fake = [{"type": "same", "big": "SO|A|CAR LOAN", "small": "BP|A|CAR OWED", "big_text": 'SO A "CAR LOAN"',
+    fake = [{"type": "job", "name": "PENDRAGON PAYROLL", "count": 3, "usual": 2600.0, "first": date(2024, 4, 28),
+             "last": date(2024, 6, 28)},
+            {"type": "same", "big": "SO|A|CAR LOAN", "small": "BP|A|CAR OWED", "big_text": 'SO A "CAR LOAN"',
              "small_text": 'BP A "CAR OWED"', "big_label": "Car loan", "small_label": "Extra"},
             {"type": "rent", "payer": "SAM PARKER", "usual": 550.0, "label": "Rent",
              "examples": [{"date": "2024-01-29", "amount": 550.0, "reference": "RENT", "days": 1}]},
             {"type": "spend", "id": 1, "name": "Market", "amount": 7.5, "date": date(2024, 10, 1)}]
-    monkeypatch.setattr(pq, "questions", lambda conn, txns, paydays: fake)
+    monkeypatch.setattr(pq, "questions", lambda conn, txns, paydays, payers=None: fake)
     html = client.get("/").get_data(as_text=True)
-    assert "3 quick questions" in html and "Same bill?" in html and "Is this your rent?" in html
+    assert "4 quick questions" in html and "Is PENDRAGON PAYROLL your new job?" in html and "Same bill?" in html and "Is this your rent?" in html
     assert "Typed spend not in your statements" in html and "SAM PARKER" in html
