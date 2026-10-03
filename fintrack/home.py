@@ -8,7 +8,6 @@ from fintrack.spare import pay_block, last_cycle_check
 from fintrack.where import where_did_it_go, where_summary
 from fintrack.bycategory import category_spending
 from fintrack.subs import find_subscriptions
-from fintrack.typed import money_for_spending
 from fintrack.sparehist import spare_history
 from fintrack.picture import six_month_picture
 from fintrack.yearly import yearly_due
@@ -67,7 +66,9 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     due = yearly_due(txns, answers, today=today)
 
     # Build the pay block
-    pay = pay_block(cycles, analysis, wage, categories=categories, items=answers, yearly=due)
+    from fintrack.billchange import get_changes
+    pay = pay_block(cycles, analysis, wage, categories=categories, items=answers, yearly=due,
+                    changes=get_changes(conn, cycles[-1].start))
 
     # Get last cycle check
     last = last_cycle_check(cycles, answers=answers, rules=rules)
@@ -88,7 +89,7 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     spends = get_spends(conn)
 
     # Get money for spending
-    money = money_for_spending(cycles, analysis, wage)
+    money = pay["spare"]                     # pay - bills, with any bill changed for this cycle
 
     # Calculate left_now
     left_now = money - sum(s["amount"] for s in spends)
@@ -113,6 +114,7 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         "money_for_spending": money,
         "left_now": left_now,
         "typed_total": money - left_now,
+        "cycle_start": cycles[-1].start,
         "history": spare_history(cycles, analysis),
         "picture": picture,
         "statements_to": statements_to,

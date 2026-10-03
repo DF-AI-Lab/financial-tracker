@@ -156,12 +156,12 @@ def test_last_month_spending_starts_with_the_bills(client, db):
 
 def test_bills_card_is_right_under_add_a_spend(client):
     html = client.get("/").get_data(as_text=True)
-    assert html.index("Add a spend") < html.index("Bills (every month)") < html.index("Last month&#39;s spending")
+    assert html.index("Add a spend") < html.index("Bills (every month)") < html.index("Last month's spending")
 
 
 def test_avg_then_last_month_then_diff_everywhere(client):
     html = client.get("/").get_data(as_text=True)
-    for card in ("Last month&#39;s spending", "Bills (every month)"):
+    for card in ("Last month's spending", "Bills (every month)"):
         part = html[html.index(card):]
         assert part.index("-mth avg") < part.index("Last month</th>") < part.index("Diff</th>"), card
 

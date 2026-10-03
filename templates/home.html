@@ -67,6 +67,10 @@
   .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
   .scroll { overflow-x: auto; }
   @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
+  button.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  button.link.muted { color: var(--muted); }
+  form.x { display: inline; margin-left: 4px; } form.x button { padding: 0 6px; }
+  .billform input.amount { width: 90px; padding: 4px 6px; text-align: right; }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -126,6 +130,35 @@
     </div>
   </div>
 
+  <!-- Bills right under 'Add a spend' (user, 3 Oct 2026). Tap a Last month amount to change it for this cycle only. -->
+  <div class="card">
+    <h2>🏠 Bills (every month)</h2>
+    <table>
+      <tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
+      {% for b in d.pay.bills %}
+        <tr><td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td>
+          <td class="n">
+            <span id="bv{{ loop.index }}">
+              <button type="button" class="link {{ 'muted' if b.estimated else '' }}" onclick="editBill({{ loop.index }})" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% elif b.changed %} ✏️{% endif %}</button>
+              {% if b.changed %}<form class="x" method="post" action="/bill"><input type="hidden" name="key" value="{{ b.key }}"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Put it back">✖</button></form>{% endif %}
+            </span>
+            <form id="bf{{ loop.index }}" class="billform" method="post" action="/bill" hidden>
+              <input type="hidden" name="key" value="{{ b.key }}">
+              <input class="amount" type="text" name="amount" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}">
+            </form>
+          </td>
+          <td class="n {{ 'good' if b.diff is not none and b.diff < -0.005 else ('bad' if b.diff is not none and b.diff > 0.005 else 'muted') }}">{{ b.diff|diff }}</td></tr>
+      {% endfor %}
+      {% set bdiff = d.pay.bills_last - d.pay.bills_avg %}
+      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n">{{ d.pay.bills_last|money }}</td>
+        <td class="n {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}">{{ bdiff|diff }}</td></tr>
+    </table>
+    <div class="labels" style="margin-top:8px">
+      {% if d.pay.bills|selectattr('estimated')|list %}* not paid last month, average used<br>{% endif %}
+      ✏️ Tap a Last month amount to change it for this pay cycle only (Enter to save).
+    </div>
+  </div>
+
   {% for y in d.pay.yearly %}
     <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b>{{ y.left_if_paid|money }}</b></div>
   {% endfor %}
@@ -135,25 +168,20 @@
   <div class="card">
     <h2>🛒 Last month's spending</h2>
     <table>
-      <tr><th>What</th><th class="n">Last month</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th></tr>
-      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are listed below</span></td>
-          <td class="n"><b>{{ bills_last|money }}</b></td><td class="n"><b>{{ d.pay.bills_avg|money }}</b></td></tr>
+      <tr><th>What</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
+      {% set bd = bills_last - d.pay.bills_avg %}
+      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are listed above</span></td>
+          <td class="n"><b>{{ d.pay.bills_avg|money }}</b></td><td class="n"><b>{{ bills_last|money }}</b></td>
+          <td class="n {{ 'good' if bd < -0.005 else ('bad' if bd > 0.005 else '') }}"><b>{{ bd|diff }}</b></td></tr>
       {% for s in d.pay.spending %}
+        {% set sd = s.last - s.avg %}
         <tr><td>{{ s.category }}{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
-            <td class="n">{{ s.last|money }}</td><td class="n">{{ s.avg|money }}</td></tr>
+            <td class="n">{{ s.avg|money }}</td><td class="n">{{ s.last|money }}</td>
+            <td class="n {{ 'good' if sd < -0.005 else ('bad' if sd > 0.005 else '') }}">{{ sd|diff }}</td></tr>
       {% endfor %}
-      <tr class="total"><td>Total</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td></tr>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>🏠 Bills (every month)</h2>
-    <table>
-      <tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th></tr>
-      {% for b in d.pay.bills %}
-        <tr><td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td><td class="n">{{ b.last|money if b.last > 0 else '—' }}</td></tr>
-      {% endfor %}
-      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n">{{ d.pay.bills_last|money }}</td></tr>
+      {% set td = bills_last + d.pay.spending_last - d.pay.bills_avg - d.pay.spending_avg %}
+      <tr class="total"><td>Total</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td>
+        <td class="n {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td></tr>
     </table>
   </div>
 
@@ -197,16 +225,14 @@
 
   <div class="card">
     <h2>🔁 Subscriptions</h2>
-    {% if d.subs.active %}
+    {% if d.subs.active or d.subs.stopped %}
       <table>
-        <tr><th>Still paying</th><th class="n">A month</th><th class="n">Paid so far</th></tr>
-        {% for s in d.subs.active %}<tr><td>{{ s.name }}<span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.total|money }}</td></tr>{% endfor %}
-      </table>
-    {% endif %}
-    {% if d.subs.stopped %}
-      <div class="sub" style="margin:12px 0 4px">Stopped</div>
-      <table>
-        {% for s in d.subs.stopped %}<tr><td>{{ s.name }}<span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.total|money }}</td></tr>{% endfor %}
+        <tr><th>Still paying</th><th class="n">Monthly price</th><th class="n">Last 12 months</th><th class="n">This year</th></tr>
+        {% for s in d.subs.active %}<tr><td>{{ s.name }}<span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+        {% if d.subs.stopped %}
+          <tr><td colspan="4" class="muted" style="padding-top:14px">Stopped</td></tr>
+          {% for s in d.subs.stopped %}<tr><td>{{ s.name }}<span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+        {% endif %}
       </table>
     {% endif %}
     {% if not d.subs.active and not d.subs.stopped %}<p class="muted">None found.</p>{% endif %}
@@ -238,5 +264,14 @@
 
   <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.</div>
 </div>
+<script>
+  function editBill(i) {
+    document.getElementById('bv' + i).hidden = true;
+    var f = document.getElementById('bf' + i);
+    f.hidden = false;
+    var box = f.querySelector('input[name=amount]');
+    box.focus(); box.select();
+  }
+</script>
 </body>
 </html>

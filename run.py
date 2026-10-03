@@ -34,6 +34,7 @@ from fintrack.picture import six_month_picture, format_picture
 from fintrack.bycategory import category_spending, format_categories, format_category_detail
 from fintrack.where import where_did_it_go, format_where, show_lines
 from fintrack.subs import find_subscriptions, format_subscriptions
+from fintrack.billchange import get_changes
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -305,7 +306,8 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
 
     # Save the wage and print the pay block
     set_value(conn, "pay", str(wage))
-    for line in format_pay_block(pay_block(cycles, analysis, wage, categories=get_categories(conn), items=answers, yearly=due)):
+    for line in format_pay_block(pay_block(cycles, analysis, wage, categories=get_categories(conn), items=answers, yearly=due,
+                                            changes=get_changes(conn, cycles[-1].start))):
         print(line)
 
     # Print subscriptions
@@ -318,7 +320,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     if spends:
         from fintrack.typed import format_spends, money_for_spending
         print()
-        money = money_for_spending(cycles, analysis, wage)
+        money = money_for_spending(cycles, analysis, wage, get_changes(conn, cycles[-1].start))
         for line in format_spends(spends, money):
             print(line)
 
@@ -336,7 +338,7 @@ def _print_spends_block(conn, wage_payer, out):
     analysis = analyse(cycles, answers=get_items(conn), rules=get_rules(conn))
     saved = get_value(conn, "pay")
     wage = float(saved) if saved else cycles[-1].wage
-    for line in format_spends(get_spends(conn), money_for_spending(cycles, analysis, wage)):
+    for line in format_spends(get_spends(conn), money_for_spending(cycles, analysis, wage, get_changes(conn, cycles[-1].start))):
         out(line)
 
 

@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (320 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (329 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -72,20 +72,9 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    non-bill spending by category -> left if usual; `spare.pay_block`), subscription spotter (`fintrack/subs.py`), a typed
    sentence at the rent question is not saved as a label. User skipped: show guessed categories in `fix`, "finished" kind.
    Still open: where.py bill note says "last month" even when the usual is the average.
-   TODO (3 Oct, user asked, not built yet): Bills table 'Last month' total adds the AVERAGE for bills not paid last month
-   (Tesco Mobile, ChatGPT = 102.49) but the row shows '-'. Show the avg with a * in grey (e.g. 100.16*) + footnote
-   '* not paid last month, average used' on the home page (templates/home.html) and terminal (spare.py format).
-   AGREED 3 Oct, NOT BUILT (user said wait), build with the * fix in one go:
-   a) Home page: move the Bills card straight under 'Add a spend'.
-   b) Every table with 6-mth avg + last month: columns 6-mth avg | Last month | Diff (Diff = last - avg;
-      minus = cheaper = green, plus = dearer = red). Bills, Last month's spending, anywhere else.
-   c) Change a bill for this cycle only: click the Last month amount, type 151, Enter -> shows 151 with a pencil,
-      a small x puts it back. Used in bills total + spare cash. NOT saved to the bills/items data: kv key tied to
-      the current cycle start, ignored once a new payday cycle starts.
-   d) Subscriptions card: 'Stopped' rows' A MONTH / PAID SO FAR columns do not line up with 'Still paying' rows
-      (different widths). Make it one table so all columns line up.
-      Columns become: Monthly price (latest price, was 'A MONTH') | Last 12 months | This year (1 Jan to now).
-      DROP 'Paid so far' (user: all-time total is wrong without every statement, and 10k numbers take too much room).
-   e) Leave the '6 months / 12 months / this year' table exactly as it is (user said so: no diff there).
+   3 Oct BUILT (329 tests): Bills card under 'Add a spend'; every avg/last table = avg | Last month | Diff (green minus);
+   unpaid bills show the average with * + footnote; tap a bill's Last month amount to change it for THIS cycle only
+   (`fintrack/billchange.py`, kv 'bill_changes' with the cycle start, POST /bill, also used by run.py); subscriptions =
+   one table: Monthly price | Last 12 months | This year ('Paid so far' dropped). 6/12 months table untouched.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).

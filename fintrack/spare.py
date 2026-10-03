@@ -83,7 +83,8 @@ def expected_spare(cycles: List[Cycle], analysis: Analysis, wage: float, yearly:
     }
 
 
-def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=None, items=None, yearly=None) -> dict:
+def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=None, items=None, yearly=None,
+              changes=None) -> dict:
     """Calculate the pay block: bills, spending, spare cash.
 
     Returns dict with keys: "start", "cycles_used", "left_over", "wage", "bills", "bills_avg",
@@ -100,12 +101,23 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
     e = expected_spare(cycles, analysis, wage, yearly)
 
     # Build bills: one dict per analysis.common entry
+    # used = what counts for this cycle: a change typed on the home page (fintrack/billchange.py), else last month,
+    # else the average (not paid last month: shown with a *). diff = used - average (None when the average is used).
+    changes = changes or {}
     bills = []
     for key, entry in analysis.common.items():
+        changed = key in changes
+        estimated = not changed and entry["last"] <= 0
+        used = changes[key] if changed else (entry["average"] if estimated else entry["last"])
         bills.append({
+            "key": key,
             "name": entry.get("label", key),
             "avg": entry["average"],
-            "last": entry["last"]
+            "last": entry["last"],
+            "used": used,
+            "changed": changed,
+            "estimated": estimated,
+            "diff": None if estimated else used - entry["average"]
         })
 
     # Sort by avg biggest first (ties: name)
@@ -113,7 +125,7 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
 
     # Calculate bills_avg and bills_last
     bills_avg = sum(b["avg"] for b in bills)
-    bills_last = expected_bills(analysis)
+    bills_last = sum(b["used"] for b in bills)
 
     # Spare = pay - bills (last month's amounts). Left over is not added (user, 3 Oct 2026).
     spare = wage - bills_last
@@ -235,10 +247,13 @@ def format_pay_block(p: dict) -> List[str]:
     avg_head = f"{p['cycles_used']}-mth avg"
     lines.append(f"{'BILLS (every month)':<34}{avg_head:>10}  {'Last month':>10}")
     for bill in p["bills"]:
-        last_str = fmt_money(bill["last"]) if bill["last"] > 0 else "-"
-        lines.append(f"  {bill['name']:<32}{fmt_money(bill['avg']):>10}  {last_str:>10}")
+        mark = "*" if bill.get("estimated") else ("  (changed)" if bill.get("changed") else "")
+        used = bill.get("used", bill["last"])
+        lines.append(f"  {bill['name']:<32}{fmt_money(bill['avg']):>10}  {fmt_money(used):>10}{mark}")
 
     lines.append(f"  {'Bills total':<32}{fmt_money(p['bills_avg']):>10}  {fmt_money(p['bills_last']):>10}")
+    if any(b.get("estimated") for b in p["bills"]):
+        lines.append("  * not paid last month, average used")
     lines.append("")
 
     lines.append(f"  {'Pay':<32}{fmt_money(p['wage']):>10}")

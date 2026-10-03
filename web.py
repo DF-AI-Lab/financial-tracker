@@ -45,6 +45,15 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         else:
             return f"-£{-x:,.2f}"
 
+    @app.template_filter('diff')
+    def filter_diff(x):
+        """Format a difference as +£12.00 / -£20.83 / £0.00."""
+        if x is None:
+            return ""
+        if abs(x) < 0.005:
+            return "£0.00"
+        return f"+£{x:,.2f}" if x > 0 else f"-£{-x:,.2f}"
+
     @app.template_filter('day')
     def filter_day(d):
         """Format as '5 Oct 2024'."""
@@ -108,6 +117,30 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         add_spend(conn, date.today() if today is None else today, amount, name, category)
         conn.close()
 
+        return redirect(url_for("home"), code=303)
+
+    # POST /bill: change a bill for this pay cycle only (empty amount = put it back)
+    @app.route("/bill", methods=["POST"])
+    def bill():
+        from fintrack.billchange import set_change, clear_change
+        key = request.form.get("key", "")
+        amount_text = request.form.get("amount", "").strip()
+        conn = open_db(db_path)
+        d = home_data(conn, wage_payer=wage_payer, today=today)
+        if not d["ready"] or key not in [b["key"] for b in d["pay"]["bills"]]:
+            conn.close()
+            return redirect(url_for("home"), code=303)
+        if amount_text == "":
+            clear_change(conn, d["cycle_start"], key)
+        else:
+            amount = parse_money(amount_text)
+            if amount is None and amount_text.lstrip("£").replace(".", "").strip("0") == "":
+                amount = 0.0                         # 0 = not paying it this month
+            if amount is None:
+                conn.close()
+                return redirect(url_for("home", error="pay"), code=303)
+            set_change(conn, d["cycle_start"], key, amount)
+        conn.close()
         return redirect(url_for("home"), code=303)
 
     # POST /remove
