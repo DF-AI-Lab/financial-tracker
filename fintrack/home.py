@@ -33,7 +33,8 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     if not txns:
         return {"ready": False}
 
-    cycles = build_cycles(txns, payer=wage_payer)
+    from fintrack.wages import all_payers
+    cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
     answers = get_items(conn)
     rules = get_rules(conn)
     categories = get_categories(conn)

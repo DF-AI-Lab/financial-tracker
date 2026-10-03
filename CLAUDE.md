@@ -24,7 +24,7 @@ extracts it inside `Financial Tracker Project`; they are not a developer: give e
 
 ## Code map (`fintrack/`)
 parse.py (PDF -> statements, column x positions from the header row) | checks.py (balance check) | dedupe.py |
-cycles.py (payday cycles, wage = VERTU MOTORS PLC >= 500) | common.py (analyse: Common/Random/One-off, answers, rules) |
+cycles.py (payday cycles, wage = VERTU MOTORS PLC >= 500, plus names added with `run.py wage NAME`: wages.py, kv table) | common.py (analyse: Common/Random/One-off, answers, rules) |
 questions.py (the confirm-as-you-go list: `common 1 2`, `all`, `later`, `stop`, `fix`) | store.py (SQLite: statements,
 payments, items, rules) | paydayrule.py (rent-by-transfer rule) | left.py (pay question) | settings.py (remembered folder).
 `run.py` ties it together. Tests in `tests/` (fake data only; `tools/make_fake_*.py` build the fake PDFs).
@@ -58,6 +58,8 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
+   Also added setup.bat (shortcuts + start with Windows). v2 ideas from today are in FUTURE_FEATURES.md.
 1. All 9 SPEC steps built (3 Oct). Home page tried on real data: liked it. Then added: bills first in "Last month's
    spending", and a 6 months / 12 months / year-so-far totals table (`fintrack/periods.py`, per-payment rule).
    Haiku warning (3 Oct): it hard-coded "3-mth avg", reverted the template it was told not to touch, and skipped a

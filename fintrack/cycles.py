@@ -7,13 +7,15 @@ WAGE_PAYER = "VERTU MOTORS PLC"
 WAGE_MIN = 500.0
 
 
-def is_wage(t: Txn, payer: str = WAGE_PAYER, min_amount: float = WAGE_MIN) -> bool:
+def is_wage(t: Txn, payer=WAGE_PAYER, min_amount: float = WAGE_MIN) -> bool:
     """True if t is money IN from the wage payer: amount >= min_amount and the payer name
-    (case-insensitive) is contained in t.description."""
-    return t.amount >= min_amount and payer.lower() in t.description.lower()
+    (case-insensitive) is contained in t.description. `payer` may be one name or a list
+    of names (after a job change)."""
+    payers = [payer] if isinstance(payer, str) else payer
+    return t.amount >= min_amount and any(p.lower() in t.description.lower() for p in payers)
 
 
-def build_cycles(txns: List[Txn], payer: str = WAGE_PAYER, min_amount: float = WAGE_MIN) -> List[Cycle]:
+def build_cycles(txns: List[Txn], payer=WAGE_PAYER, min_amount: float = WAGE_MIN) -> List[Cycle]:
     """Split payments into payday-to-payday cycles, oldest first.
 
     - Sort by date (keep the given order for the same date).

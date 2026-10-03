@@ -20,6 +20,7 @@ from fintrack.checks import check_statement
 from fintrack.dedupe import unique_statements
 from fintrack.sort import bills_summary, classify, statement_report, big_items
 from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
+from fintrack.wages import add_payer, all_payers
 from fintrack.common import analyse
 from fintrack.left import parse_money
 from fintrack.spare import expected_spare, last_cycle_check, format_last_cycle, pay_block, format_pay_block
@@ -137,7 +138,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     from fintrack.typed import swap_spends
 
     # Build cycles early for rule review
-    cycles = build_cycles(all_txns, payer=wage_payer)
+    cycles = build_cycles(all_txns, payer=all_payers(conn, wage_payer))
     if cycles:
         paydays = [c.start for c in cycles]
         review_rules(conn, all_txns, paydays, ask_items, out=print)
@@ -328,7 +329,7 @@ def _print_spends_block(conn, wage_payer, out):
 
     txns = load_txns(conn)
     txns.sort(key=lambda t: t.date)
-    cycles = build_cycles(txns, payer=wage_payer)
+    cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
     if not cycles:
         return
     analysis = analyse(cycles, answers=get_items(conn), rules=get_rules(conn))
@@ -352,6 +353,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
     - ["add", <amount>, <name>...]: add a typed spend
     - ["spends"]: show the current typed spends block
     - ["remove", <number>]: remove a typed spend by number
+    - ["wage", <name>...]: add another wage payer name (new job); ["wage"] lists them
     - anything else ([], ["test"], etc): return False
     """
     if not argv:
@@ -376,6 +378,19 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
             saved_file = SAVED_FILE
         save_folder(path, saved_file)
         out(f"Saved. From now on I read statements from: {path}")
+        return True
+
+    if cmd == "wage":
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        db_path = Path(db_path) if db_path is not None else Path(in_dir).parent / "tracker.db"
+        conn = open_db(db_path)
+        if len(argv) > 1:
+            out(f"Saved. Money in from {add_payer(conn, ' '.join(argv[1:]))} (500 or more) now counts as your wage.")
+            out("Run run.py again to redo your payday cycles.")
+        else:
+            out("Wage payers: " + ", ".join(all_payers(conn, wage_payer)))
+            out('Add one: run.py wage "NEW EMPLOYER NAME"')
         return True
 
     if cmd == "fix":
@@ -434,7 +449,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
         conn = open_db(db_path)
         txns = load_txns(conn)
         txns.sort(key=lambda t: t.date)
-        cycles = build_cycles(txns, payer=wage_payer)
+        cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
 
         # Get items, categories, and rules
         items = get_items(conn)
@@ -483,7 +498,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
         conn = open_db(db_path)
         txns = load_txns(conn)
         txns.sort(key=lambda t: t.date)
-        cycles = build_cycles(txns, payer=wage_payer)
+        cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
 
         # Get items, categories, and rules
         items = get_items(conn)
