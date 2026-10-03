@@ -86,5 +86,12 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    page only. Cards are rendered in the saved order (Jinja set-blocks in home.html). Bill changes still reset at payday.
    Also: click a handle to pick a card/row, then arrow up/down moves it (drag did not auto-scroll for the user);
    dragging near the window edge now scrolls too.
+   AGREED PLAN 3 Oct (v2, build in this order, one at a time, user says go):
+   (1) Update: '🔄 Update' button on the home page + update.bat backup: fetch main.zip from GitHub, replace the code
+       folder, keep statements + tracker.db. (3) DD/SO paid in 2+ months = bill (Common) automatically, paid once =
+       asked. (2) Typing a new pay when typed spends exist: pop-up 'New pay. Clear your typed spends?' yes/no.
+       (6+5) Drop a PDF on the home page: it is read in and the questions show on the page: a simple form
+       (Bill / One-off / Yearly / Random + category per item) AND 'Copy for AI' / 'Paste answers'. Replaces the
+       keyword question list. (4) New job spotted by itself (ask once: 'Is X your new job?'). See FUTURE_FEATURES.md.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
