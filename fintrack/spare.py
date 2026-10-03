@@ -115,9 +115,8 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
     bills_avg = sum(b["avg"] for b in bills)
     bills_last = expected_bills(analysis)
 
-    # Calculate spare = (left_over or 0) + wage - bills_last
-    left_over_for_calc = e["left_over"] if e["left_over"] is not None else 0
-    spare = left_over_for_calc + wage - bills_last
+    # Spare = pay - bills (last month's amounts). Left over is not added (user, 3 Oct 2026).
+    spare = wage - bills_last
 
     # Get the last COMPLETE cycle
     complete_cycles = [c for c in cycles if c.complete]
@@ -210,7 +209,7 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
         "spending_last": spending_last,
         "spending_avg": spending_avg,
         "left_usual": left_usual,
-        "yearly": [dict(label=y["label"], amount=y["amount"], paid=y["paid"], left_if_paid=left_usual - y["amount"])
+        "yearly": [dict(label=y["label"], amount=y["amount"], paid=y["paid"], left_if_paid=spare - y["amount"])
                    for y in yearly]
     }
 
@@ -242,16 +241,7 @@ def format_pay_block(p: dict) -> List[str]:
     lines.append(f"  {'Bills total':<32}{fmt_money(p['bills_avg']):>10}  {fmt_money(p['bills_last']):>10}")
     lines.append("")
 
-    # Left over calculation
-    if p["left_over"] is not None:
-        left_str = fmt_money(p["left_over"])
-        left_note = "   (balance just before this payday)"
-    else:
-        left_str = "unknown"
-        left_note = "   (counted as 0)"
-
-    lines.append(f"  {'Left over from last month':<32}{left_str:>10}{left_note}")
-    lines.append(f"+ {'Pay':<32}{fmt_money(p['wage']):>10}")
+    lines.append(f"  {'Pay':<32}{fmt_money(p['wage']):>10}")
     lines.append(f"- {'Bills (last month amounts)':<32}{fmt_money(p['bills_last']):>10}")
     lines.append(f"= {'SPARE CASH':<32}{fmt_money(p['spare']):>10}")
     lines.append("")
@@ -266,8 +256,6 @@ def format_pay_block(p: dict) -> List[str]:
         lines.append(f"  {'Total':<32}{fmt_money(p['spending_last']):>10}  {fmt_money(p['spending_avg']):>10}")
         lines.append("")
 
-    # Left usual
-    lines.append(f"= {'If you spend like usual, left':<32}{fmt_money(p['left_usual']):>10}   (spare cash - {p['cycles_used']}-mth avg spending)")
 
     # Yearly items
     from fintrack.yearly import yearly_lines

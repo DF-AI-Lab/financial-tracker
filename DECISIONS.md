@@ -63,3 +63,9 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
   60% of the months of their run, and the set prices make up 60%+ of those months (a shop with a few round amounts is not one). "a month" shows the latest price.
   Still paying = paid in the last 45 days of the statements; otherwise stopped.
 - **Rent question:** an answer of more than 3 words / 25 characters is a sentence, not a label: asked once more, then skipped.
+
+## 3 Oct 2026: spare cash = pay - bills (user)
+- SPARE CASH = pay - bills (last month's amounts). Left over (balance before payday) is NOT added; it was a month
+  stale when the newest statement ends before the latest payday. "If you spend like usual" is dropped from the
+  terminal and the home page. Typed spends then come off the spare cash ("Left now").
+- Payments made just before payday can be counted from that payday: `run.py early N`.

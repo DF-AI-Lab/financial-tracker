@@ -84,16 +84,12 @@
   <div class="hero">
     <div class="label">Spare cash</div>
     <div class="big">{{ d.pay.spare|money }}</div>
-    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }}{% if d.pay.left_over is not none %} + left over {{ d.pay.left_over|money }}{% endif %}</div>
+    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }}</div>
   </div>
 
   <div class="tiles">
-    <div class="tile"><div class="label">Left if you spend like usual</div>
-      <div class="num {{ 'good' if d.pay.left_usual >= 0 else 'bad' }}">{{ d.pay.left_usual|money }}</div></div>
     <div class="tile"><div class="label">Left now (typed spends)</div>
       <div class="num {{ 'good' if d.left_now >= 0 else 'bad' }}">{{ d.left_now|money }}</div></div>
-    <div class="tile"><div class="label">Usual spending</div>
-      <div class="num">{{ d.pay.spending_avg|money }}</div></div>
   </div>
 
   {% for y in d.pay.yearly %}

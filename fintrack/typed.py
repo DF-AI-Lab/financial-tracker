@@ -134,17 +134,12 @@ def swap_spends(conn, txns: List[Txn], ask, out=print) -> int:
 
 
 def money_for_spending(cycles: List[Cycle], analysis: Analysis, wage: float) -> float:
-    """Calculate left over + wage - bills.
-
-    Uses spare.expected_spare(cycles, analysis, wage) to get "left_over" and "bills".
-    Returns left_over (or 0) + wage - bills.
-    """
+    """Pay - bills (last month's amounts). Left over is not added (user, 3 Oct 2026)."""
     if not cycles:
         return wage
 
     spare = expected_spare(cycles, analysis, wage)
-    left_over = spare["left_over"] if spare["left_over"] is not None else 0
-    return left_over + wage - spare["bills"]
+    return wage - spare["bills"]
 
 
 def format_spends(spends: List[dict], money: float) -> List[str]:
@@ -177,7 +172,7 @@ def format_spends(spends: List[dict], money: float) -> List[str]:
 
     # Money for spending
     money_str = f"{money:,.2f}"
-    lines.append(f"  {'Money for spending':<34}{money_str:>10}   (left over + wage - bills)")
+    lines.append(f"  {'Money for spending':<34}{money_str:>10}   (pay - bills)")
 
     # Left now
     left_now = money - total_typed

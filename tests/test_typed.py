@@ -119,7 +119,7 @@ def test_format_spends():
         f"   3  05 Oct  {'Argos TV':<22}{'150.00':>10}   (Shopping)",
         f"  {'Typed so far':<34}{'215.00':>10}",
         "",
-        f"  {'Money for spending':<34}{'1,450.00':>10}   (left over + wage - bills)",
+        f"  {'Money for spending':<34}{'1,450.00':>10}   (pay - bills)",
         f"  {'Left now':<34}{'1,235.00':>10}",
         "  Add one: run.py add 12.50 Costa    Remove one: run.py remove 1",
     ]
@@ -131,7 +131,7 @@ def test_format_spends_when_nothing_is_typed():
         "  (nothing typed yet)",
         f"  {'Typed so far':<34}{'0.00':>10}",
         "",
-        f"  {'Money for spending':<34}{'1,450.00':>10}   (left over + wage - bills)",
+        f"  {'Money for spending':<34}{'1,450.00':>10}   (pay - bills)",
         f"  {'Left now':<34}{'1,450.00':>10}",
         "  Add one: run.py add 12.50 Costa    Remove one: run.py remove 1",
     ]

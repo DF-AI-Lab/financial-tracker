@@ -60,7 +60,8 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
 ## Next
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
-   (moved payments are re-dated to the payday in load_moved; kv key moved_early). Also added setup.bat (shortcuts + start with Windows). v2 ideas from today are in FUTURE_FEATURES.md.
+   (moved payments are re-dated to the payday in load_moved; kv key moved_early).
+   Then SPARE CASH = pay - bills only (no left over, no 'spend like usual'): see DECISIONS.md 3 Oct. Also added setup.bat (shortcuts + start with Windows). v2 ideas from today are in FUTURE_FEATURES.md.
 1. All 9 SPEC steps built (3 Oct). Home page tried on real data: liked it. Then added: bills first in "Last month's
    spending", and a 6 months / 12 months / year-so-far totals table (`fintrack/periods.py`, per-payment rule).
    Haiku warning (3 Oct): it hard-coded "3-mth avg", reverted the template it was told not to touch, and skipped a

@@ -31,12 +31,12 @@ def test_pay_block_numbers():
         ("LANDLORD - RENT", pytest.approx(500), pytest.approx(500)), ("ENERGY CO", pytest.approx(85), pytest.approx(95))]
     assert p["bills_avg"] == pytest.approx(585) and p["bills_last"] == pytest.approx(595)
     assert p["left_over"] == pytest.approx(2755) and p["wage"] == 2500.0
-    assert p["spare"] == pytest.approx(4660)                     # 2,755 + 2,500 - 595
+    assert p["spare"] == pytest.approx(1905)                     # 2,500 - 595 (left over not added, 3 Oct 2026)
     assert [(s["category"], s["last"], s["avg"], s["labels"]) for s in p["spending"]] == [
         ("Unsorted", pytest.approx(150), pytest.approx(150), ["Corner Shop"]),
         ("Food shopping", pytest.approx(40), pytest.approx(20), ["Tesco Stores"])]
     assert p["spending_last"] == pytest.approx(190) and p["spending_avg"] == pytest.approx(170)
-    assert p["left_usual"] == pytest.approx(4490)                # spare cash - average spending
+    assert p["left_usual"] == pytest.approx(1735)                # spare cash - average spending
 
 
 def test_format_pay_block():
@@ -49,19 +49,17 @@ def test_format_pay_block():
         f"  {'ENERGY CO':<32}{'85.00':>10}  {'95.00':>10}",
         f"  {'Bills total':<32}{'585.00':>10}  {'595.00':>10}",
         "",
-        f"  {'Left over from last month':<32}{'2,755.00':>10}   (balance just before this payday)",
-        f"+ {'Pay':<32}{'2,500.00':>10}",
+        f"  {'Pay':<32}{'2,500.00':>10}",
         f"- {'Bills (last month amounts)':<32}{'595.00':>10}",
-        f"= {'SPARE CASH':<32}{'4,660.00':>10}",
+        f"= {'SPARE CASH':<32}{'1,905.00':>10}",
         "",
         f"{'LAST MONTH SPENDING (not bills)':<34}{'Last month':>10}  {'3-mth avg':>10}",
         f"  {'Unsorted':<32}{'150.00':>10}  {'150.00':>10}   (Corner Shop)",
         f"  {'Food shopping':<32}{'40.00':>10}  {'20.00':>10}   (Tesco Stores)",
         f"  {'Total':<32}{'190.00':>10}  {'170.00':>10}",
         "",
-        f"= {'If you spend like usual, left':<32}{'4,490.00':>10}   (spare cash - 3-mth avg spending)",
         "WARNING Possible yearly bill: AVIVA 180.00, paid Apr 2023",
-        f"  {'If that is paid too, left':<32}{'4,310.00':>10}",
+        f"  {'If that is paid too, left':<32}{'1,725.00':>10}",
     ]
 
 
@@ -87,7 +85,7 @@ def test_labels_are_the_three_biggest_last_month():
 def test_unknown_left_over_and_not_enough_cycles():
     no_bal = [Txn(t.date, t.type, t.description, t.detail, t.amount) for t in txns()]
     lines = format_pay_block(block(tx=no_bal))
-    assert f"  {'Left over from last month':<32}{'unknown':>10}   (counted as 0)" in lines
+    assert not any("Left over" in l for l in lines)             # left over is no longer used
     cs = build_cycles([Txn(date(2024, 1, 28), "CR", PAYER, "", 2000.0)], payer=PAYER)
     assert format_pay_block(pay_block(cs, analyse(cs), 2000.0)) == [
         "Not enough finished paydays yet to work out the spare cash."]
@@ -99,4 +97,4 @@ def test_the_average_columns_say_how_many_cycles():
     lines = format_pay_block(p)
     assert lines[2].endswith("6-mth avg  Last month")
     assert any(l.startswith("LAST MONTH SPENDING") and l.endswith("6-mth avg") for l in lines)
-    assert any("(spare cash - 6-mth avg spending)" in l for l in lines)
+    assert not any("spend like usual" in l for l in lines)      # dropped 3 Oct 2026
