@@ -75,5 +75,12 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    TODO (3 Oct, user asked, not built yet): Bills table 'Last month' total adds the AVERAGE for bills not paid last month
    (Tesco Mobile, ChatGPT = 102.49) but the row shows '-'. Show the avg with a * in grey (e.g. 100.16*) + footnote
    '* not paid last month, average used' on the home page (templates/home.html) and terminal (spare.py format).
+   AGREED 3 Oct, NOT BUILT (user said wait), build with the * fix in one go:
+   a) Home page: move the Bills card straight under 'Add a spend'.
+   b) Every table with 6-mth avg + last month: columns 6-mth avg | Last month | Diff (Diff = last - avg;
+      minus = cheaper = green, plus = dearer = red). Bills, Last month's spending, anywhere else.
+   c) Change a bill for this cycle only: click the Last month amount, type 151, Enter -> shows 151 with a pencil,
+      a small x puts it back. Used in bills total + spare cash. NOT saved to the bills/items data: kv key tied to
+      the current cycle start, ignored once a new payday cycle starts.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
