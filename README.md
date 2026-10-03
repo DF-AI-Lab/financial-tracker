@@ -24,6 +24,13 @@ Real statements go in `statements/` (git-ignored). Never commit them.
 The run checks every statement's balances (OK / CHECK), skips duplicate statements,
 and lists any single payment of 1,000 or more under BIG ITEMS.
 
+## Home page
+1. One-time setup: `C:\ftvenv\Scripts\python.exe -m pip install flask`
+2. Double-click `start.bat` (or run `C:\ftvenv\Scripts\python.exe web.py` in PowerShell)
+3. Your browser opens at http://127.0.0.1:5000 with all your spare cash, bills, spending and where the money went
+
+The page runs on your PC only (no login, no upload). New statements still go through `run.py`.
+
 ## Commands
 - `run.py` reads the statements, asks about new items, then prints the reports and asks for your latest pay
 - `run.py test` uses the `statements` folder inside the code folder

@@ -166,57 +166,61 @@ def where_did_it_go(cycles: List[Cycle], answers: Optional[dict] = None, rules: 
     }
 
 
-def format_where(w: Optional[dict]) -> List[str]:
-    """Format where_did_it_go as a list of plain-ASCII strings."""
+def where_summary(w: Optional[dict]) -> Optional[dict]:
+    """Extract structured summary from where_did_it_go result for use by both terminal and web.
+
+    Returns None for None, else {"kind": "none" | "missing" | "extra", "amount": abs(missing),
+    "lines": [...], "against": [...]}.
+    - kind "none" when abs(missing) < 0.005, else "missing" or "extra"
+    - lines = the numbered lines: {"n", "text", "value", "note", "txns"}
+    - against = the grouped lines: {"text", "value", "note"}
+    """
     if w is None:
-        return []
+        return None
 
     missing = w["missing"]
 
-    # Check if nothing is missing
+    # Determine kind
     if abs(missing) < 0.005:
-        return ["WHERE DID IT GO?   Nothing missing: the cycle went as expected."]
+        kind = "none"
+    elif missing > 0:
+        kind = "missing"
+    else:
+        kind = "extra"
 
-    lines = []
-
-    def money(x):
-        return f"{x:,.2f}"
-
-    # Direction: 1 for money out, -1 for money in (extra)
+    # Get numbered and against from _numbered_lines
+    numbered, against_reasons = _numbered_lines(w)
     d = 1 if missing > 0 else -1
 
-    # Header
-    abs_missing = abs(missing)
-    if d == 1:
-        header = f"WHERE DID THE {money(abs_missing)} GO?   ({w['start']:%d %b %Y} to {w['end']:%d %b %Y})"
-    else:
-        header = f"WHERE DID THE EXTRA {money(abs_missing)} COME FROM?   ({w['start']:%d %b %Y} to {w['end']:%d %b %Y})"
-    lines.append(header)
+    # Build lines list
+    lines = []
+    for n, text, v, note, txns in numbered:
+        lines.append({
+            "n": n,
+            "text": text,
+            "value": v,
+            "note": note,
+            "txns": sorted(txns, key=lambda t: t.date)
+        })
 
-    numbered, against_reasons = _numbered_lines(w)
-    for n, text, v, note, _ in numbered:
-        line = f"  {n}. {text:<34}{money(v):>10}"
-        if note:
-            line += f"   {note}"
-        lines.append(line)
-
-    # AGAINST reasons (grouped)
+    # Build against list (grouped)
+    against = []
     if against_reasons:
         against_by_type = {}
         for reason, v in against_reasons:
-            kind = reason["kind"]
+            kind_key = reason["kind"]
 
             # Group by type
-            if kind in ("category", "moved"):
+            if kind_key in ("category", "moved"):
                 group_key = "category_moved"
-            elif kind == "bill":
+            elif kind_key == "bill":
                 group_key = "bill"
-            elif kind == "other_in":
+            elif kind_key == "other_in":
                 group_key = "other_in"
-            elif kind == "oneoff":
+            elif kind_key == "oneoff":
                 group_key = "oneoff"
             else:
-                group_key = kind
+                group_key = kind_key
 
             if group_key not in against_by_type:
                 against_by_type[group_key] = []
@@ -246,28 +250,67 @@ def format_where(w: Optional[dict]) -> List[str]:
                 # Sort by v most negative first
                 reasons_in_group.sort(key=lambda x: x[1])
 
-                # Build parts (up to 3 reasons with most negative v first)
+                # Build note (up to 3 reasons with most negative v first)
                 parts = []
                 for reason, v in reasons_in_group[:3]:
+                    def money(x):
+                        return f"{x:,.2f}"
                     parts.append(f"{reason['name']} {money(v)}")
 
-                note = ", ".join(parts)
+                note_text = ", ".join(parts)
                 if len(reasons_in_group) > 3:
-                    note += ", ..."
+                    note_text += ", ..."
 
                 group_name = group_names.get(group_key, group_key)
 
                 if group_key == "other_in":
-                    line = f"     {group_name:<34}{money(group_v):>10}"
+                    against.append({
+                        "text": group_name,
+                        "value": group_v,
+                        "note": ""
+                    })
                 else:
-                    line = f"     {group_name:<34}{money(group_v):>10}   ({note})"
-                lines.append(line)
+                    against.append({
+                        "text": group_name,
+                        "value": group_v,
+                        "note": f"({note_text})"
+                    })
 
-    # Footer
+    return {
+        "kind": kind,
+        "amount": abs(missing),
+        "lines": lines,
+        "against": against
+    }
+
+
+def format_where(w: Optional[dict]) -> List[str]:
+    """Format where_did_it_go as a list of plain-ASCII strings (built from where_summary)."""
+    s = where_summary(w)
+    if s is None:
+        return []
+    if s["kind"] == "none":
+        return ["WHERE DID IT GO?   Nothing missing: the cycle went as expected."]
+
+    def money(x):
+        return f"{x:,.2f}"
+
+    dates = f"({w['start']:%d %b %Y} to {w['end']:%d %b %Y})"
+    if s["kind"] == "missing":
+        lines = [f"WHERE DID THE {money(s['amount'])} GO?   {dates}"]
+    else:
+        lines = [f"WHERE DID THE EXTRA {money(s['amount'])} COME FROM?   {dates}"]
+
+    for l in s["lines"]:
+        line = f"  {l['n']}. {l['text']:<34}{money(l['value']):>10}"
+        lines.append(line + (f"   {l['note']}" if l["note"] else ""))
+    for a in s["against"]:
+        line = f"     {a['text']:<34}{money(a['value']):>10}"
+        lines.append(line + (f"   {a['note']}" if a["note"] else ""))
+
     lines.append(f"     {'-' * 44}")
-    lines.append(f"     {'Adds up to':<34}{money(d * missing):>10}")
+    lines.append(f"     {'Adds up to':<34}{money(s['amount']):>10}")
     lines.append("  To see the payments behind a line:  run.py show 1")
-
     return lines
 
 
