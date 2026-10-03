@@ -104,5 +104,7 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
        keyword question list. (4) BUILT 3 Oct (363 tests): new job spotted by itself (`fintrack/newjob.py`: no known wage for
        35+ days and another payer 500+ in 2+ months since -> '💼 Is X your new job?' in the quick questions; yes = add_payer,
        no = kv 'not_wage'). ALL of the 3 Oct v2 plan is built. See FUTURE_FEATURES.md.
+   END OF 3 Oct: user is testing v2 on real data (told to back up tracker.db first). NEXT SESSION: fix anything odd
+   they report; then v3 = phone version (FUTURE_FEATURES.md 'Ideas for v3': Tailscale quick, or S3 + CloudFront + Lambda).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
