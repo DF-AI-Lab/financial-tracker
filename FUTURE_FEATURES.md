@@ -40,3 +40,6 @@ _Ideas agreed but not built yet. Newest at the bottom._
   **User's answer (3 Oct):** tie it to the pay box. When a new pay is typed in (home page or `run.py`), ask
   "New pay. Clear your typed spends? y/n". Typing the pay = "I got paid", so no date guessing. It is a question,
   not automatic, so fixing a typo in the pay does not wipe anything.
+- **Home page order (user, 3 Oct):** 1 This month's pay, 2 Add a spend, 3 Bills, 4 Subscriptions,
+  5 Where did last cycle's money go?, then the rest (Last month's spending, Spending by category,
+  6 / 12 months / this year). Only `templates/home.html` changes (cards move, nothing else).
