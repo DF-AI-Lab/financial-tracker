@@ -165,3 +165,12 @@ def test_format_last_cycle_good_month():
     c = dict(last_cycle_check(cycles()), missing=-150.0)
     assert format_last_cycle(c)[-1] == f"  {'Better than expected by':<28}{'150.00':>10}"
     assert format_last_cycle(None) == []
+
+
+def test_wage_paid_in_two_parts_is_not_other_money_in():
+    # a second wage credit within 10 days is a bonus in the same cycle (cycles.py), so it is wage, not "other in"
+    tx = fake_txns() + [Txn(date(2024, 4, 1), "CR", PAYER, "", 600.0)]
+    tx.sort(key=lambda t: t.date)
+    c = last_cycle_check(build_cycles(tx, payer=PAYER))
+    assert c["wage"] == pytest.approx(2600)
+    assert c["other_in"] == pytest.approx(60)

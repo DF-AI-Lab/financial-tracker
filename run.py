@@ -21,7 +21,8 @@ from fintrack.dedupe import unique_statements
 from fintrack.sort import bills_summary, classify, statement_report, big_items
 from fintrack.cycles import build_cycles, cycle_report, WAGE_PAYER
 from fintrack.common import analyse
-from fintrack.left import parse_money, format_left
+from fintrack.left import parse_money
+from fintrack.spare import expected_spare, format_expected, last_cycle_check, format_last_cycle
 from fintrack.settings import saved_folder, save_folder, SAVED_FILE
 from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items, get_categories
 from fintrack.questions import review, fix_items
@@ -205,6 +206,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     analysis = analyse(cycles, answers=answers, rules=rules)
 
     # Check for yearly bills due
+    due = []
     if all_txns:
         due = yearly_due(all_txns, answers, today=max(t.date for t in all_txns))
         if due:
@@ -222,6 +224,11 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     print()
     cat_result = category_spending(cycles, items=answers, categories=get_categories(conn), rules=rules)
     for line in format_categories(cat_result):
+        print(line)
+
+    # Print last cycle check
+    print()
+    for line in format_last_cycle(last_cycle_check(cycles, answers=answers, rules=rules)):
         print(line)
 
     # Print common spending
@@ -280,8 +287,9 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     if tries >= 3:
         return
 
-    # Print the wage breakdown
-    print(format_left(wage, analysis))
+    # Print the expected spare
+    for line in format_expected(expected_spare(cycles, analysis, wage, yearly=due)):
+        print(line)
 
 
 def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_dir=None, wage_payer=WAGE_PAYER) -> bool:
