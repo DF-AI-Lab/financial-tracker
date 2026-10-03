@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 2 Oct 2026._
+_Last updated: 3 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -53,7 +53,8 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
-1. Build `SPEC.md` step by step from step 7 (user still to try step 6 on real data) (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
+1. Build `SPEC.md` step by step from step 7 (3 Oct: steps 5-6 checked on real data; last cycle missing only 7.34,
+expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
 2. Small fixes from real use: PAYDAY TRANSFERS prompt saves any typed sentence as a label and Enter = yes (ask to
    confirm long labels); `fix` list hides guessed categories (show them); a "finished" kind for ended bills (IVA) instead
    of one-off; HPI INSTANT INK (11 x 2.99) suggested Random, check why.
