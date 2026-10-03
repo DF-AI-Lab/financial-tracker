@@ -244,3 +244,22 @@ def test_layout_routes(client, db):
     assert html.index('data-card="bills"') < html.index('data-card="subs"')
     assert ">Phone<" in html                                           # reset order keeps the names
     assert client.post("/layout", json={"sort": "x"}).status_code == 400
+
+
+# ---- 3 Oct 2026: the Update button ------------------------------------------------------------------
+
+def test_update_button(db):
+    calls = []
+    app = web.create_app(db, wage_payer=ACME, updater=lambda: {"changed": ["web.py"], "version": "abc1234"},
+                         restart=lambda: calls.append("restart"))
+    c = app.test_client()
+    assert "🔄 Update" in c.get("/").get_data(as_text=True)
+    r = c.post("/update")
+    assert r.get_json() == {"ok": True, "changed": 1, "version": "abc1234"} and calls == ["restart"]
+    app = web.create_app(db, wage_payer=ACME, updater=lambda: {"changed": [], "version": "abc1234"},
+                         restart=lambda: calls.append("restart"))
+    assert app.test_client().post("/update").get_json()["changed"] == 0 and calls == ["restart"]   # no restart
+    def broken():
+        raise OSError("no internet")
+    app = web.create_app(db, wage_payer=ACME, updater=broken, restart=lambda: None)
+    assert app.test_client().post("/update").get_json()["ok"] is False
