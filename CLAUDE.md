@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (363 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (365 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -104,6 +104,10 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
        keyword question list. (4) BUILT 3 Oct (363 tests): new job spotted by itself (`fintrack/newjob.py`: no known wage for
        35+ days and another payer 500+ in 2+ months since -> '💼 Is X your new job?' in the quick questions; yes = add_payer,
        no = kv 'not_wage'). ALL of the 3 Oct v2 plan is built. See FUTURE_FEATURES.md.
+   3 Oct late (365 tests): silent start: hidden.vbs runs server.bat (FT_QUIET, no window, no browser, restarts on
+   exit 3) from the Startup shortcut; setup.bat remakes shortcuts (desktop = hidden.vbs open, icon static/app.ico);
+   stop.bat kills web.py; /manifest.json + static/icon-*.png so Chrome/Edge can install it as an app. start.bat
+   unchanged on purpose (never rewrite a running .bat). Windows scripts NOT tried on Windows yet: ask the user.
    END OF 3 Oct: user is testing v2 on real data (told to back up tracker.db first). NEXT SESSION: fix anything odd
    they report; then v3 = phone version (FUTURE_FEATURES.md 'Ideas for v3': Tailscale quick, or S3 + CloudFront + Lambda).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.

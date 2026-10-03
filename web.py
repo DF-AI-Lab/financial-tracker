@@ -215,6 +215,14 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn.close()
         return redirect(url_for("home"), code=303)
 
+    # The app icon (3 Oct 2026): Chrome / Edge can install the page as an app ('Install Wage Tracker')
+    @app.route("/manifest.json")
+    def manifest():
+        return {"name": "Wage Tracker", "short_name": "Wage Tracker", "start_url": "/", "display": "standalone",
+                "background_color": "#15171a", "theme_color": "#1d4f8f",
+                "icons": [{"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+                          {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"}]}
+
     # POST /update: get the latest code from GitHub; restart only when something changed
     @app.route("/update", methods=["POST"])
     def update():
@@ -306,7 +314,7 @@ def main():
 
     # Open browser after a short delay (not after an update: the page is already open and reloads itself)
     import os
-    if os.environ.get("FT_RESTART"):
+    if os.environ.get("FT_RESTART") or os.environ.get("FT_QUIET"):     # after an update, or the silent start
         app.run(host="127.0.0.1", port=5000, debug=False)
         return
 

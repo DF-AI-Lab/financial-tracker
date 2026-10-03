@@ -359,3 +359,23 @@ def test_every_kind_of_question_shows(client, monkeypatch):
     html = client.get("/").get_data(as_text=True)
     assert "4 quick questions" in html and "Is PENDRAGON PAYROLL your new job?" in html and "Same bill?" in html and "Is this your rent?" in html
     assert "Typed spend not in your statements" in html and "SAM PARKER" in html
+
+
+# ---- 3 Oct 2026: app icon + silent start ------------------------------------------------------------
+
+def test_the_page_can_be_installed_as_an_app(client):
+    m = client.get("/manifest.json").get_json()
+    assert m["name"] == "Wage Tracker" and m["display"] == "standalone"
+    for icon in m["icons"]:
+        r = client.get(icon["src"])
+        assert r.status_code == 200 and r.data[:4] == b"\x89PNG"
+    assert 'rel="manifest"' in client.get("/").get_data(as_text=True)
+
+
+def test_silent_start_files():
+    from pathlib import Path
+    root = Path(web.__file__).parent
+    assert "server.bat" in (root / "hidden.vbs").read_text() and ", 0," in (root / "hidden.vbs").read_text()
+    assert "FT_QUIET" in (root / "server.bat").read_text() and "pause" not in (root / "server.bat").read_text()
+    assert "hidden.vbs" in (root / "setup.bat").read_text() and (root / "static" / "app.ico").exists()
+    assert "web.py" in (root / "stop.bat").read_text()

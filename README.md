@@ -40,6 +40,13 @@ my guesses are picked, change any, then **Save**. Or **📋 Copy for AI**, paste
 Any other questions (same bill?, is this your rent?, a typed spend not in the statements) show in a
 **❓ quick questions** card: one click each.
 
+## No black window + app icon
+Double-click `setup.bat` once (close any old black Financial Tracker window first). After that the page runs
+silently (no window) and starts by itself when you log in. Open it with the **Financial Tracker** desktop icon.
+To make it a real app: open the page in Chrome or Edge, menu (⋮ or …) -> **Install Wage Tracker** (Chrome: Cast, save
+and share -> Install page; Edge: Apps -> Install this site as an app), then right-click its taskbar icon -> **Pin**.
+To stop it: `stop.bat`. `start.bat` still works (with a window) if you ever need to see errors.
+
 ## Updates
 Click **🔄 Update** at the top of the home page. It gets the latest version from GitHub and restarts the page.
 If the page will not open, double-click `update.bat` in the code folder instead, then `start.bat`.
