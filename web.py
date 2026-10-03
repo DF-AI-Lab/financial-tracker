@@ -18,7 +18,7 @@ from fintrack.categories import guess_category
 from fintrack.cycles import WAGE_PAYER
 
 
-def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart=None):
+def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart=None, statements_dir=None):
     """Create and configure the Flask app.
 
     Args:
@@ -40,6 +40,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
 
     # Convert to Path if needed
     db_path = Path(db_path) if not isinstance(db_path, Path) else db_path
+    statements_dir = Path(statements_dir) if statements_dir else db_path.parent / "statements"
 
     # Create app with templates folder at repo root
     template_folder = Path(__file__).parent / "templates"
@@ -77,7 +78,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
     @app.route("/")
     def home():
         if not db_path.exists():
-            return render_template("home.html", d={"ready": False}, error="Run run.py first")
+            open_db(db_path).close()                    # an empty database, so PDFs can be dropped on the page
 
         conn = open_db(db_path)
         d = home_data(conn, wage_payer=wage_payer, today=today)
@@ -225,6 +226,39 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
             restart()
         return {"ok": True, "changed": len(r["changed"]), "version": r["version"]}
 
+    # No. 6 (3 Oct 2026): PDFs dropped on the page, and new items sorted on the page
+    @app.route("/upload", methods=["POST"])
+    def upload():
+        from fintrack.inbox import import_pdf
+        conn = open_db(db_path)
+        results = []
+        for f in request.files.getlist("files"):
+            r = import_pdf(conn, statements_dir, f.filename or "", f.read())
+            for k in ("start", "end"):
+                if r.get(k):
+                    r[k] = f"{r[k].day} {r[k]:%b %Y}"
+            results.append(r)
+        conn.close()
+        return {"results": results}
+
+    @app.route("/sort/parse", methods=["POST"])
+    def sort_parse():
+        from fintrack.sortpage import parse_ai, category_names
+        data = request.get_json(silent=True) or {}
+        conn = open_db(db_path)
+        got = parse_ai(str(data.get("text", "")), int(data.get("count", 0) or 0), category_names(conn))
+        conn.close()
+        return {str(n): v for n, v in got.items()}
+
+    @app.route("/sort/save", methods=["POST"])
+    def sort_save():
+        from fintrack.sortpage import save_answers
+        data = request.get_json(silent=True) or {}
+        conn = open_db(db_path)
+        save_answers(conn, data.get("answers") or [])
+        conn.close()
+        return ("", 204)
+
     # POST /remove
     @app.route("/remove", methods=["POST"])
     def remove():
@@ -254,14 +288,11 @@ def main():
     from run import pick_folder
     db_path = pick_folder(sys.argv[1:]).parent / "tracker.db"
 
-    if not db_path.exists():
-        print("No database yet. Run run.py first.")
-        return
 
     print("Opening your home page... (close this window to stop it)")
 
     # Create the app
-    app = create_app(db_path, wage_payer=WAGE_PAYER)
+    app = create_app(db_path, wage_payer=WAGE_PAYER, statements_dir=pick_folder(sys.argv[1:]))
 
     # Open browser after a short delay (not after an update: the page is already open and reloads itself)
     import os

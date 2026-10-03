@@ -86,6 +86,21 @@
   body.editing .card { outline: 1px dashed var(--border); }
   .dragging { opacity: .4; }
   .picked { outline: 2px solid var(--accent) !important; background: var(--row); }
+  .dropbar { display: block; border: 2px dashed var(--border); border-radius: 12px; padding: 14px; text-align: center;
+             color: var(--muted); cursor: pointer; margin-bottom: 14px; }
+  .dropbar:hover, body.dragover .dropbar { border-color: var(--accent); color: var(--text); background: var(--row); }
+  .dropresult { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; font-size: 15px; }
+  .sortcard { border-color: var(--accent); }
+  .sortbtns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: var(--bg); color: var(--text); border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: 6px 10px; font-size: 14px; }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  input.sname { width: calc(100% - 34px); padding: 4px 6px; font-size: 15px; }
+  .sortrow td:first-child b { display: inline-block; width: 28px; }
+  input.scat { width: 150px; padding: 4px 6px; font-size: 15px; }
+  textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: 14px/1.4 system-ui, sans-serif; }
+  tr.filled td { background: var(--row); }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -95,8 +110,15 @@
   {% if not d.ready %}
     <div class="card">
       <h2>No paydays yet</h2>
-      <p>Put your statement PDFs in the <b>statements</b> folder. Run run.py first (it reads them and asks a few questions), then open this page again.</p>
+      <p>Drop your statement PDFs below (or put them in the <b>statements</b> folder and run run.py).</p>
     </div>
+  <!-- No. 6a: drop statement PDFs anywhere on the page, or click to choose them -->
+  <label class="dropbar" id="dropbar">
+    <input type="file" id="dropfiles" accept=".pdf,application/pdf" multiple hidden>
+    <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
+  </label>
+  <div id="dropresult" class="dropresult" hidden></div>
+
   {% else %}
   <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
 
@@ -139,6 +161,40 @@
     {% endif %}
   </div>
 
+  <!-- No. 6a: drop statement PDFs anywhere on the page, or click to choose them -->
+  <label class="dropbar" id="dropbar">
+    <input type="file" id="dropfiles" accept=".pdf,application/pdf" multiple hidden>
+    <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
+  </label>
+  <div id="dropresult" class="dropresult" hidden></div>
+  <!-- No. 6b: new items sorted on the page (my guess is picked; change any, then Save) -->
+  {% if d.sort %}
+  <div class="card sortcard" id="sortcard" data-count="{{ d.sort|length }}">
+    <h2>❓ {{ d.sort|length }} new item{{ 's' if d.sort|length != 1 else '' }} to sort</h2>
+    <div class="sub" style="margin-bottom:10px">My guesses are picked. Change any you like, then press <b>Save</b>.</div>
+    <div class="sortbtns">
+      <button type="button" id="sortsave">💾 Save</button>
+      <button type="button" class="small" id="aicopy">📋 Copy for AI</button>
+      <button type="button" class="small" id="aipastebtn">📥 Paste answers</button>
+    </div>
+    <div id="aipaste" hidden style="margin:10px 0">
+      <textarea id="aireply" rows="6" placeholder="Paste the AI's reply here (lines like: 1 bill Household)"></textarea>
+      <button type="button" class="small" id="aifill">Fill in the buttons</button> <span id="aimsg" class="muted"></span>
+    </div>
+    <textarea id="aitext" hidden>{{ d.ai_text }}</textarea>
+    <datalist id="catlist">{% for c in d.category_names %}<option value="{{ c }}">{% endfor %}</datalist>
+    <div class="scroll"><table>
+      {% for i in d.sort %}
+      <tr class="sortrow" data-n="{{ i.n }}" data-key="{{ i.key }}">
+        <td style="width:34%"><b>{{ i.n }}.</b> <input class="sname" type="text" value="{{ i.name }}" aria-label="Name">
+          <span class="labels">{{ i.group }} · {{ i.detail }} · avg {{ i.average|money }} · {{ i.count }} in {{ i.months }} month{{ 's' if i.months != 1 else '' }}</span></td>
+        <td><div class="seg">{% for k, t in [('bill', 'Bill'), ('random', 'Random'), ('oneoff', 'One-off'), ('yearly', 'Yearly')] %}<button type="button" data-kind="{{ k }}" class="{{ 'on' if i.kind == k else '' }}">{{ t }}</button>{% endfor %}</div></td>
+        <td><input class="scat" type="text" list="catlist" value="{{ i.category }}" aria-label="Category"></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+  </div>
+  {% endif %}
   {% for y in d.pay.yearly %}
     <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b class="yleft" data-amount="{{ y.amount }}">{{ y.left_if_paid|money }}</b></div>
   {% endfor %}
@@ -477,6 +533,79 @@
     const typed = parseFloat(payForm.pay.value.replace(/[£,\s]/g, ''));
     if (payForm.dataset.spends === '1' && !isNaN(typed) && Math.abs(typed - parseFloat(payForm.dataset.pay)) >= 0.005)
       payForm.clear.value = confirm('New pay. Clear your typed spends?\n\nOK = clear them, Cancel = keep them') ? '1' : '0';
+  });
+
+  // No. 6a: drop PDFs anywhere on the page (or click the bar): read in, then the page reloads with any new items to sort
+  const dropbar = document.getElementById('dropbar'), dropfiles = document.getElementById('dropfiles');
+  const dropresult = document.getElementById('dropresult');
+  function showDrop(html) { if (dropresult) { dropresult.innerHTML = html; dropresult.hidden = false; } }
+  try { const m = sessionStorage.getItem('dropmsg'); if (m) { showDrop(m); sessionStorage.removeItem('dropmsg'); } } catch (e) {}
+  async function sendPdfs(files) {
+    files = [...files].filter(f => /\.pdf$/i.test(f.name));
+    if (!files.length) { showDrop('Only PDF statements can be dropped here.'); return; }
+    showDrop('⏳ Reading ' + files.length + ' statement' + (files.length > 1 ? 's' : '') + '...');
+    const fd = new FormData(); files.forEach(f => fd.append('files', f));
+    let r;
+    try { r = await (await fetch('/upload', {method: 'POST', body: fd})).json(); }
+    catch (e) { showDrop('❌ Sorry, that did not work. Is the black window still open?'); return; }
+    const esc = t => String(t).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+    const lines = r.results.map(x => x.error ? '❌ ' + esc(x.file) + ': ' + esc(x.error)
+      : !x.new ? '↩️ ' + esc(x.file) + ': already in (' + x.start + ' to ' + x.end + ')'
+      : (x.problems.length ? '⚠️ ' : '✅ ') + esc(x.file) + ': ' + x.start + ' to ' + x.end + ', ' + x.payments + ' payments'
+        + (x.problems.length ? '<br><span class="muted">' + x.problems.map(esc).join('<br>') + '</span>' : ''));
+    const html = lines.join('<br>');
+    if (r.results.some(x => x.new)) { try { sessionStorage.setItem('dropmsg', html); } catch (e) {} location.reload(); }
+    else showDrop(html);
+  }
+  if (dropfiles) dropfiles.addEventListener('change', () => sendPdfs(dropfiles.files));
+  document.addEventListener('dragover', e => { if (!dragEl && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); document.body.classList.add('dragover'); } });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragover'); });
+  document.addEventListener('drop', e => {
+    if (dragEl || !e.dataTransfer.files.length) return;
+    e.preventDefault(); document.body.classList.remove('dragover'); sendPdfs(e.dataTransfer.files);
+  });
+
+  // No. 6b: sort new items: buttons, Save, Copy for AI, Paste answers
+  document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  }));
+  const sortSave = document.getElementById('sortsave');
+  if (sortSave) sortSave.addEventListener('click', async () => {
+    const answers = [...document.querySelectorAll('tr.sortrow')].map(r => ({
+      key: r.dataset.key, kind: (r.querySelector('.seg .on') || {}).dataset?.kind || '',
+      label: r.querySelector('.sname').value, category: r.querySelector('.scat').value}));
+    sortSave.disabled = true; sortSave.textContent = '⏳ Saving...';
+    await fetch('/sort/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({answers})});
+    location.reload();
+  });
+  const aiCopy = document.getElementById('aicopy');
+  if (aiCopy) aiCopy.addEventListener('click', async () => {
+    const text = document.getElementById('aitext').value;
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) { const t = document.getElementById('aitext'); t.hidden = false; t.select(); document.execCommand('copy'); t.hidden = true; }
+    aiCopy.textContent = '✅ Copied! Paste it into ChatGPT or Claude';
+    setTimeout(() => aiCopy.textContent = '📋 Copy for AI', 4000);
+  });
+  const aiPasteBtn = document.getElementById('aipastebtn');
+  if (aiPasteBtn) aiPasteBtn.addEventListener('click', () => {
+    const box = document.getElementById('aipaste'); box.hidden = !box.hidden;
+    if (!box.hidden) document.getElementById('aireply').focus();
+  });
+  const aiFill = document.getElementById('aifill');
+  if (aiFill) aiFill.addEventListener('click', async () => {
+    const count = parseInt(document.getElementById('sortcard').dataset.count);
+    const got = await (await fetch('/sort/parse', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: document.getElementById('aireply').value, count})})).json();
+    let n = 0;
+    document.querySelectorAll('tr.sortrow').forEach(r => {
+      const a = got[r.dataset.n]; if (!a) return;
+      r.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.kind === a.kind));
+      if (a.category) r.querySelector('.scat').value = a.category;
+      r.classList.add('filled'); n++;
+    });
+    document.getElementById('aimsg').textContent = n ? `Filled in ${n} of ${count}. Check them, then press Save.` :
+      'I could not read any answers. Lines should look like: 1 bill Household';
   });
 </script>
 </body>

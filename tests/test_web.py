@@ -140,7 +140,7 @@ def test_bad_spend_is_not_saved(client, db):
 def test_page_without_data(tmp_path):
     app = web.create_app(tmp_path / "empty.db", wage_payer=ACME)
     html = app.test_client().get("/").get_data(as_text=True)
-    assert "Run run.py first" in html
+    assert "No paydays yet" in html and "Drop statements here" in html     # No. 6: PDFs can be dropped straight away
 
 
 def test_last_month_spending_starts_with_the_bills(client, db):
@@ -324,6 +324,7 @@ def test_drop_a_pdf_on_the_page(client, db, tmp_path):
 
 
 def test_sort_items_on_the_page(client, db):
+    from fintrack.store import set_item
     from fintrack.sortpage import pending_for_page
     conn = open_db(db)
     set_item(conn, "CARD|SOMETHING NEW|", "random", "", "user")

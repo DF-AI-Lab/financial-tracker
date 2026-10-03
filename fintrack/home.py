@@ -37,6 +37,9 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
 
     from fintrack.wages import all_payers
     cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
+    # No. 6: new items to sort on the page (first, so DD/SO saved as bills by auto_bills count straight away)
+    from fintrack.sortpage import pending_for_page, category_names, ai_prompt
+    sort = pending_for_page(conn, txns)
     answers = get_items(conn)
     rules = get_rules(conn)
     categories = get_categories(conn)
@@ -125,8 +128,13 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
                                   order.get("subs-" + group, []), lambda r: r["id"])
     cards = apply_order(list(CARDS), order.get("cards", []), lambda c: c)
 
+    cat_names = category_names(conn)
+
     return {
         "ready": True,
+        "sort": sort,
+        "category_names": cat_names,
+        "ai_text": ai_prompt(sort, cat_names) if sort else "",
         "cards": cards,
         "pay": pay,
         "last": last,

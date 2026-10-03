@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (345 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (353 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -93,7 +93,12 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
        folder, keep statements + tracker.db. (3) BUILT 3 Oct (342 tests): DD/SO paid in 2+ months = bill automatically
        (questions.auto_bills, run before the question list), paid once = asked. (2) BUILT 3 Oct (345 tests): a new pay (different from the saved one) with typed spends
        asks 'New pay. Clear your typed spends?' on the page (confirm, clear=1 to POST /pay) and in run.py (y/n).
-       (6+5) Drop a PDF on the home page: it is read in and the questions show on the page: a simple form
+       (6a+6b) BUILT 3 Oct (353 tests): drop PDFs anywhere on the home page (or click the bar): `fintrack/inbox.py`
+       (read from a temp copy; only new statements are kept in the statements folder), POST /upload; new items sorted on
+       the page (`fintrack/sortpage.py`: buttons Bill/Random/One-off/Yearly, category, name; Copy for AI / Paste answers
+       -> POST /sort/parse, POST /sort/save). The page starts with an empty database. 6c NOT built yet: same bill y/n,
+       rent rule, typed-spend matching are still terminal-only (run.py).
+       Was: (6+5) Drop a PDF on the home page: it is read in and the questions show on the page: a simple form
        (Bill / One-off / Yearly / Random + category per item) AND 'Copy for AI' / 'Paste answers'. Replaces the
        keyword question list. (4) New job spotted by itself (ask once: 'Is X your new job?'). See FUTURE_FEATURES.md.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.

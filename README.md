@@ -33,6 +33,11 @@ Quick setup (does steps 1-2 and more): double-click `setup.bat` once. It install
 `Financial Tracker` shortcut on your desktop, starts the page when Windows starts, and opens it now.
 Bookmark http://127.0.0.1:5000 (works while the black window is open; minimise it, don't close it).
 
+## New statements
+Drop the PDFs anywhere on the home page (or click the dashed bar). New items show in a **❓ new items to sort** card:
+my guesses are picked, change any, then **Save**. Or **📋 Copy for AI**, paste into ChatGPT / Claude, copy its reply,
+**📥 Paste answers**, check, **Save**.
+
 ## Updates
 Click **🔄 Update** at the top of the home page. It gets the latest version from GitHub and restarts the page.
 If the page will not open, double-click `update.bat` in the code folder instead, then `start.bat`.
