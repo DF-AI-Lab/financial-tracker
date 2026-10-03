@@ -335,3 +335,12 @@ def test_sort_items_on_the_page(client, db):
     r = client.post("/sort/save", json={"answers": [{"key": "CARD|NEW SHOP|", "kind": "random", "label": "",
                                                        "category": "Shopping"}]})
     assert r.status_code == 204 and get_items(open_db(db))["CARD|NEW SHOP|"]["kind"] == "random"
+
+
+def test_more_questions_on_the_page(client, db):
+    add_spend(open_db(db), date(2024, 10, 1), 77.77, "Market", None)       # not in the statements
+    html = client.get("/").get_data(as_text=True)
+    assert "Typed spend" in html and "Market" in html
+    sid = get_spends(open_db(db))[0]["id"]
+    assert client.post("/ask", json={"type": "spend", "id": sid, "keep": False}).status_code == 204
+    assert get_spends(open_db(db)) == []
