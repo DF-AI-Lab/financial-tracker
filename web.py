@@ -250,6 +250,16 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn.close()
         return {str(n): v for n, v in got.items()}
 
+    @app.route("/ask", methods=["POST"])
+    def ask_answer():
+        from fintrack.home import txns_and_paydays
+        from fintrack.pagequestions import answer
+        conn = open_db(db_path)
+        txns, paydays = txns_and_paydays(conn, wage_payer)
+        answer(conn, request.get_json(silent=True) or {}, txns, paydays)
+        conn.close()
+        return ("", 204)
+
     @app.route("/sort/save", methods=["POST"])
     def sort_save():
         from fintrack.sortpage import save_answers

@@ -40,6 +40,9 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     # No. 6: new items to sort on the page (first, so DD/SO saved as bills by auto_bills count straight away)
     from fintrack.sortpage import pending_for_page, category_names, ai_prompt
     sort = pending_for_page(conn, txns)
+    # No. 6c: same bill / rent / typed spend questions (typed spends found in the statements are removed here)
+    from fintrack.pagequestions import questions
+    more = questions(conn, txns, [c.start for c in cycles])
     answers = get_items(conn)
     rules = get_rules(conn)
     categories = get_categories(conn)
@@ -133,6 +136,7 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     return {
         "ready": True,
         "sort": sort,
+        "more": more,
         "category_names": cat_names,
         "ai_text": ai_prompt(sort, cat_names) if sort else "",
         "cards": cards,
@@ -151,3 +155,12 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         "statements_to": statements_to,
         "periods": periods
     }
+
+
+def txns_and_paydays(conn, wage_payer):
+    """The payments and paydays the page works from (for answering the questions on the page)."""
+    from fintrack.early import load_moved
+    from fintrack.wages import all_payers
+    txns = sorted(load_moved(conn, all_payers(conn, wage_payer)), key=lambda t: t.date)
+    cycles = build_cycles(txns, payer=all_payers(conn, wage_payer)) if txns else []
+    return txns, [c.start for c in cycles]

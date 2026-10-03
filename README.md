@@ -37,6 +37,8 @@ Bookmark http://127.0.0.1:5000 (works while the black window is open; minimise i
 Drop the PDFs anywhere on the home page (or click the dashed bar). New items show in a **❓ new items to sort** card:
 my guesses are picked, change any, then **Save**. Or **📋 Copy for AI**, paste into ChatGPT / Claude, copy its reply,
 **📥 Paste answers**, check, **Save**.
+Any other questions (same bill?, is this your rent?, a typed spend not in the statements) show in a
+**❓ quick questions** card: one click each.
 
 ## Updates
 Click **🔄 Update** at the top of the home page. It gets the latest version from GitHub and restarts the page.
