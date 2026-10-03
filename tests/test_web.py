@@ -150,3 +150,39 @@ def test_last_month_spending_starts_with_the_bills(client, db):
     d = home_data(open_db(db), wage_payer=ACME)
     last_bills = sum(b["last"] for b in d["pay"]["bills"])
     assert money(last_bills + d["pay"]["spending_last"]) in card       # the total now includes the bills
+
+
+# ---- 3 Oct 2026 changes: bills under 'Add a spend', diff column, change a bill, subscriptions ------
+
+def test_bills_card_is_right_under_add_a_spend(client):
+    html = client.get("/").get_data(as_text=True)
+    assert html.index("Add a spend") < html.index("Bills (every month)") < html.index("Last month&#39;s spending")
+
+
+def test_avg_then_last_month_then_diff_everywhere(client):
+    html = client.get("/").get_data(as_text=True)
+    for card in ("Last month&#39;s spending", "Bills (every month)"):
+        part = html[html.index(card):]
+        assert part.index("-mth avg") < part.index("Last month</th>") < part.index("Diff</th>"), card
+
+
+def test_change_a_bill_for_this_cycle(client, db):
+    d = home_data(open_db(db), wage_payer=ACME)
+    bill = d["pay"]["bills"][0]
+    r = client.post("/bill", data={"key": bill["key"], "amount": "999"})
+    assert r.status_code == 303
+    d2 = home_data(open_db(db), wage_payer=ACME)
+    assert d2["pay"]["spare"] == pytest.approx(d["pay"]["spare"] - (999 - bill["used"]))
+    assert d2["left_now"] == pytest.approx(d2["pay"]["spare"])
+    assert money(999) in client.get("/").get_data(as_text=True)
+    client.post("/bill", data={"key": bill["key"], "amount": ""})          # the x puts it back
+    assert home_data(open_db(db), wage_payer=ACME)["pay"]["spare"] == pytest.approx(d["pay"]["spare"])
+    r = client.post("/bill", data={"key": bill["key"], "amount": "abc"}, follow_redirects=True)
+    assert "Sorry, I could not read that as money." in r.get_data(as_text=True)
+
+
+def test_subscriptions_columns(client):
+    html = client.get("/").get_data(as_text=True)
+    part = html[html.index("Subscriptions"):]
+    assert "Monthly price" in part and "Last 12 months" in part and "This year" in part
+    assert "Paid so far" not in part

@@ -47,11 +47,11 @@ def test_format_subscriptions():
     assert format_subscriptions(find_subscriptions(txns(), items=ITEMS)) == [
         "SUBSCRIPTIONS (card payments most months)",
         "  Still paying:",
-        f"    {'Gym Club':<24}{'30.00':>8} a month   since Jan 2024   paid 181.00 so far",
-        f"    {'Telly':<24}{'10.99':>8} a month   since Jan 2024   paid 65.94 so far",
+        f"    {'Gym Club':<24}{'30.00':>8} a month   since Jan 2024   12 mths 181.00   this year 181.00",
+        f"    {'Telly':<24}{'10.99':>8} a month   since Jan 2024   12 mths 65.94   this year 65.94",
         f"    {'Total':<24}{'40.99':>8} a month",
         "  Stopped:",
-        f"    {'Hpi Instant Ink':<24}{'2.99':>8} a month   Jan 2024 to Mar 2024   paid 11.96",
+        f"    {'Hpi Instant Ink':<24}{'2.99':>8} a month   Jan 2024 to Mar 2024   12 mths 11.96   this year 11.96",
     ]
 
 
@@ -110,3 +110,12 @@ def test_a_shop_once_a_month_with_a_few_round_amounts_is_not_a_subscription():
     tx = [Txn(date(2024 + (i // 12), i % 12 + 1, 4), "VIS", "SAINSBURYS S/MKTS", "", -a) for i, a in enumerate(amounts)]
     tx.append(Txn(date(2025, 2, 1), "VIS", "LAST THING", "", -1.0))
     assert find_subscriptions(tx) == {"active": [], "stopped": []}
+
+
+def test_last_12_months_and_this_year():
+    # 3 Oct 2026: 'Paid so far' dropped (wrong without every statement); last 12 months + this year instead
+    tx = [Txn(date(2023 + (m - 1) // 12, (m - 1) % 12 + 1, 5), "VIS", "MUSIC APP", "", -10.0) for m in range(1, 19)]
+    tx.append(Txn(date(2024, 6, 20), "VIS", "LAST THING", "", -1.0))        # newest payment 20 Jun 2024
+    a = find_subscriptions(tx)["active"][0]
+    assert a["last12"] == pytest.approx(120)          # 5 Jul 2023 .. 5 Jun 2024
+    assert a["this_year"] == pytest.approx(60)        # Jan .. Jun 2024
