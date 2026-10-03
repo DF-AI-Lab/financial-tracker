@@ -69,3 +69,8 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
   stale when the newest statement ends before the latest payday. "If you spend like usual" is dropped from the
   terminal and the home page. Typed spends then come off the spare cash ("Left now").
 - Payments made just before payday can be counted from that payday: `run.py early N`.
+
+## 3 Oct 2026: DD / SO are bills by default (user)
+- A direct debit or standing order paid in 2+ months, with no saved answer, is saved as Common (a bill) without a
+  question (`questions.auto_bills`, source "auto"). Paid only once: still asked. Saved answers are never changed.
+  Change one with `run.py fix`.
