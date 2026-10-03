@@ -82,5 +82,8 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    c) Change a bill for this cycle only: click the Last month amount, type 151, Enter -> shows 151 with a pencil,
       a small x puts it back. Used in bills total + spare cash. NOT saved to the bills/items data: kv key tied to
       the current cycle start, ignored once a new payday cycle starts.
+   d) Subscriptions card: 'Stopped' rows' A MONTH / PAID SO FAR columns do not line up with 'Still paying' rows
+      (different widths). Make it one table so all columns line up.
+   e) Leave the '6 months / 12 months / this year' table exactly as it is (user said so: no diff there).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
