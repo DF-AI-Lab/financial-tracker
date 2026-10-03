@@ -24,7 +24,7 @@ from fintrack.common import analyse
 from fintrack.left import parse_money
 from fintrack.spare import expected_spare, format_expected, last_cycle_check, format_last_cycle
 from fintrack.settings import saved_folder, save_folder, SAVED_FILE
-from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items, get_categories
+from fintrack.store import open_db, import_statement, load_statements, load_txns, get_items, get_categories, set_value, get_spends, get_value
 from fintrack.questions import review, fix_items
 from fintrack.samebill import ask_same_bills
 from fintrack.yearly import yearly_due, yearly_lines
@@ -133,12 +133,16 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     # Review payday-transfer rules and get rules for analysis
     from fintrack.paydayrule import review_rules
     from fintrack.store import get_rules
+    from fintrack.typed import swap_spends
 
     # Build cycles early for rule review
     cycles = build_cycles(all_txns, payer=wage_payer)
     if cycles:
         paydays = [c.start for c in cycles]
         review_rules(conn, all_txns, paydays, ask_items, out=print)
+
+    # Swap typed spends with statements
+    swap_spends(conn, all_txns, ask_items, out=print)
 
     rules = get_rules(conn)
 
@@ -296,12 +300,39 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     if tries >= 3:
         return
 
-    # Print the expected spare
+    # Save the wage and print the expected spare
+    set_value(conn, "pay", str(wage))
     for line in format_expected(expected_spare(cycles, analysis, wage, yearly=due)):
         print(line)
 
+    # Print the typed spends block if there are any
+    spends = get_spends(conn)
+    if spends:
+        from fintrack.typed import format_spends, money_for_spending
+        print()
+        money = money_for_spending(cycles, analysis, wage)
+        for line in format_spends(spends, money):
+            print(line)
 
-def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_dir=None, wage_payer=WAGE_PAYER) -> bool:
+
+def _print_spends_block(conn, wage_payer, out):
+    """Print the SO FAR THIS CYCLE block. Pay = the one typed last in run.py, else the last wage."""
+    from fintrack.store import get_rules
+    from fintrack.typed import format_spends, money_for_spending
+
+    txns = load_txns(conn)
+    txns.sort(key=lambda t: t.date)
+    cycles = build_cycles(txns, payer=wage_payer)
+    if not cycles:
+        return
+    analysis = analyse(cycles, answers=get_items(conn), rules=get_rules(conn))
+    saved = get_value(conn, "pay")
+    wage = float(saved) if saved else cycles[-1].wage
+    for line in format_spends(get_spends(conn), money_for_spending(cycles, analysis, wage)):
+        out(line)
+
+
+def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_dir=None, wage_payer=WAGE_PAYER, today=None) -> bool:
     """Handle command-line commands. Returns True if argv was recognized, False otherwise.
 
     Commands:
@@ -312,6 +343,9 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
     - ["cat"]: show usage for cat command (when no number given)
     - ["show", <number>]: show payments behind a line in the WHERE DID IT GO list
     - ["show"]: show usage for show command (when no number given)
+    - ["add", <amount>, <name>...]: add a typed spend
+    - ["spends"]: show the current typed spends block
+    - ["remove", <number>]: remove a typed spend by number
     - anything else ([], ["test"], etc): return False
     """
     if not argv:
@@ -459,6 +493,128 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
 
         for line in show_lines(w, n):
             out(line)
+
+        return True
+
+    if cmd == "add":
+        # Handle add command
+        from fintrack.typed import parse_add
+        from fintrack.categories import guess_category
+        from fintrack.store import add_spend
+
+        # Check usage before database check
+        if len(argv) < 2:
+            out("Usage: run.py add <amount> <name>   e.g. run.py add 12.50 Costa")
+            return True
+
+        parsed = parse_add(argv[1:])
+        if parsed is None:
+            out("Usage: run.py add <amount> <name>   e.g. run.py add 12.50 Costa")
+            return True
+
+        amount, name = parsed
+
+        # Find in_dir and db_path
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        else:
+            in_dir = Path(in_dir)
+
+        if db_path is None:
+            db_path = in_dir.parent / "tracker.db"
+        else:
+            db_path = Path(db_path)
+
+        # Check if database exists
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+
+        # Guess category and add spend
+        category = guess_category(name)
+        if today is None:
+            from datetime import date
+            today = date.today()
+
+        conn = open_db(db_path)
+        add_spend(conn, today, amount, name, category)
+        out(f"Added {amount:.2f} {name} ({category}) on {today:%d %b %Y}.")
+
+        # Print the spends block
+        _print_spends_block(conn, wage_payer, out)
+
+        return True
+
+    if cmd == "spends":
+        # Handle spends command
+        # Find in_dir and db_path
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        else:
+            in_dir = Path(in_dir)
+
+        if db_path is None:
+            db_path = in_dir.parent / "tracker.db"
+        else:
+            db_path = Path(db_path)
+
+        # Check if database exists
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+
+        # Load and display spends
+        conn = open_db(db_path)
+        _print_spends_block(conn, wage_payer, out)
+
+        return True
+
+    if cmd == "remove":
+        # Handle remove command
+        from fintrack.store import delete_spend
+
+        # Check usage before database check
+        if len(argv) < 2:
+            out("Usage: run.py remove <number>   (the numbers are in the SO FAR list)")
+            return True
+
+        try:
+            n = int(argv[1])
+        except ValueError:
+            out("Usage: run.py remove <number>   (the numbers are in the SO FAR list)")
+            return True
+
+        # Find in_dir and db_path
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        else:
+            in_dir = Path(in_dir)
+
+        if db_path is None:
+            db_path = in_dir.parent / "tracker.db"
+        else:
+            db_path = Path(db_path)
+
+        # Check if database exists
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+
+        # Get spends and remove the one at position n
+        conn = open_db(db_path)
+        spends = get_spends(conn)
+
+        if n < 1 or n > len(spends):
+            out(f"There is no typed spend {n}. Pick 1 to {len(spends)}.")
+            return True
+
+        # Remove the nth spend (1-indexed)
+        spend_to_remove = spends[n - 1]
+        delete_spend(conn, spend_to_remove["id"])
+        out(f"Removed {spend_to_remove['amount']:.2f} {spend_to_remove['name']}.")
+
+        # Print the spends block
+        _print_spends_block(conn, wage_payer, out)
 
         return True
 

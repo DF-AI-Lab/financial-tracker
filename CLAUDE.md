@@ -16,7 +16,8 @@ Older project (do not build on it): `python-finance-tracker` repo, see its `IDEA
 - `README.md`: how to run on Windows.
 
 ## How it runs (user's PC, Windows)
-`C:\ftvenv\Scripts\python.exe run.py` (also `run.py test`, `run.py fix`, `run.py folder "C:\path"`).
+`C:\ftvenv\Scripts\python.exe run.py` (also `run.py test`, `run.py fix`, `run.py folder "C:\path"`, `cat N`, `show N`,
+`add 12.50 Costa`, `spends`, `remove N`). In PowerShell always put `C:\ftvenv\Scripts\python.exe` in front.
 Real PDFs live in `...\Financial Tracker Project\statements` (next to the code folder). The database `tracker.db` lives
 next to it. **Never commit PDFs or .db files** (.gitignore covers them). The user downloads the repo as a ZIP each time and
 extracts it inside `Financial Tracker Project`; they are not a developer: give exact, copy-paste commands.
@@ -43,18 +44,19 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (267 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (280 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
 left over + wage - bills (last month's) - normal = expected spare; replaces format_left) and **step 7** (`fintrack/where.py`: WHERE DID THE X GO? / EXTRA X COME FROM?, reasons add up exactly,
-`run.py show 2`; analyse keeps common_txns/random_txns) and **step 4** (six-month picture printed by run.py: `fintrack/picture.py`; analyse gives each common item "last" and "type"). Planning map: GitHub issue #1.
+`run.py show 2`; analyse keeps common_txns/random_txns) and **step 8** (`fintrack/typed.py`: `run.py add 12.50 Costa`, `run.py spends`, `run.py remove 1`; left now =
+left over + pay (last typed, kv table) - bills - typed; typed spends auto-matched to the statement, unmatched asked) and **step 4** (six-month picture printed by run.py: `fintrack/picture.py`; analyse gives each common item "last" and "type"). Planning map: GitHub issue #1.
 Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on all 18 months: works.** Rent 562.50
 (rule 570 accepted; fixed: small payday top-ups hid the rent), IVA (BENNETT JONES, finished) marked one-off + cat Debt,
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
-1. Build `SPEC.md` step by step from step 8 (3 Oct: step 7 checked on real data, adds up: 7.34 = IVA 279 paid - food shopping 240 less ...) (3 Oct: steps 5-6 checked on real data; last cycle missing only 7.34,
+1. Steps 1-8 built; step 9 (home page) next, user to try step 8 first. (3 Oct: step 7 checked on real data, adds up: 7.34 = IVA 279 paid - food shopping 240 less ...) (3 Oct: steps 5-6 checked on real data; last cycle missing only 7.34,
 expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
 2. Small fixes from real use: PAYDAY TRANSFERS prompt saves any typed sentence as a label and Enter = yes (ask to
    confirm long labels); `fix` list hides guessed categories (show them); a "finished" kind for ended bills (IVA) instead

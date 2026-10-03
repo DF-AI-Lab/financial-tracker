@@ -18,6 +18,8 @@ def open_db(path) -> sqlite3.Connection:
       items(key PRIMARY KEY, kind, label, source)
       rules(id INTEGER PRIMARY KEY, payer, usual, label, kind, max_days, tolerance, source)
       same_bills(key_a TEXT, key_b TEXT, same INTEGER, PRIMARY KEY(key_a, key_b))
+      spends(id INTEGER PRIMARY KEY, date TEXT, amount REAL, name TEXT, category TEXT)
+      kv(key TEXT PRIMARY KEY, value TEXT)
     Dates are stored as ISO text.
     """
     conn = sqlite3.connect(str(path))
@@ -85,6 +87,25 @@ def open_db(path) -> sqlite3.Connection:
             key_b TEXT,
             same INTEGER,
             PRIMARY KEY(key_a, key_b)
+        )
+    """)
+
+    # Create spends table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS spends (
+            id INTEGER PRIMARY KEY,
+            date TEXT,
+            amount REAL,
+            name TEXT,
+            category TEXT
+        )
+    """)
+
+    # Create kv table
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS kv (
+            key TEXT PRIMARY KEY,
+            value TEXT
         )
     """)
 
@@ -458,3 +479,59 @@ def get_same_bills(conn) -> dict:
         result[fs] = bool(same_int)
 
     return result
+
+
+def add_spend(conn, d, amount: float, name: str, category: str = "") -> None:
+    """Add a typed spend. Commit before returning."""
+    from datetime import date
+
+    # Convert date to ISO text if it's a date object
+    date_str = d.isoformat() if isinstance(d, date) else d
+
+    conn.execute(
+        "INSERT INTO spends (date, amount, name, category) VALUES (?, ?, ?, ?)",
+        (date_str, amount, name, category)
+    )
+    conn.commit()
+
+
+def get_spends(conn) -> List[dict]:
+    """List of {"id", "date" (a date), "amount", "name", "category"} ordered by date then id."""
+    from datetime import date
+
+    rows = conn.execute(
+        "SELECT id, date, amount, name, category FROM spends ORDER BY date, id"
+    ).fetchall()
+
+    result = []
+    for row in rows:
+        result.append({
+            "id": row[0],
+            "date": date.fromisoformat(row[1]),
+            "amount": row[2],
+            "name": row[3],
+            "category": row[4]
+        })
+
+    return result
+
+
+def delete_spend(conn, spend_id: int) -> None:
+    """Delete a typed spend by id. Commit before returning."""
+    conn.execute("DELETE FROM spends WHERE id = ?", (spend_id,))
+    conn.commit()
+
+
+def set_value(conn, key: str, value: str) -> None:
+    """Set a key-value pair (insert or replace, value stored as str). Commit before returning."""
+    conn.execute(
+        "INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)",
+        (key, value)
+    )
+    conn.commit()
+
+
+def get_value(conn, key: str) -> str:
+    """Get a key-value pair by key. Return str or None."""
+    row = conn.execute("SELECT value FROM kv WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else None
