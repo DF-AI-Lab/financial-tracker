@@ -18,7 +18,7 @@ from fintrack.categories import guess_category
 from fintrack.cycles import WAGE_PAYER
 
 
-def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
+def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart=None):
     """Create and configure the Flask app.
 
     Args:
@@ -29,6 +29,15 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
     Returns:
         Flask app with all routes configured
     """
+    # The Update button: updater() gets the new code (fintrack/update.py), restart() starts the page again with it
+    # (exit code 3 tells start.bat to run web.py again). Tests pass their own.
+    if updater is None:
+        from fintrack.update import update_code as updater
+    if restart is None:
+        def restart():
+            import os
+            threading.Timer(1.0, lambda: os._exit(3)).start()
+
     # Convert to Path if needed
     db_path = Path(db_path) if not isinstance(db_path, Path) else db_path
 
@@ -81,7 +90,9 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         elif error_code == "spend":
             error = "Sorry, type an amount and a name, e.g. 12.50 and Costa."
 
-        return render_template("home.html", d=d, error=error)
+        vfile = Path(__file__).parent / "version.txt"
+        version = vfile.read_text().strip() if vfile.exists() else None
+        return render_template("home.html", d=d, error=error, version=version)
 
     # POST /pay
     @app.route("/pay", methods=["POST"])
@@ -200,6 +211,17 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         conn.close()
         return redirect(url_for("home"), code=303)
 
+    # POST /update: get the latest code from GitHub; restart only when something changed
+    @app.route("/update", methods=["POST"])
+    def update():
+        try:
+            r = updater()
+        except Exception as e:                          # no internet, GitHub down, a bad download...
+            return {"ok": False, "error": str(e)}
+        if r["changed"]:
+            restart()
+        return {"ok": True, "changed": len(r["changed"]), "version": r["version"]}
+
     # POST /remove
     @app.route("/remove", methods=["POST"])
     def remove():
@@ -238,7 +260,12 @@ def main():
     # Create the app
     app = create_app(db_path, wage_payer=WAGE_PAYER)
 
-    # Open browser after a short delay
+    # Open browser after a short delay (not after an update: the page is already open and reloads itself)
+    import os
+    if os.environ.get("FT_RESTART"):
+        app.run(host="127.0.0.1", port=5000, debug=False)
+        return
+
     def open_browser():
         webbrowser.open("http://127.0.0.1:5000")
 

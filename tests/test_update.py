@@ -27,12 +27,12 @@ def test_new_and_changed_files_are_copied_and_the_rest_left_alone(tmp_path):
     (code / "statements" / "mine.pdf").write_text("REAL")
     (code / "tracker.db").write_text("REAL DB")
     (code / "my_notes.txt").write_text("keep me")
-    z = fake_zip({"web.py": "new", "start.bat": "same", "fintrack/new.py": "x = 1",
+    z = fake_zip({"web.py": "new", "start.bat": "same", "fintrack/new.py": "x = 1", "fintrack/home.py": "h",
                   "statements/README.txt": "readme", "statements/mine.pdf": "FAKE", "tracker.db": "FAKE",
                   "tests/data/a.pdf": "test pdf"})
     r = update_code(code, fetch=lambda: z)
     assert r["version"] == "abc1234"
-    assert sorted(r["changed"]) == ["fintrack/new.py", "tests/data/a.pdf", "web.py"]
+    assert sorted(r["changed"]) == ["fintrack/home.py", "fintrack/new.py", "tests/data/a.pdf", "web.py"]
     assert (code / "web.py").read_text() == "new" and (code / "fintrack" / "new.py").read_text() == "x = 1"
     assert (code / "statements" / "mine.pdf").read_text() == "REAL"      # never touched
     assert not (code / "statements" / "README.txt").exists()

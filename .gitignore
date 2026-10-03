@@ -12,3 +12,4 @@ output/
 
 # your real data stays on your PC
 *.db
+version.txt

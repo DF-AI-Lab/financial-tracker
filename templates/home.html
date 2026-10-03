@@ -101,6 +101,7 @@
   <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
 
   <div class="editbar">
+    <button type="button" class="small" id="updbtn" title="Get the latest version from GitHub">🔄 Update</button>
     <button type="button" class="small" id="editbtn">✏️ Move &amp; rename</button>
     <form method="post" action="/layout/reset" class="onlyedit"><button class="small" type="submit">↺ Put the order back</button></form>
   </div>
@@ -309,7 +310,7 @@
   </div>
   {% endif %}
 
-  <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.</div>
+  <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.{% if version %}<br>Version {{ version }}{% endif %}</div>
 </div>
 <script>
   // Change a bill for this pay cycle only (3 Oct 2026): spare cash, Diff and Total update as you type,
@@ -450,6 +451,23 @@
       dragEl.classList.remove('dragging'); dragEl.draggable = false; dragEl = null;
       post('/layout', {sort: box.dataset.sort, ids: [...box.children].filter(c => c.dataset.id).map(c => c.dataset.id)});
     });
+  });
+
+  // 🔄 Update (3 Oct 2026): get the latest code from GitHub; the page restarts itself and reloads.
+  const updBtn = document.getElementById('updbtn');
+  if (updBtn) updBtn.addEventListener('click', async () => {
+    if (!confirm('Get the latest version from GitHub?\n\nYour statements and data are not touched.')) return;
+    updBtn.disabled = true; updBtn.textContent = '⏳ Updating...';
+    const back = () => { updBtn.disabled = false; updBtn.textContent = '🔄 Update'; };
+    let r;
+    try { r = await (await fetch('/update', {method: 'POST'})).json(); }
+    catch (e) { alert('Sorry, the update did not work. Try update.bat in the code folder.'); back(); return; }
+    if (!r.ok) { alert('Sorry, the update did not work (' + r.error + ').\nCheck the internet, or try update.bat in the code folder.'); back(); return; }
+    if (!r.changed) { updBtn.textContent = '✅ Up to date'; setTimeout(back, 3000); return; }
+    updBtn.textContent = '✅ Updated! Restarting...';
+    const wait = () => fetch('/', {cache: 'no-store'}).then(x => { if (x.ok) location.reload(); else setTimeout(wait, 1000); })
+                                                      .catch(() => setTimeout(wait, 1000));
+    setTimeout(wait, 3000);
   });
 </script>
 </body>

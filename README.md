@@ -33,6 +33,11 @@ Quick setup (does steps 1-2 and more): double-click `setup.bat` once. It install
 `Financial Tracker` shortcut on your desktop, starts the page when Windows starts, and opens it now.
 Bookmark http://127.0.0.1:5000 (works while the black window is open; minimise it, don't close it).
 
+## Updates
+Click **🔄 Update** at the top of the home page. It gets the latest version from GitHub and restarts the page.
+If the page will not open, double-click `update.bat` in the code folder instead, then `start.bat`.
+Your statements, `tracker.db` and settings are never touched.
+
 The page runs on your PC only (no login, no upload). New statements still go through `run.py`.
 
 ## Commands

@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (337 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (340 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -87,7 +87,9 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    Also: click a handle to pick a card/row, then arrow up/down moves it (drag did not auto-scroll for the user);
    dragging near the window edge now scrolls too.
    AGREED PLAN 3 Oct (v2, build in this order, one at a time, user says go):
-   (1) Update: '🔄 Update' button on the home page + update.bat backup: fetch main.zip from GitHub, replace the code
+   (1) BUILT 3 Oct (340 tests): `fintrack/update.py` (stdlib only; skips statements/, *.db, PDFs, .env; never
+       deletes; version.txt), POST /update, start.bat restarts web.py on exit code 3, update.bat = python -m fintrack.update.
+       Was: '🔄 Update' button on the home page + update.bat backup: fetch main.zip from GitHub, replace the code
        folder, keep statements + tracker.db. (3) DD/SO paid in 2+ months = bill (Common) automatically, paid once =
        asked. (2) Typing a new pay when typed spends exist: pop-up 'New pay. Clear your typed spends?' yes/no.
        (6+5) Drop a PDF on the home page: it is read in and the questions show on the page: a simple form
