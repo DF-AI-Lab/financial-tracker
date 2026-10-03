@@ -31,6 +31,9 @@
   .tiles.toprow { grid-template-columns: 1.4fr 1fr 1fr; }
   .paybox { justify-content: center; margin-top: 6px; flex-wrap: nowrap; }
   .paybox form { flex-wrap: nowrap; }
+  .paybox button[type=submit]:not(.small) { width: 110px; }          /* 'Work it out' and 'Add/Change' the same width */
+  .leftrow { position: relative; display: flex; justify-content: center; }
+  .leftrow .leftx { position: absolute; top: 50%; transform: translateY(-50%); left: calc(50% + 120px); margin: 0; } /* x to the right, boxes stay in line */
   @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
@@ -103,12 +106,12 @@
         <button type="submit">Work it out</button>
       </form>
       <div class="label" style="margin-top:12px">💰 Left from last month</div>
-      <div class="paybox" style="display:flex; gap:8px; align-items:center">
-        <form class="inline" method="post" action="/left">
+      <div class="paybox leftrow">
+        <form class="inline paybox" method="post" action="/left">
           <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="220" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}" aria-label="Left from last month">
           <button type="submit">{{ 'Change' if d.pay.left else 'Add' }}</button>
         </form>
-        {% if d.pay.left %}<form method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
+        {% if d.pay.left %}<form class="leftx" method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
       </div></div>
     {% if d.history %}
     <div class="tile"><div class="label">Spare cash last month</div>
