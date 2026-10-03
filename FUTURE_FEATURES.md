@@ -48,3 +48,8 @@ _Ideas agreed but not built yet. Newest at the bottom._
   Then "Any categories to change?" Enter = skip each step. No keywords to remember.
 - **DD / SO are Common by default (user, 3 Oct):** direct debits and standing orders go straight to Common
   without a question; only ask when one stops. Fewer questions. (Card and BP stay as now.)
+- **New job spotted by itself (user, 3 Oct):** when no wage from a known payer for about 35 days but another
+  credit of 500+ arrives (around payday, 2+ months), ask once: "Is PENDRAGON PAYROLL your new job? y/n".
+  y -> saved with fintrack/wages.add_payer (no `run.py wage` command needed).
+- **Updates without downloading ZIPs (user, 3 Oct):** an `update.bat` (or a button on the home page) that
+  fetches the latest code from GitHub and replaces the code folder, leaving statements + tracker.db alone.
