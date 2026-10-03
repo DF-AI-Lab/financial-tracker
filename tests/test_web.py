@@ -263,3 +263,47 @@ def test_update_button(db):
         raise OSError("no internet")
     app = web.create_app(db, wage_payer=ACME, updater=broken, restart=lambda: None)
     assert app.test_client().post("/update").get_json()["ok"] is False
+
+
+# ---- 3 Oct 2026: a new pay can clear the typed spends (asked, never automatic) -----------------------
+
+from fintrack.store import add_spend, clear_spends
+
+
+def test_clear_spends(db):
+    conn = open_db(db)
+    add_spend(conn, date(2024, 10, 20), 40.0, "Cash", "Cash")
+    add_spend(conn, date(2024, 10, 21), 5.0, "Costa", None)
+    clear_spends(conn)
+    assert get_spends(conn) == []
+
+
+def test_new_pay_on_the_page_clears_spends_only_when_asked_to(client, db):
+    add_spend(open_db(db), date(2024, 10, 20), 40.0, "Cash", "Cash")
+    html = client.get("/").get_data(as_text=True)
+    assert 'data-spends="1"' in html and 'name="clear"' in html          # the page asks before sending
+    client.post("/pay", data={"pay": "2600"})
+    assert len(get_spends(open_db(db))) == 1                              # not asked to: kept
+    client.post("/pay", data={"pay": "2700", "clear": "1"})
+    assert get_spends(open_db(db)) == [] and get_value(open_db(db), "pay") == "2700.0"
+
+
+def test_new_pay_in_the_terminal_asks_to_clear_spends(db, tmp_path):
+    add_spend(open_db(db), date(2024, 10, 20), 40.0, "Cash", "Cash")
+    asked = []
+
+    def ask(p):
+        asked.append(p)
+        if p.startswith("Latest pay"):
+            return "3000"
+        return "y" if "Clear your typed spends" in p else ""
+    run.main(in_dir=tmp_path / "statements", out_dir=tmp_path / "output", ask=ask, wage_payer=ACME,
+             ask_items=lambda p: "")
+    assert any("New pay. Clear your typed spends?" in p for p in asked)
+    assert get_spends(open_db(db)) == []
+    # Enter (same pay as before) asks nothing
+    add_spend(open_db(db), date(2024, 10, 20), 40.0, "Cash", "Cash")
+    asked.clear()
+    run.main(in_dir=tmp_path / "statements", out_dir=tmp_path / "output", ask=lambda p: asked.append(p) or "",
+             wage_payer=ACME, ask_items=lambda p: "")
+    assert not any("Clear your typed spends" in p for p in asked) and len(get_spends(open_db(db))) == 1
