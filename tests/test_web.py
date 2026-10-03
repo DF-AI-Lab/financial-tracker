@@ -210,3 +210,37 @@ def test_bill_change_from_the_page_script_does_not_reload(client, db):
     assert any(b["changed"] and b["used"] == 123 for b in home_data(open_db(db), wage_payer=ACME)["pay"]["bills"])
     html = client.get("/").get_data(as_text=True)
     assert 'data-key="' in html and 'id="spare-big"' in html
+
+
+# ---- 3 Oct 2026: drag cards and rows, rename rows (page only, kept for good) ----------------------
+
+from fintrack.layout import save_order, set_name
+
+
+def test_saved_row_order_and_names_are_used(db):
+    conn = open_db(db)
+    d = home_data(conn, wage_payer=ACME)
+    ids = [b["id"] for b in d["pay"]["bills"]]
+    save_order(conn, "bills", ids[::-1][:2])                          # two moved to the top, the rest after
+    set_name(conn, ids[0], "My Rent")
+    d2 = home_data(conn, wage_payer=ACME)
+    got = [b["id"] for b in d2["pay"]["bills"]]
+    assert got[:2] == ids[::-1][:2] and sorted(got) == sorted(ids)
+    first = next(b for b in d2["pay"]["bills"] if b["id"] == ids[0])
+    assert first["name"] == "My Rent" and first["orig"] == d["pay"]["bills"][0]["name"]
+    assert d2["pay"]["spare"] == pytest.approx(d["pay"]["spare"])    # nothing but the look changes
+
+
+def test_layout_routes(client, db):
+    r = client.post("/layout", json={"sort": "cards", "ids": ["subs", "bills"]})
+    assert r.status_code == 204
+    html = client.get("/").get_data(as_text=True)
+    assert html.index('data-card="subs"') < html.index('data-card="bills"')   # saved card order is used
+    key = home_data(open_db(db), wage_payer=ACME)["pay"]["bills"][0]["id"]
+    assert client.post("/name", json={"id": key, "name": "Phone"}).status_code == 204
+    assert ">Phone<" in client.get("/").get_data(as_text=True)
+    assert client.post("/layout/reset").status_code == 303
+    html = client.get("/").get_data(as_text=True)
+    assert html.index('data-card="bills"') < html.index('data-card="subs"')
+    assert ">Phone<" in html                                           # reset order keeps the names
+    assert client.post("/layout", json={"sort": "x"}).status_code == 400
