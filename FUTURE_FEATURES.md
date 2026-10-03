@@ -53,3 +53,16 @@ _Ideas agreed but not built yet. Newest at the bottom._
   y -> saved with fintrack/wages.add_payer (no `run.py wage` command needed).
 - **(BUILT 3 Oct) Updates without downloading ZIPs (user, 3 Oct):** an `update.bat` (or a button on the home page) that
   fetches the latest code from GitHub and replaces the code folder, leaving statements + tracker.db alone.
+
+## Ideas for v3 (3 Oct, user)
+- **Phone version, quick:** Tailscale (free) on the PC and phone: open the home page anywhere, data stays on the PC.
+  Needs web.py to listen on the Tailscale address too. PC must be on.
+- **Phone version, cloud (user's design):**
+  - S3 + CloudFront: the web page itself (HTML/JS/CSS), cached.
+  - Lambda (+ function URL or API Gateway): the maths: today's Flask routes become a JSON API (home data, pay,
+    bill changes, spends, upload PDF, questions, layout).
+  - S3: `tracker.db` (SQLite: Lambda downloads it, works, uploads it back; one user, so no clashes) and settings.
+  - Must have: HTTPS (CloudFront) and a login (Cognito or a simple password), S3 bucket private, versioning on
+    (every save kept = free backups). About GBP 0-1 a month on the free tier.
+  - Work: split home.html into a static page that fetches JSON; pdfplumber in a Lambda layer; a one-time
+    upload of today's tracker.db; step-by-step AWS setup guide for the user.
