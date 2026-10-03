@@ -1,0 +1,142 @@
+"""Step 9 of SPEC.md: the home page (Flask, on this PC only). Fake data only."""
+import shutil
+from datetime import date
+
+import pytest
+
+import run
+from fintrack.common import analyse
+from fintrack.cycles import build_cycles
+from fintrack.home import home_data
+from fintrack.spare import pay_block
+from fintrack.store import get_items, get_rules, get_spends, get_value, load_txns, open_db, set_value
+from fintrack.where import format_where, where_did_it_go, where_summary
+from tests.conftest import DATA
+from tests.test_where import cycles as where_cycles
+
+flask = pytest.importorskip("flask")
+import web  # noqa: E402
+
+ACME = "ACME MOTORS PLC"
+
+
+@pytest.fixture
+def db(tmp_path):
+    inbox = tmp_path / "statements"
+    inbox.mkdir()
+    for n in ("statement_2024_08.pdf", "statement_2024_09.pdf", "statement_2024_10.pdf"):
+        shutil.copy(DATA / n, inbox / n)
+    run.main(in_dir=inbox, out_dir=tmp_path / "output", ask=lambda p: "2500", wage_payer=ACME, ask_items=lambda p: "")
+    return tmp_path / "tracker.db"
+
+
+@pytest.fixture
+def client(db):
+    app = web.create_app(db, wage_payer=ACME, today=date(2024, 10, 25))
+    app.testing = True
+    return app.test_client()
+
+
+def money(x):
+    return f"£{x:,.2f}" if x >= 0 else f"-£{-x:,.2f}"
+
+
+# ---- where.py: one summary shared by the terminal and the page ------------------------------------
+
+def test_where_summary():
+    s = where_summary(where_did_it_go(where_cycles()))
+    assert (s["kind"], s["amount"]) == ("missing", pytest.approx(1514))
+    assert [(l["n"], l["text"], l["value"], l["note"]) for l in s["lines"]] == [
+        (1, "One-off: CURRYS", pytest.approx(1299), "(2 May)"),
+        (2, "Food shopping over normal", pytest.approx(180), "(280.00 vs usual 100.00)"),
+        (3, "Moved out (Savings/Transfers)", pytest.approx(100), "(100.00 vs usually 0.00)"),
+        (4, "ENERGY CO went up", pytest.approx(30), "(110.00 vs 80.00 last month)"),
+        (5, "Small bits (under 20 each)", pytest.approx(5), "")]
+    assert [t.description for t in s["lines"][0]["txns"]] == ["CURRYS"]
+    assert [(a["text"], a["value"], a["note"]) for a in s["against"]] == [
+        ("Spent LESS than normal", pytest.approx(-40), "(Car -40.00)"), ("Other money in", pytest.approx(-60), "")]
+    assert where_summary(where_did_it_go(where_cycles(good=True)))["kind"] == "extra"
+    assert where_summary(None) is None
+    assert format_where(where_did_it_go(where_cycles()))[1] == f"  1. {'One-off: CURRYS':<34}{'1,299.00':>10}   (2 May)"
+
+
+# ---- home_data: everything the page shows ---------------------------------------------------------
+
+def test_home_data_matches_the_terminal_numbers(db):
+    conn = open_db(db)
+    d = home_data(conn, wage_payer=ACME)
+    txns = sorted(load_txns(conn), key=lambda t: t.date)
+    cs = build_cycles(txns, payer=ACME)
+    a = analyse(cs, answers=get_items(conn), rules=get_rules(conn))
+    want = pay_block(cs, a, 2500.0)                                   # 2,500 = the pay remembered by run.py
+    assert d["ready"] is True
+    assert d["pay"]["wage"] == 2500.0 and d["pay"]["spare"] == pytest.approx(want["spare"])
+    assert d["pay"]["left_usual"] == pytest.approx(want["left_usual"])
+    assert d["last"] is not None and d["where"] is not None
+    assert d["categories"]["rows"] and "active" in d["subs"]
+    assert d["spends"] == [] and d["left_now"] == pytest.approx(d["money_for_spending"])
+    assert d["statements_to"] == max(t.date for t in txns)
+
+
+def test_home_data_uses_the_wage_given_and_the_typed_spends(db):
+    conn = open_db(db)
+    base = home_data(conn, wage_payer=ACME)
+    d = home_data(conn, wage_payer=ACME, wage=3500.0)
+    assert d["pay"]["spare"] == pytest.approx(base["pay"]["spare"] + 1000)
+    from fintrack.store import add_spend
+    add_spend(conn, date(2024, 10, 20), 40.0, "Cash", "Cash")
+    d = home_data(conn, wage_payer=ACME)
+    assert [s["name"] for s in d["spends"]] == ["Cash"]
+    assert d["left_now"] == pytest.approx(d["money_for_spending"] - 40)
+
+
+def test_home_data_without_paydays(tmp_path):
+    d = home_data(open_db(tmp_path / "empty.db"), wage_payer=ACME)
+    assert d["ready"] is False
+
+
+# ---- the page -----------------------------------------------------------------------------------
+
+def test_page_shows_spare_cash_first(client, db):
+    html = client.get("/").get_data(as_text=True)
+    d = home_data(open_db(db), wage_payer=ACME)
+    assert "Spare cash" in html and money(d["pay"]["spare"]) in html
+    assert html.index("Spare cash") < html.index("Bills") < html.index("Subscriptions")
+    for section in ("Last month", "Where did", "Spending by category", "Add a spend", "Six-month picture"):
+        assert section in html, section
+    assert "127.0.0.1" not in html                    # nothing about servers on the page
+
+
+def test_pay_box_saves_the_pay(client, db):
+    r = client.post("/pay", data={"pay": "£3,000"})
+    assert r.status_code == 303
+    assert get_value(open_db(db), "pay") == "3000.0"
+    assert money(3000) in client.get("/").get_data(as_text=True)
+
+
+def test_bad_pay_is_not_saved(client, db):
+    r = client.post("/pay", data={"pay": "abc"}, follow_redirects=True)
+    assert "Sorry, I could not read that as money." in r.get_data(as_text=True)
+    assert get_value(open_db(db), "pay") == "2500.0"
+
+
+def test_add_and_remove_a_spend(client, db):
+    r = client.post("/add", data={"amount": "12.50", "name": "Costa coffee"})
+    assert r.status_code == 303
+    spends = get_spends(open_db(db))
+    assert [(s["date"], s["amount"], s["name"]) for s in spends] == [(date(2024, 10, 25), 12.5, "Costa coffee")]
+    assert "Costa coffee" in client.get("/").get_data(as_text=True)
+    client.post("/remove", data={"id": str(spends[0]["id"])})
+    assert get_spends(open_db(db)) == []
+
+
+def test_bad_spend_is_not_saved(client, db):
+    r = client.post("/add", data={"amount": "lots", "name": "Costa"}, follow_redirects=True)
+    assert "Sorry, type an amount and a name, e.g. 12.50 and Costa." in r.get_data(as_text=True)
+    assert get_spends(open_db(db)) == []
+
+
+def test_page_without_data(tmp_path):
+    app = web.create_app(tmp_path / "empty.db", wage_payer=ACME)
+    html = app.test_client().get("/").get_data(as_text=True)
+    assert "Run run.py first" in html
