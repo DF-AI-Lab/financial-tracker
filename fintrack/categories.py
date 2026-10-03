@@ -8,7 +8,7 @@ KEYWORDS = [
     ("Household", ["RENT", "WATER", "COUNCIL", "CITY OF", "E.ON", "ENERGY", "ELECTRIC",
                    "GAS", "OCTOPUS", "SKY", "TV LICENCE", "LICENCE", "MOBILE",
                    "BROADBAND", "VIRGIN MEDIA", "BT", "LIFE", "INSURANCE", "BILLS"]),
-    ("Car", ["CAR", "PETROL", "FUEL", "DVLA", "SHELL", "ESSO", "TEXACO", "PARKING"]),
+    ("Car", ["CAR", "PETROL", "FUEL", "PUMP", "DVLA", "SHELL", "ESSO", "TEXACO", "PARKING"]),
     ("Subscriptions", ["NETFLIX", "SPOTIFY", "YOUTUBE", "AUDIBLE", "XBOX", "PLAYSTATION",
                        "DISNEY", "PRIME", "UDEMY", "GOOGLE PLAY", "GOOGLE", "APPLE"]),
     ("Takeaways", ["JUST EAT", "DELIVEROO", "UBER EATS", "DOMINOS", "PIZZA", "KFC",

@@ -149,3 +149,10 @@ def test_fix_shows_and_changes_categories():
     assert "Household" in text                                      # categories are shown
     assert get_categories(conn)["CARD|BARBER|"] == "Fun"           # 1 = CARD|BARBER| (sorted by key)
     assert get_items(conn)["CARD|BARBER|"]["source"] == "suggested"  # only the category changed
+
+
+def test_pay_at_pump_is_car_not_food():
+    # Real oddity (Oct 2026): "TESCO PAY AT PUMP" is petrol, but TESCO made it Food shopping
+    from fintrack.categories import guess_category
+    assert guess_category("TESCO PAY AT PUMP") == "Car"
+    assert guess_category("TESCO STORES") == "Food shopping"
