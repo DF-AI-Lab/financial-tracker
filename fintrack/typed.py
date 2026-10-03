@@ -133,7 +133,7 @@ def swap_spends(conn, txns: List[Txn], ask, out=print) -> int:
     return len(matched_ids)
 
 
-def money_for_spending(cycles: List[Cycle], analysis: Analysis, wage: float, changes=None) -> float:
+def money_for_spending(cycles: List[Cycle], analysis: Analysis, wage: float, changes=None, left=0.0) -> float:
     """Pay - bills (last month's amounts). Left over is not added (user, 3 Oct 2026).
     changes: {bill key: amount} changed for this cycle (fintrack/billchange.py), used instead of last month's."""
     if not cycles:
@@ -144,7 +144,7 @@ def money_for_spending(cycles: List[Cycle], analysis: Analysis, wage: float, cha
         if key in analysis.common:
             e = analysis.common[key]
             spare["bills"] += amount - (e["last"] if e["last"] > 0 else e["average"])
-    return wage - spare["bills"]
+    return wage + left - spare["bills"]
 
 
 def format_spends(spends: List[dict], money: float) -> List[str]:

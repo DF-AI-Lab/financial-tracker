@@ -138,8 +138,33 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
                 amount = 0.0                         # 0 = not paying it this month
             if amount is None:
                 conn.close()
+                if request.headers.get("X-Requested-With") == "fetch":
+                    return ("", 400)
                 return redirect(url_for("home", error="pay"), code=303)
             set_change(conn, d["cycle_start"], key, amount)
+        conn.close()
+        if request.headers.get("X-Requested-With") == "fetch":
+            return ("", 204)                         # saved quietly by the page script, no reload
+        return redirect(url_for("home"), code=303)
+
+    # POST /left: left from last month, added to the spare cash until the next payday (empty amount = remove)
+    @app.route("/left", methods=["POST"])
+    def left():
+        from fintrack.billchange import set_left, clear_left
+        amount_text = request.form.get("amount", "").strip()
+        conn = open_db(db_path)
+        d = home_data(conn, wage_payer=wage_payer, today=today)
+        if not d["ready"]:
+            conn.close()
+            return redirect(url_for("home"), code=303)
+        if amount_text == "":
+            clear_left(conn, d["cycle_start"])
+        else:
+            amount = parse_money(amount_text)
+            if amount is None:
+                conn.close()
+                return redirect(url_for("home", error="pay"), code=303)
+            set_left(conn, d["cycle_start"], amount)
         conn.close()
         return redirect(url_for("home"), code=303)
 

@@ -29,7 +29,8 @@
   .hero .big { font-size: 48px; font-weight: 800; line-height: 1.1; margin: 6px 0; }
   .hero .how { font-size: 14px; opacity: .9; }
   .tiles.toprow { grid-template-columns: 1.4fr 1fr 1fr; }
-  .paybox { justify-content: center; margin-top: 6px; }
+  .paybox { justify-content: center; margin-top: 6px; flex-wrap: nowrap; }
+  .paybox form { flex-wrap: nowrap; }
   @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
@@ -69,8 +70,9 @@
   @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
   button.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
   button.link.muted { color: var(--muted); }
-  form.x { display: inline; margin-left: 4px; } form.x button { padding: 0 6px; }
-  .billform input.amount { width: 90px; padding: 4px 6px; text-align: right; }
+  input.billbox { width: 90px; padding: 4px 6px; text-align: right; }
+  input.billbox.badval { border-color: var(--bad); }
+  td button.small.x { padding: 0 6px; margin-left: 4px; }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -90,8 +92,8 @@
   <!-- No. 1: spare cash -->
   <div class="hero">
     <div class="label">Spare cash left</div>
-    <div class="big">{{ d.left_now|money }}</div>
-    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</div>
+    <div class="big" id="spare-big">{{ d.left_now|money }}</div>
+    <div class="how" id="spare-how">Pay {{ d.pay.wage|money }}{% if d.pay.left %} + left {{ d.pay.left|money }}{% endif %} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</div>
   </div>
 
   <div class="tiles toprow">
@@ -99,7 +101,15 @@
       <form class="inline paybox" method="post" action="/pay">
         <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
         <button type="submit">Work it out</button>
-      </form></div>
+      </form>
+      <div class="label" style="margin-top:12px">💰 Left from last month</div>
+      <div class="paybox" style="display:flex; gap:8px; align-items:center">
+        <form class="inline" method="post" action="/left">
+          <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="220" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}" aria-label="Left from last month">
+          <button type="submit">{{ 'Change' if d.pay.left else 'Add' }}</button>
+        </form>
+        {% if d.pay.left %}<form method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
+      </div></div>
     {% if d.history %}
     <div class="tile"><div class="label">Spare cash last month</div>
       <div class="num">{{ d.history.last|money }}</div></div>
@@ -124,43 +134,40 @@
       </table>
     {% endif %}
     <div class="sum" style="margin-top:12px">
-      <span>Money for spending</span><span class="n">{{ d.money_for_spending|money }}</span>
+      <span>Money for spending</span><span class="n" id="mfs">{{ d.money_for_spending|money }}</span>
       <span>Typed so far</span><span class="n">{{ (d.money_for_spending - d.left_now)|money }}</span>
-      <span class="eq">Left now</span><span class="n eq">{{ d.left_now|money }}</span>
+      <span class="eq">Left now</span><span class="n eq" id="leftnow">{{ d.left_now|money }}</span>
     </div>
   </div>
 
   <!-- Bills right under 'Add a spend' (user, 3 Oct 2026). Tap a Last month amount to change it for this cycle only. -->
   <div class="card">
     <h2>🏠 Bills (every month)</h2>
-    <table>
+    <table id="bills">
       <tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
       {% for b in d.pay.bills %}
-        <tr><td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td>
+        {% set dflt = b.last if b.last > 0 else b.avg %}
+        <tr class="bill" data-key="{{ b.key }}" data-avg="{{ b.avg }}" data-default="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}">
+          <td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td>
           <td class="n">
-            <span id="bv{{ loop.index }}">
-              <button type="button" class="link {{ 'muted' if b.estimated else '' }}" onclick="editBill({{ loop.index }})" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% elif b.changed %} ✏️{% endif %}</button>
-              {% if b.changed %}<form class="x" method="post" action="/bill"><input type="hidden" name="key" value="{{ b.key }}"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Put it back">✖</button></form>{% endif %}
-            </span>
-            <form id="bf{{ loop.index }}" class="billform" method="post" action="/bill" hidden>
-              <input type="hidden" name="key" value="{{ b.key }}">
-              <input class="amount" type="text" name="amount" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}">
-            </form>
+            <button type="button" class="link {{ 'muted' if b.estimated else '' }}" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% elif b.changed %} ✏️{% endif %}</button>
+            <input class="amount billbox" type="text" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}" hidden>
+            <button type="button" class="small x" title="Put it back" {{ '' if b.changed else 'hidden' }}>✖</button>
           </td>
-          <td class="n {{ 'good' if b.diff is not none and b.diff < -0.005 else ('bad' if b.diff is not none and b.diff > 0.005 else 'muted') }}">{{ b.diff|diff }}</td></tr>
+          <td class="n diff {{ 'good' if b.diff is not none and b.diff < -0.005 else ('bad' if b.diff is not none and b.diff > 0.005 else 'muted') }}">{{ b.diff|diff }}</td></tr>
       {% endfor %}
       {% set bdiff = d.pay.bills_last - d.pay.bills_avg %}
-      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n">{{ d.pay.bills_last|money }}</td>
-        <td class="n {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}">{{ bdiff|diff }}</td></tr>
+      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n" id="btotal">{{ d.pay.bills_last|money }}</td>
+        <td class="n {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}" id="bdiff">{{ bdiff|diff }}</td></tr>
     </table>
     <div class="labels" style="margin-top:8px">
       {% if d.pay.bills|selectattr('estimated')|list %}* not paid last month, average used<br>{% endif %}
-      ✏️ Tap a Last month amount to change it for this pay cycle only (Enter to save).
+      ✏️ Tap a Last month amount to change it for this pay cycle only. Spare cash updates as you type; ✖ puts it back.
     </div>
   </div>
 
   {% for y in d.pay.yearly %}
-    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b>{{ y.left_if_paid|money }}</b></div>
+    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b class="yleft" data-amount="{{ y.amount }}">{{ y.left_if_paid|money }}</b></div>
   {% endfor %}
 
   <!-- No. 2: last month's spending, bills first -->
@@ -265,13 +272,66 @@
   <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.</div>
 </div>
 <script>
-  function editBill(i) {
-    document.getElementById('bv' + i).hidden = true;
-    var f = document.getElementById('bf' + i);
-    f.hidden = false;
-    var box = f.querySelector('input[name=amount]');
-    box.focus(); box.select();
+  // Change a bill for this pay cycle only (3 Oct 2026): spare cash, Diff and Total update as you type,
+  // and each change is saved quietly (POST /bill) as a temp note until the next payday. Bills are never changed.
+  const PAGE = {{ {"wage": d.pay.wage, "left": d.pay.left, "typed": d.typed_total}|tojson if d.ready else '{}' }};
+  const money = x => (x < 0 ? '-£' : '£') + Math.abs(x).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const diff = x => Math.abs(x) < 0.005 ? '£0.00' : (x > 0 ? '+' : '') + money(x);
+  const tone = (el, x) => { el.classList.remove('good', 'bad', 'muted'); if (x === null) el.classList.add('muted');
+    else if (x < -0.005) el.classList.add('good'); else if (x > 0.005) el.classList.add('bad'); else el.classList.add('muted'); };
+  const readMoney = t => { t = t.replace(/[£,\s]/g, ''); return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN; };
+
+  function save(row, amount) {
+    fetch('/bill', {method: 'POST', headers: {'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({key: row.dataset.key, amount: amount})});
   }
+
+  function showRow(row) {
+    const used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1', est = row.dataset.estimated === '1' && !changed;
+    const link = row.querySelector('button.link');
+    link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : ''));
+    link.classList.toggle('muted', est);
+    row.querySelector('button.x').hidden = !changed;
+    const d = est ? null : used - parseFloat(row.dataset.avg);
+    const cell = row.querySelector('td.diff');
+    cell.textContent = d === null ? '' : diff(d); tone(cell, d);
+  }
+
+  function recalc() {
+    let bills = 0, avg = 0;
+    document.querySelectorAll('tr.bill').forEach(r => { bills += parseFloat(r.dataset.used); avg += parseFloat(r.dataset.avg); });
+    const spare = PAGE.wage + PAGE.left - bills, leftNow = spare - PAGE.typed;
+    document.getElementById('btotal').textContent = money(bills);
+    const bd = document.getElementById('bdiff'); bd.textContent = diff(bills - avg); tone(bd, bills - avg); bd.classList.remove('muted');
+    document.getElementById('spare-big').textContent = money(leftNow);
+    document.getElementById('spare-how').textContent = 'Pay ' + money(PAGE.wage) + (PAGE.left ? ' + left ' + money(PAGE.left) : '') +
+      ' − bills ' + money(bills) + ' = ' + money(spare) + (PAGE.typed ? ' − spends ' + money(PAGE.typed) : '');
+    document.getElementById('mfs').textContent = money(spare);
+    document.getElementById('leftnow').textContent = money(leftNow);
+    document.querySelectorAll('.yleft').forEach(el => el.textContent = money(spare - parseFloat(el.dataset.amount)));
+  }
+
+  document.querySelectorAll('tr.bill').forEach(row => {
+    const link = row.querySelector('button.link'), box = row.querySelector('input.billbox'), x = row.querySelector('button.x');
+    let timer = null;
+    link.addEventListener('click', () => { link.hidden = true; box.hidden = false; box.focus(); box.select(); });
+    box.addEventListener('input', () => {
+      const v = readMoney(box.value);
+      box.classList.toggle('badval', isNaN(v) && box.value.trim() !== '');
+      if (isNaN(v)) return;
+      row.dataset.used = v; row.dataset.changed = '1';
+      showRow(row); recalc();
+      clearTimeout(timer); timer = setTimeout(() => save(row, v), 500);
+    });
+    box.addEventListener('keydown', e => { if (e.key === 'Enter') box.blur(); });
+    box.addEventListener('blur', () => { box.hidden = true; link.hidden = false; box.value = parseFloat(row.dataset.used).toFixed(2); box.classList.remove('badval'); });
+    x.addEventListener('click', () => {
+      clearTimeout(timer);
+      row.dataset.used = row.dataset.default; row.dataset.changed = '0';
+      box.value = parseFloat(row.dataset.default).toFixed(2);
+      showRow(row); recalc(); save(row, '');
+    });
+  });
 </script>
 </body>
 </html>

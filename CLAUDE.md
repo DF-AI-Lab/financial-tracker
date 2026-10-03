@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (329 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (333 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -76,11 +76,9 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    unpaid bills show the average with * + footnote; tap a bill's Last month amount to change it for THIS cycle only
    (`fintrack/billchange.py`, kv 'bill_changes' with the cycle start, POST /bill, also used by run.py); subscriptions =
    one table: Monthly price | Last 12 months | This year ('Paid so far' dropped). 6/12 months table untouched.
-   AGREED 3 Oct, NOT BUILT (user said wait): bill change boxes must update spare cash (hero + Left now), Diff and
-   Total LIVE as you type, several boxes at once, no Enter (user typed in 3 boxes, nothing changed). Still saved as a
-   temp note until next payday (save quietly in the background, e.g. fetch POST /bill on change). Bills never changed.
-   TODO 3 Oct (user asked, not built): a 'Left from last month' box on the home page, under/next to the pay box.
-   Typed by the user (e.g. 220). Planned: added to the spare cash (pay + left - bills), shown in the hero sum line,
-   kept until next payday (kv with cycle start, like billchange). Confirm with the user before building.
+   3 Oct BUILT (333 tests): bill boxes update spare cash/Diff/Total live as you type (page script, quiet POST /bill
+   with X-Requested-With: fetch -> 204), several at once, x puts back. 'Left from last month' box under the pay box
+   (POST /left, x removes; billchange.get_left, kv 'left_over_typed' with the cycle start): spare = pay + left - bills,
+   hero line 'Pay + left - bills', terminal '+ Left from last month'.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).

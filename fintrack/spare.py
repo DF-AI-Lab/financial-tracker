@@ -84,7 +84,7 @@ def expected_spare(cycles: List[Cycle], analysis: Analysis, wage: float, yearly:
 
 
 def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=None, items=None, yearly=None,
-              changes=None) -> dict:
+              changes=None, left=0.0) -> dict:
     """Calculate the pay block: bills, spending, spare cash.
 
     Returns dict with keys: "start", "cycles_used", "left_over", "wage", "bills", "bills_avg",
@@ -128,7 +128,8 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
     bills_last = sum(b["used"] for b in bills)
 
     # Spare = pay - bills (last month's amounts). Left over is not added (user, 3 Oct 2026).
-    spare = wage - bills_last
+    # left = what the user typed as left from last month (fintrack/billchange.py, 3 Oct 2026), 0 when not typed
+    spare = wage + left - bills_last
 
     # Get the last COMPLETE cycle
     complete_cycles = [c for c in cycles if c.complete]
@@ -217,6 +218,7 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
         "bills_avg": bills_avg,
         "bills_last": bills_last,
         "spare": spare,
+        "left": left,
         "spending": spending,
         "spending_last": spending_last,
         "spending_avg": spending_avg,
@@ -257,6 +259,8 @@ def format_pay_block(p: dict) -> List[str]:
     lines.append("")
 
     lines.append(f"  {'Pay':<32}{fmt_money(p['wage']):>10}")
+    if p.get("left"):
+        lines.append(f"+ {'Left from last month':<32}{fmt_money(p['left']):>10}")
     lines.append(f"- {'Bills (last month amounts)':<32}{fmt_money(p['bills_last']):>10}")
     lines.append(f"= {'SPARE CASH':<32}{fmt_money(p['spare']):>10}")
     lines.append("")

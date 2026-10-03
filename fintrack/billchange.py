@@ -37,3 +37,23 @@ def clear_change(conn, start: date, key: str) -> None:
     bills = get_changes(conn, start)
     bills.pop(key, None)
     set_value(conn, KEY, json.dumps({"start": start.isoformat(), "bills": bills}))
+
+
+# Left from last month (user, 3 Oct 2026): typed on the home page, added to the spare cash, forgotten at the next payday.
+LEFT_KEY = "left_over_typed"
+
+
+def get_left(conn, start: date) -> float:
+    try:
+        saved = json.loads(get_value(conn, LEFT_KEY) or "{}")
+    except ValueError:
+        return 0.0
+    return float(saved["amount"]) if saved.get("start") == start.isoformat() else 0.0
+
+
+def set_left(conn, start: date, amount: float) -> None:
+    set_value(conn, LEFT_KEY, json.dumps({"start": start.isoformat(), "amount": amount}))
+
+
+def clear_left(conn, start: date) -> None:
+    set_value(conn, LEFT_KEY, "{}")
