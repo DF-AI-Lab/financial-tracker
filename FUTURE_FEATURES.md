@@ -37,3 +37,6 @@ _Ideas agreed but not built yet. Newest at the bottom._
   others are asked about, ones after the statement's last day stay. Idea: wipe them all when the next
   statement goes in. Open question: wipe at the statement's end date or at payday? Payday makes most sense
   but varies (end of the month), and a statement end date can fall after the next payday.
+  **User's answer (3 Oct):** tie it to the pay box. When a new pay is typed in (home page or `run.py`), ask
+  "New pay. Clear your typed spends? y/n". Typing the pay = "I got paid", so no date guessing. It is a question,
+  not automatic, so fixing a typo in the pay does not wipe anything.
