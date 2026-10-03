@@ -76,5 +76,8 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    unpaid bills show the average with * + footnote; tap a bill's Last month amount to change it for THIS cycle only
    (`fintrack/billchange.py`, kv 'bill_changes' with the cycle start, POST /bill, also used by run.py); subscriptions =
    one table: Monthly price | Last 12 months | This year ('Paid so far' dropped). 6/12 months table untouched.
+   AGREED 3 Oct, NOT BUILT (user said wait): bill change boxes must update spare cash (hero + Left now), Diff and
+   Total LIVE as you type, several boxes at once, no Enter (user typed in 3 boxes, nothing changed). Still saved as a
+   temp note until next payday (save quietly in the background, e.g. fetch POST /bill on change). Bills never changed.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
