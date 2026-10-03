@@ -84,5 +84,7 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    spending, Spending by category, Subscriptions) by the handle, click a name to rename it (empty = normal name),
    '↺ Put the order back'. Kept for good (`fintrack/layout.py`, kv 'layout'; POST /layout, /name, /layout/reset);
    page only. Cards are rendered in the saved order (Jinja set-blocks in home.html). Bill changes still reset at payday.
+   Also: click a handle to pick a card/row, then arrow up/down moves it (drag did not auto-scroll for the user);
+   dragging near the window edge now scrolls too.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).

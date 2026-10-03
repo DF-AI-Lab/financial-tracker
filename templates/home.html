@@ -85,6 +85,7 @@
   body.editing .rname { outline: 1px dashed var(--border); border-radius: 4px; padding: 0 3px; cursor: text; }
   body.editing .card { outline: 1px dashed var(--border); }
   .dragging { opacity: .4; }
+  .picked { outline: 2px solid var(--accent) !important; background: var(--row); }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -103,7 +104,7 @@
     <button type="button" class="small" id="editbtn">✏️ Move &amp; rename</button>
     <form method="post" action="/layout/reset" class="onlyedit"><button class="small" type="submit">↺ Put the order back</button></form>
   </div>
-  <div class="onlyedit hint">Drag ⠿ to move a card or a row. Click a name to rename it (empty = the normal name). Press <b>Done</b> when finished.</div>
+  <div class="onlyedit hint">Click ⠿ on a card or row, then use the ⬆️ ⬇️ arrow keys to move it (or drag it). Click a name to rename it (empty = the normal name). Press <b>Done</b> when finished.</div>
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
@@ -390,6 +391,37 @@
       if (name === '') n.textContent = n.dataset.orig;
       post('/name', {id: n.dataset.id, name: name === n.dataset.orig ? '' : name});
     });
+  });
+
+  // Click a handle to pick a card or row, then arrow up / down to move it (user, 3 Oct 2026). Esc or Done to stop.
+  let picked = null;
+  const unpick = () => { if (picked) picked.classList.remove('picked'); picked = null; };
+  document.querySelectorAll('.handle').forEach(h => h.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    const el = h.closest('[data-id]');
+    if (picked === el) { unpick(); return; }
+    unpick(); picked = el; el.classList.add('picked');
+  }));
+  document.addEventListener('keydown', e => {
+    if (!picked) return;
+    if (e.key === 'Escape') { unpick(); return; }
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const box = picked.parentElement;
+    let next = e.key === 'ArrowUp' ? picked.previousElementSibling : picked.nextElementSibling;
+    while (next && !next.dataset.id) next = e.key === 'ArrowUp' ? next.previousElementSibling : next.nextElementSibling;
+    if (!next) return;
+    box.insertBefore(picked, e.key === 'ArrowUp' ? next : next.nextSibling);
+    picked.scrollIntoView({block: picked.classList.contains('card') ? 'start' : 'center'});
+    post('/layout', {sort: box.dataset.sort, ids: [...box.children].filter(c => c.dataset.id).map(c => c.dataset.id)});
+  });
+  if (editBtn) editBtn.addEventListener('click', unpick);
+
+  // While dragging, the page scrolls by itself near the top or bottom of the window.
+  document.addEventListener('dragover', e => {
+    if (!dragEl) return;
+    if (e.clientY < 80) window.scrollBy(0, -20);
+    else if (e.clientY > window.innerHeight - 80) window.scrollBy(0, 20);
   });
 
   let dragEl = null;
