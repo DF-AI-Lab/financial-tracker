@@ -33,7 +33,7 @@ _Ideas agreed but not built yet. Newest at the bottom._
 - Other banks
 
 ## Ideas for v2 (3 Oct, user)
-- **Typed spends: full wipe on a new PDF.** v1 (now): typed spends that match the statement are removed,
+- **(BUILT 3 Oct) Typed spends: full wipe on a new PDF.** v1 (now): typed spends that match the statement are removed,
   others are asked about, ones after the statement's last day stay. Idea: wipe them all when the next
   statement goes in. Open question: wipe at the statement's end date or at payday? Payday makes most sense
   but varies (end of the month), and a statement end date can fall after the next payday.

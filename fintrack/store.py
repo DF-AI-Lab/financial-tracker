@@ -522,6 +522,12 @@ def delete_spend(conn, spend_id: int) -> None:
     conn.commit()
 
 
+def clear_spends(conn) -> None:
+    """Delete every typed spend (a new pay, when the user says yes). Commit before returning."""
+    conn.execute("DELETE FROM spends")
+    conn.commit()
+
+
 def set_value(conn, key: str, value: str) -> None:
     """Set a key-value pair (insert or replace, value stored as str). Commit before returning."""
     conn.execute(

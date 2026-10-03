@@ -118,7 +118,8 @@
 
   <div class="tiles toprow">
     <div class="tile"><div class="label">✏️ This month's pay</div>
-      <form class="inline paybox" method="post" action="/pay">
+      <form class="inline paybox" method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}">
+        <input type="hidden" name="clear" value="0">
         <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
         <button type="submit">Work it out</button>
       </form>
@@ -468,6 +469,14 @@
     const wait = () => fetch('/', {cache: 'no-store'}).then(x => { if (x.ok) location.reload(); else setTimeout(wait, 1000); })
                                                       .catch(() => setTimeout(wait, 1000));
     setTimeout(wait, 3000);
+  });
+
+  // A new pay = "I got paid": ask before clearing the typed spends (3 Oct 2026). Same pay (a typo fix) asks nothing.
+  const payForm = document.getElementById('payform');
+  if (payForm) payForm.addEventListener('submit', () => {
+    const typed = parseFloat(payForm.pay.value.replace(/[£,\s]/g, ''));
+    if (payForm.dataset.spends === '1' && !isNaN(typed) && Math.abs(typed - parseFloat(payForm.dataset.pay)) >= 0.005)
+      payForm.clear.value = confirm('New pay. Clear your typed spends?\n\nOK = clear them, Cancel = keep them') ? '1' : '0';
   });
 </script>
 </body>

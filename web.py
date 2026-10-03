@@ -105,6 +105,9 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
 
         conn = open_db(db_path)
         set_value(conn, "pay", str(wage))
+        if request.form.get("clear") == "1":           # the page asked "New pay. Clear your typed spends?" -> yes
+            from fintrack.store import clear_spends
+            clear_spends(conn)
         conn.close()
 
         return redirect(url_for("home"), code=303)

@@ -304,6 +304,18 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     if tries >= 3:
         return
 
+    # A new pay typed in = "I got paid": offer to clear the typed spends (user, 3 Oct 2026). Asked, never automatic,
+    # so fixing a typo in the pay wipes nothing. Enter (the last wage) asks nothing.
+    old = get_value(conn, "pay")
+    if answer != "" and get_spends(conn) and (old is None or abs(float(old) - wage) >= 0.005):
+        try:
+            if ask("New pay. Clear your typed spends? y/n (Enter = no): ").strip().lower() in ("y", "yes"):
+                from fintrack.store import clear_spends
+                clear_spends(conn)
+                print("Typed spends cleared.")
+        except (EOFError, OSError):
+            pass
+
     # Save the wage and print the pay block
     set_value(conn, "pay", str(wage))
     for line in format_pay_block(pay_block(cycles, analysis, wage, categories=get_categories(conn), items=answers, yearly=due,
