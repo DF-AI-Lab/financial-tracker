@@ -82,14 +82,18 @@
 
   <!-- No. 1: spare cash -->
   <div class="hero">
-    <div class="label">Spare cash</div>
-    <div class="big">{{ d.pay.spare|money }}</div>
-    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }}</div>
+    <div class="label">Spare cash left</div>
+    <div class="big">{{ d.left_now|money }}</div>
+    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</div>
   </div>
 
   <div class="tiles">
-    <div class="tile"><div class="label">Left now (typed spends)</div>
-      <div class="num {{ 'good' if d.left_now >= 0 else 'bad' }}">{{ d.left_now|money }}</div></div>
+    {% if d.history %}
+    <div class="tile"><div class="label">Spare cash last month</div>
+      <div class="num">{{ d.history.last|money }}</div></div>
+    <div class="tile"><div class="label">{{ d.history.months }}-month average</div>
+      <div class="num">{{ d.history.avg|money }}</div></div>
+    {% endif %}
   </div>
 
   {% for y in d.pay.yearly %}

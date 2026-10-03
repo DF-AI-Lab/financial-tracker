@@ -9,6 +9,7 @@ from fintrack.where import where_did_it_go, where_summary
 from fintrack.bycategory import category_spending
 from fintrack.subs import find_subscriptions
 from fintrack.typed import money_for_spending
+from fintrack.sparehist import spare_history
 from fintrack.picture import six_month_picture
 from fintrack.yearly import yearly_due
 from fintrack.periods import period_totals
@@ -111,6 +112,8 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         "spends": spends,
         "money_for_spending": money,
         "left_now": left_now,
+        "typed_total": money - left_now,
+        "history": spare_history(cycles, analysis),
         "picture": picture,
         "statements_to": statements_to,
         "periods": periods
