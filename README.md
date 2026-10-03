@@ -29,6 +29,10 @@ and lists any single payment of 1,000 or more under BIG ITEMS.
 2. Double-click `start.bat` (or run `C:\ftvenv\Scripts\python.exe web.py` in PowerShell)
 3. Your browser opens at http://127.0.0.1:5000 with all your spare cash, bills, spending and where the money went
 
+Quick setup (does steps 1-2 and more): double-click `setup.bat` once. It installs flask, puts a
+`Financial Tracker` shortcut on your desktop, starts the page when Windows starts, and opens it now.
+Bookmark http://127.0.0.1:5000 (works while the black window is open; minimise it, don't close it).
+
 The page runs on your PC only (no login, no upload). New statements still go through `run.py`.
 
 ## Commands
