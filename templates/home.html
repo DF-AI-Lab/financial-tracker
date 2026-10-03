@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wage Tracker</title>
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a1a1a; --muted: #666; --border: #e2e4e8;
+    --row: #f6f7f9; --accent: #0b63ce; --good: #1f8a3b; --bad: #c62828; --warn-bg: #fff3cd; --warn: #7a5a00;
+    --hero: #0b63ce; --hero-text: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #15171a; --card: #1f2226; --text: #f2f2f2; --muted: #a8abb0; --border: #33373d;
+      --row: #262a2f; --accent: #5aa2ff; --good: #5fd27a; --bad: #ff7a7a; --warn-bg: #3a3420; --warn: #ffcf5a;
+      --hero: #1d4f8f; --hero-text: #ffffff;
+    }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 8px 0 2px; }
+  .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
+  .card h2 { font-size: 17px; margin: 0 0 12px; }
+  .hero { background: var(--hero); color: var(--hero-text); border-radius: 14px; padding: 22px; margin-bottom: 14px; text-align: center; }
+  .hero .label { font-size: 14px; letter-spacing: .6px; text-transform: uppercase; opacity: .9; }
+  .hero .big { font-size: 48px; font-weight: 800; line-height: 1.1; margin: 6px 0; }
+  .hero .how { font-size: 14px; opacity: .9; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
+  .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
+  .tile .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+  .tile .num { font-size: 26px; font-weight: 700; }
+  .good { color: var(--good); } .bad { color: var(--bad); } .muted { color: var(--muted); }
+  form.inline { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  input[type=text] { padding: 9px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 16px; min-width: 0; }
+  input.amount { width: 110px; } input.name { flex: 1; min-width: 140px; }
+  button { padding: 9px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-size: 15px; cursor: pointer; }
+  button.small { padding: 4px 10px; font-size: 13px; background: var(--row); color: var(--text); border: 1px solid var(--border); }
+  .error, .warn { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 15px; }
+  .error { background: var(--bad); color: #fff; }
+  .warn { background: var(--warn-bg); color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; font-size: 15px; }
+  th { text-align: left; font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; padding: 6px 4px; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 4px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  td.n, th.n { text-align: right; white-space: nowrap; }
+  tr.total td { font-weight: 700; border-bottom: 0; }
+  .labels { display: block; font-size: 13px; color: var(--muted); }
+  details { border-bottom: 1px solid var(--border); }
+  details:last-of-type { border-bottom: 0; }
+  summary { list-style: none; cursor: pointer; display: flex; justify-content: space-between; gap: 10px; padding: 10px 2px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: "▸"; color: var(--muted); margin-right: 6px; }
+  details[open] summary::before { content: "▾"; }
+  summary .what { flex: 1; } summary .note { display: block; font-size: 13px; color: var(--muted); }
+  summary .val { font-weight: 700; white-space: nowrap; }
+  .inside { padding: 0 2px 10px 22px; font-size: 14px; }
+  .inside div { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; color: var(--muted); }
+  .sum { display: grid; grid-template-columns: 1fr auto; gap: 2px 16px; font-size: 15px; }
+  .sum .n { text-align: right; white-space: nowrap; }
+  .sum .eq { font-weight: 700; border-top: 1px solid var(--border); padding-top: 4px; }
+  .against { display: flex; justify-content: space-between; gap: 10px; padding: 6px 2px; color: var(--muted); font-size: 14px; }
+  .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
+  .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>💷 Where does my wage go?</h1>
+  {% if not d.ready %}
+    <div class="card">
+      <h2>No paydays yet</h2>
+      <p>Put your statement PDFs in the <b>statements</b> folder. Run run.py first (it reads them and asks a few questions), then open this page again.</p>
+    </div>
+  {% else %}
+  <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
+
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+
+  <!-- No. 1: spare cash -->
+  <div class="hero">
+    <div class="label">Spare cash</div>
+    <div class="big">{{ d.pay.spare|money }}</div>
+    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }}{% if d.pay.left_over is not none %} + left over {{ d.pay.left_over|money }}{% endif %}</div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="label">Left if you spend like usual</div>
+      <div class="num {{ 'good' if d.pay.left_usual >= 0 else 'bad' }}">{{ d.pay.left_usual|money }}</div></div>
+    <div class="tile"><div class="label">Left now (typed spends)</div>
+      <div class="num {{ 'good' if d.left_now >= 0 else 'bad' }}">{{ d.left_now|money }}</div></div>
+    <div class="tile"><div class="label">Usual spending</div>
+      <div class="num">{{ d.pay.spending_avg|money }}</div></div>
+  </div>
+
+  {% for y in d.pay.yearly %}
+    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b>{{ y.left_if_paid|money }}</b></div>
+  {% endfor %}
+
+  <div class="card">
+    <h2>✏️ This month's pay</h2>
+    <form class="inline" method="post" action="/pay">
+      <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
+      <button type="submit">Work it out</button>
+    </form>
+  </div>
+
+  <!-- No. 2: last month's spending -->
+  <div class="card">
+    <h2>🛒 Last month's spending (not bills)</h2>
+    <table>
+      <tr><th>What</th><th class="n">Last month</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th></tr>
+      {% for s in d.pay.spending %}
+        <tr><td>{{ s.category }}{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
+            <td class="n">{{ s.last|money }}</td><td class="n">{{ s.avg|money }}</td></tr>
+      {% endfor %}
+      <tr class="total"><td>Total</td><td class="n">{{ d.pay.spending_last|money }}</td><td class="n">{{ d.pay.spending_avg|money }}</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>🏠 Bills (every month)</h2>
+    <table>
+      <tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th></tr>
+      {% for b in d.pay.bills %}
+        <tr><td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td><td class="n">{{ b.last|money if b.last > 0 else '—' }}</td></tr>
+      {% endfor %}
+      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n">{{ d.pay.bills_last|money }}</td></tr>
+    </table>
+  </div>
+
+  {% if d.last %}
+  <div class="card">
+    <h2>🔍 Where did last cycle's money go?</h2>
+    <div class="sub">{{ d.last.start|day }} to {{ d.last.end|day }}</div>
+    <div class="tiles">
+      <div class="tile"><div class="label">Expected spare</div><div class="num">{{ d.last.expected|money }}</div></div>
+      <div class="tile"><div class="label">Actual spare</div><div class="num">{{ d.last.actual|money }}</div></div>
+      <div class="tile"><div class="label">{{ 'Missing' if d.last.missing >= 0 else 'Extra' }}</div>
+        <div class="num {{ 'bad' if d.last.missing >= 0.005 else 'good' }}">{{ (d.last.missing if d.last.missing >= 0 else -d.last.missing)|money }}</div></div>
+    </div>
+    {% if d.where and d.where.kind != 'none' %}
+      {% for l in d.where.lines %}
+        <details><summary><span class="what">{{ l.text }}{% if l.note %}<span class="note">{{ l.note }}</span>{% endif %}</span><span class="val">{{ l.value|money }}</span></summary>
+          <div class="inside">
+            {% for t in l.txns %}<div><span>{{ t.date|day }} · {{ t.description }}</span><span>{{ t.amount|money }}</span></div>
+            {% else %}<div>No payments in this cycle.</div>{% endfor %}
+          </div></details>
+      {% endfor %}
+      {% for a in d.where.against %}
+        <div class="against"><span>{{ a.text }} {{ a.note }}</span><span>{{ a.value|money }}</span></div>
+      {% endfor %}
+      <div class="addsup"><span>Adds up to</span><span>{{ d.where.amount|money }} ✅</span></div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="card">
+    <h2>📊 Spending by category</h2>
+    <div class="sub">This cycle so far vs the {{ d.categories.cycles_used }}-cycle average. Tap one to see inside.</div>
+    {% for r in d.categories.rows %}
+      <details><summary><span class="what">{{ r.category }}<span class="note">now {{ r.now|money }} · usual {{ r.avg|money }}</span></span>
+        <span class="val {{ 'bad' if r.diff > 0.005 else 'good' }}">{{ '+' if r.diff > 0.005 else '' }}{{ r.diff|money }}</span></summary>
+        <div class="inside">
+          {% for l in r.labels %}<div><span>{{ l.label }}</span><span>{{ l.now|money }} now · {{ l.avg|money }} usual</span></div>{% endfor %}
+        </div></details>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <h2>➕ Add a spend</h2>
+    <form class="inline" method="post" action="/add">
+      <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
+      <input class="name" type="text" name="name" placeholder="Costa" aria-label="What">
+      <button type="submit">Add</button>
+    </form>
+    {% if d.spends %}
+      <table style="margin-top:12px">
+        {% for s in d.spends %}
+          <tr><td>{{ s.date|day }}</td><td>{{ s.name }}<span class="labels">{{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
+              <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+    <div class="sum" style="margin-top:12px">
+      <span>Money for spending</span><span class="n">{{ d.money_for_spending|money }}</span>
+      <span>Typed so far</span><span class="n">{{ (d.money_for_spending - d.left_now)|money }}</span>
+      <span class="eq">Left now</span><span class="n eq">{{ d.left_now|money }}</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>🔁 Subscriptions</h2>
+    {% if d.subs.active %}
+      <table>
+        <tr><th>Still paying</th><th class="n">A month</th><th class="n">Paid so far</th></tr>
+        {% for s in d.subs.active %}<tr><td>{{ s.name }}<span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.total|money }}</td></tr>{% endfor %}
+      </table>
+    {% endif %}
+    {% if d.subs.stopped %}
+      <div class="sub" style="margin:12px 0 4px">Stopped</div>
+      <table>
+        {% for s in d.subs.stopped %}<tr><td>{{ s.name }}<span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.total|money }}</td></tr>{% endfor %}
+      </table>
+    {% endif %}
+    {% if not d.subs.active and not d.subs.stopped %}<p class="muted">None found.</p>{% endif %}
+  </div>
+
+  <div class="card">
+    <h2>🗓️ Six-month picture</h2>
+    <div class="sum">
+      <span>Wage (average)</span><span class="n">{{ d.picture.wage_avg|money }}</span>
+      <span>Bills (average)</span><span class="n">{{ d.picture.bills_avg|money }}</span>
+      <span>Normal spending (average)</span><span class="n">{{ d.picture.normal_avg|money }}</span>
+      <span>One-offs (not counted)</span><span class="n">{{ d.picture.oneoffs_total|money }}</span>
+      <span>Unsorted (average)</span><span class="n">{{ d.picture.unsorted_avg|money }}</span>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.</div>
+</div>
+</body>
+</html>
