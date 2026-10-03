@@ -54,10 +54,11 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
-1. Build `SPEC.md` step by step from step 8 (user to try step 7 on real data) (3 Oct: steps 5-6 checked on real data; last cycle missing only 7.34,
+1. Build `SPEC.md` step by step from step 8 (3 Oct: step 7 checked on real data, adds up: 7.34 = IVA 279 paid - food shopping 240 less ...) (3 Oct: steps 5-6 checked on real data; last cycle missing only 7.34,
 expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tell the user the score). Terminal first.
 2. Small fixes from real use: PAYDAY TRANSFERS prompt saves any typed sentence as a label and Enter = yes (ask to
    confirm long labels); `fix` list hides guessed categories (show them); a "finished" kind for ended bills (IVA) instead
-   of one-off; HPI INSTANT INK (11 x 2.99) suggested Random, check why.
+   of one-off; HPI INSTANT INK (11 x 2.99) suggested Random, check why;
+   where.py bill note says "last month" even when the usual is the average (bill not paid the month before).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Home page (step 9) last.
