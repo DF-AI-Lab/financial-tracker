@@ -46,3 +46,5 @@ _Ideas agreed but not built yet. Newest at the bottom._
 - **Easier question list (user, 3 Oct):** after showing the 10 items, ask one question at a time:
   "Which are Common? (numbers)" -> "Which are One-off?" -> "Which are Yearly?" -> the rest are Random.
   Then "Any categories to change?" Enter = skip each step. No keywords to remember.
+- **DD / SO are Common by default (user, 3 Oct):** direct debits and standing orders go straight to Common
+  without a question; only ask when one stops. Fewer questions. (Card and BP stay as now.)
