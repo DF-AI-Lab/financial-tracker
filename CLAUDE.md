@@ -83,5 +83,7 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    TODO 3 Oct (user asked, not built, confirm first): drag and drop on the home page: whole cards up/down, and rows
    inside cards (Bills, Last month's spending, Spending by category, Subscriptions). Totals stay at the bottom; the
    6/12 months table stays as it is. Planned: order remembered for good (kv), new rows go to the bottom; a reset link.
+   TODO 3 Oct (with drag and drop): rename rows on the home page (display name only, e.g. 'City Of York Gener' ->
+   'Council Tax'), saved for good like the order (kv), not in items/rules. Bill amount changes still reset each payday.
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
