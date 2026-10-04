@@ -82,3 +82,6 @@ _Ideas agreed but not built yet. Newest at the bottom._
 - **Login = a token, no login screens:** open a secret link once on the phone, the token is remembered on the phone.
   New token = old phone locked out. (Cognito possible later if wanted.)
 - PC needs an AWS key limited to these buckets only. Excel copy in OneDrive also discussed (optional, not agreed).
+- **Caching (4 Oct):** the page files are cached by CloudFront and on the phone (opens instantly, works offline).
+  The snapshot is NOT cached by CloudFront (no-cache: always fresh, token checked every time, never in a shared cache);
+  the phone keeps its own last copy for offline viewing.
