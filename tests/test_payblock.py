@@ -70,8 +70,11 @@ def test_a_bill_not_paid_last_month_shows_a_dash_and_counts_at_its_average():
     energy = next(b for b in p["bills"] if b["name"] == "ENERGY CO")
     assert energy["last"] == 0 and energy["avg"] == pytest.approx(160 / 3)
     assert p["bills_last"] == pytest.approx(500 + 160 / 3)       # energy counted at its average
-    line = next(l for l in format_pay_block(p) if l.startswith("  ENERGY CO"))
-    assert line == f"  {'ENERGY CO':<32}{'53.33':>10}  {'-':>10}"
+    assert energy["used"] == pytest.approx(160 / 3) and energy["estimated"] is True and energy["diff"] is None
+    lines = format_pay_block(p)
+    line = next(l for l in lines if l.startswith("  ENERGY CO"))
+    assert line == f"  {'ENERGY CO':<32}{'53.33':>10}  {'53.33':>10}*"       # the average, with a * (user, 3 Oct 2026)
+    assert "  * not paid last month, average used" in lines
 
 
 def test_labels_are_the_three_biggest_last_month():
@@ -98,3 +101,34 @@ def test_the_average_columns_say_how_many_cycles():
     assert lines[2].endswith("6-mth avg  Last month")
     assert any(l.startswith("LAST MONTH SPENDING") and l.endswith("6-mth avg") for l in lines)
     assert not any("spend like usual" in l for l in lines)      # dropped 3 Oct 2026
+
+
+def test_each_bill_has_a_diff_last_month_minus_average():
+    p = block()
+    rent, energy = p["bills"]
+    assert (rent["diff"], energy["diff"]) == (pytest.approx(0), pytest.approx(10))      # 95 - 85
+    assert energy["key"] and energy["used"] == pytest.approx(95) and energy["estimated"] is False
+    assert energy["changed"] is False
+
+
+def test_a_bill_changed_for_this_cycle_is_used_for_the_spare_cash():
+    # 3 Oct 2026: the user knows next month's phone bill (151); changing it here is for this cycle only
+    energy_key = next(b["key"] for b in block()["bills"] if b["name"] == "ENERGY CO")
+    p = block(changes={energy_key: 151.0})
+    energy = next(b for b in p["bills"] if b["name"] == "ENERGY CO")
+    assert energy["used"] == pytest.approx(151) and energy["changed"] is True and energy["last"] == pytest.approx(95)
+    assert energy["diff"] == pytest.approx(151 - 85)
+    assert p["bills_last"] == pytest.approx(651) and p["spare"] == pytest.approx(2500 - 651)
+    line = next(l for l in format_pay_block(p) if l.startswith("  ENERGY CO"))
+    assert line == f"  {'ENERGY CO':<32}{'85.00':>10}  {'151.00':>10}  (changed)"
+    assert block(changes={"NOT A BILL": 5.0})["bills_last"] == pytest.approx(595)       # unknown keys are ignored
+
+
+def test_left_from_last_month_is_added_to_the_spare_cash():
+    p = block(left=220.0)
+    assert p["left"] == 220.0 and p["spare"] == pytest.approx(2500 + 220 - 595)
+    lines = format_pay_block(p)
+    i = lines.index(f"  {'Pay':<32}{'2,500.00':>10}")
+    assert lines[i + 1] == f"+ {'Left from last month':<32}{'220.00':>10}"
+    assert block()["left"] == 0.0
+    assert not any("Left from last month" in l for l in format_pay_block(block()))

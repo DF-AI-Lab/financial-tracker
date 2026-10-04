@@ -4,9 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wage Tracker</title>
+{% if not phone %}<link rel="manifest" href="/manifest.json">{% endif %}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Wage Tracker">
+{% if phone %}<link rel="icon" href="{{ icon }}"><link rel="apple-touch-icon" href="{{ icon }}">{% else %}<link rel="icon" href="/static/icon-192.png">{% endif %}
+<meta name="theme-color" content="#1d4f8f">
 <style>
   * { box-sizing: border-box; }
   :root {
@@ -32,7 +35,11 @@
   .hero .big { font-size: 48px; font-weight: 800; line-height: 1.1; margin: 6px 0; }
   .hero .how { font-size: 14px; opacity: .9; }
   .tiles.toprow { grid-template-columns: 1.4fr 1fr 1fr; }
-  .paybox { justify-content: center; margin-top: 6px; }
+  .paybox { justify-content: center; margin-top: 6px; flex-wrap: nowrap; }
+  .paybox form { flex-wrap: nowrap; }
+  .paybox button[type=submit]:not(.small) { width: 110px; }          /* 'Work it out' and 'Add/Change' the same width */
+  .leftrow { position: relative; display: flex; justify-content: center; }
+  .leftrow .leftx { position: absolute; top: 50%; transform: translateY(-50%); left: calc(50% + 120px); margin: 0; } /* x to the right, boxes stay in line */
   @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
@@ -70,6 +77,40 @@
   .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
   .scroll { overflow-x: auto; }
   @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
+  button.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
+  button.link.muted { color: var(--muted); }
+  input.billbox { width: 90px; padding: 4px 6px; text-align: right; }
+  input.billbox.badval { border-color: var(--bad); }
+  td button.small.x { padding: 0 6px; margin-left: 4px; }
+  .handle, .onlyedit { display: none; }
+  body.editing .handle { display: inline-block; cursor: grab; color: var(--muted); margin-right: 6px; user-select: none; }
+  body.editing .onlyedit { display: inline-block; }
+  body.editing div.onlyedit { display: block; }
+  .editbar { display: flex; justify-content: flex-end; gap: 8px; margin: -12px 0 12px; }
+  .hint { color: var(--muted); font-size: 14px; margin-bottom: 12px; }
+  body.editing .rname { outline: 1px dashed var(--border); border-radius: 4px; padding: 0 3px; cursor: text; }
+  body.editing .card { outline: 1px dashed var(--border); }
+  .dragging { opacity: .4; }
+  .picked { outline: 2px solid var(--accent) !important; background: var(--row); }
+  .dropbar { display: block; border: 2px dashed var(--border); border-radius: 12px; padding: 14px; text-align: center;
+             color: var(--muted); cursor: pointer; margin-bottom: 14px; }
+  .dropbar:hover, body.dragover .dropbar { border-color: var(--accent); color: var(--text); background: var(--row); }
+  .dropresult { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; margin-bottom: 14px; font-size: 15px; }
+  .sortcard { border-color: var(--accent); }
+  .sortbtns { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: var(--bg); color: var(--text); border: 0; border-right: 1px solid var(--border); border-radius: 0; padding: 6px 10px; font-size: 14px; }
+  .seg button:last-child { border-right: 0; }
+  .seg button.on { background: var(--accent); color: #fff; }
+  input.sname { width: calc(100% - 34px); padding: 4px 6px; font-size: 15px; }
+  .sortrow td:first-child b { display: inline-block; width: 28px; }
+  input.scat { width: 150px; padding: 4px 6px; font-size: 15px; }
+  textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: 14px/1.4 system-ui, sans-serif; }
+  tr.filled td { background: var(--row); }
+  .ask { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .ask:last-child { border-bottom: 0; }
+  .askbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  input.asklabel { width: 140px; padding: 4px 6px; }
   .phonebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 14px; color: var(--muted); }
   .phonebar button { font-size: 16px; }
   .state { display: block; font-size: 13px; color: var(--warn); }
@@ -85,12 +126,21 @@
   {% if not d.ready %}
     <div class="card">
       <h2>No paydays yet</h2>
-      <p>Put your statement PDFs in the <b>statements</b> folder. Run run.py first (it reads them and asks a few questions), then open this page again.</p>
+      <p>Drop your statement PDFs below (or put them in the <b>statements</b> folder and run run.py).</p>
     </div>
+  {% if not phone %}
+  <!-- No. 6a: drop statement PDFs anywhere on the page, or click to choose them -->
+  <label class="dropbar" id="dropbar">
+    <input type="file" id="dropfiles" accept=".pdf,application/pdf" multiple hidden>
+    <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
+  </label>
+  {% endif %}
+  <div id="dropresult" class="dropresult" hidden></div>
+
   {% else %}
   <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
 
-  {% if phone %}
+{{ '' }}  {% if phone %}
   <div class="phonebar"><span>📱 From PC: {{ updated }} <span id="sendmsg"></span></span>
     <button id="sendbtn" type="button" hidden>📤 Send to PC</button></div>
   {% endif %}
@@ -109,24 +159,43 @@
   </div>
   {% endif %}
 
+  {% if not phone %}
+  <div class="editbar">
+    <button type="button" class="small" id="updbtn" title="Get the latest version from GitHub">🔄 Update</button>
+    <button type="button" class="small" id="editbtn">✏️ Move &amp; rename</button>
+    <form method="post" action="/layout/reset" class="onlyedit"><button class="small" type="submit">↺ Put the order back</button></form>
+  </div>
+  <div class="onlyedit hint">Click ⠿ on a card or row, then use the ⬆️ ⬇️ arrow keys to move it (or drag it). Click a name to rename it (empty = the normal name). Press <b>Done</b> when finished.</div>
+  {% endif %}
+
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
   <!-- No. 1: spare cash -->
   <div class="hero">
     <div class="label">Spare cash left</div>
-    <div class="big" id="leftbig">{{ d.left_now|money }}</div>
-    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}<span id="spendshow">{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</span></div>
+    <div class="big" id="spare-big">{{ d.left_now|money }}</div>
+    <div class="how" id="spare-how">Pay {{ d.pay.wage|money }}{% if d.pay.left %} + left {{ d.pay.left|money }}{% endif %} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}<span id="spendshow">{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</span></div>
   </div>
 
   <div class="tiles toprow">
     {% if phone %}
-    <div class="tile"><div class="label">This month's pay</div><div class="num">{{ d.pay.wage|money }}</div></div>
+    <div class="tile"><div class="label">This month's pay</div><div class="num">{{ d.pay.wage|money }}</div>
+      {% if d.pay.left %}<div class="label" style="margin-top:12px">Left from last month</div><div class="num">{{ d.pay.left|money }}</div>{% endif %}</div>
     {% else %}
     <div class="tile"><div class="label">✏️ This month's pay</div>
-      <form class="inline paybox" method="post" action="/pay">
+      <form class="inline paybox" method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}">
+        <input type="hidden" name="clear" value="0">
         <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
         <button type="submit">Work it out</button>
-      </form></div>
+      </form>
+      <div class="label" style="margin-top:12px">💰 Left from last month</div>
+      <div class="paybox leftrow">
+        <form class="inline paybox" method="post" action="/left">
+          <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="220" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}" aria-label="Left from last month">
+          <button type="submit">{{ 'Change' if d.pay.left else 'Add' }}</button>
+        </form>
+        {% if d.pay.left %}<form class="leftx" method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
+      </div></div>
     {% endif %}
     {% if d.history %}
     <div class="tile"><div class="label">Spare cash last month</div>
@@ -136,8 +205,78 @@
     {% endif %}
   </div>
 
-  <div class="card">
-    <h2>➕ Add a spend</h2>
+  {% if not phone %}
+  <!-- No. 6a: drop statement PDFs anywhere on the page, or click to choose them -->
+  <label class="dropbar" id="dropbar">
+    <input type="file" id="dropfiles" accept=".pdf,application/pdf" multiple hidden>
+    <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
+  </label>
+  <div id="dropresult" class="dropresult" hidden></div>
+  <!-- No. 6b: new items sorted on the page (my guess is picked; change any, then Save) -->
+  {% if d.sort %}
+  <div class="card sortcard" id="sortcard" data-count="{{ d.sort|length }}">
+    <h2>❓ {{ d.sort|length }} new item{{ 's' if d.sort|length != 1 else '' }} to sort</h2>
+    <div class="sub" style="margin-bottom:10px">My guesses are picked. Change any you like, then press <b>Save</b>.</div>
+    <div class="sortbtns">
+      <button type="button" id="sortsave">💾 Save</button>
+      <button type="button" class="small" id="aicopy">📋 Copy for AI</button>
+      <button type="button" class="small" id="aipastebtn">📥 Paste answers</button>
+    </div>
+    <div id="aipaste" hidden style="margin:10px 0">
+      <textarea id="aireply" rows="6" placeholder="Paste the AI's reply here (lines like: 1 bill Household)"></textarea>
+      <button type="button" class="small" id="aifill">Fill in the buttons</button> <span id="aimsg" class="muted"></span>
+    </div>
+    <textarea id="aitext" hidden>{{ d.ai_text }}</textarea>
+    <datalist id="catlist">{% for c in d.category_names %}<option value="{{ c }}">{% endfor %}</datalist>
+    <div class="scroll"><table>
+      {% for i in d.sort %}
+      <tr class="sortrow" data-n="{{ i.n }}" data-key="{{ i.key }}">
+        <td style="width:34%"><b>{{ i.n }}.</b> <input class="sname" type="text" value="{{ i.name }}" aria-label="Name">
+          <span class="labels">{{ i.group }} · {{ i.detail }} · avg {{ i.average|money }} · {{ i.count }} in {{ i.months }} month{{ 's' if i.months != 1 else '' }}</span></td>
+        <td><div class="seg">{% for k, t in [('bill', 'Bill'), ('random', 'Random'), ('oneoff', 'One-off'), ('yearly', 'Yearly')] %}<button type="button" data-kind="{{ k }}" class="{{ 'on' if i.kind == k else '' }}">{{ t }}</button>{% endfor %}</div></td>
+        <td><input class="scat" type="text" list="catlist" value="{{ i.category }}" aria-label="Category"></td>
+      </tr>
+      {% endfor %}
+    </table></div>
+  </div>
+  {% endif %}
+  <!-- No. 6c: the other questions (same bill, rent, typed spends), answered with one click -->
+  {% if d.more %}
+  <div class="card sortcard" id="morecard">
+    <h2>❓ {{ d.more|length }} quick question{{ 's' if d.more|length != 1 else '' }}</h2>
+    {% for q in d.more %}
+    <div class="ask" data-q="{{ q|tojson|forceescape }}">
+      {% if q.type == 'job' %}
+        <div><b>Is {{ q.name }} your new job?</b> 💼</div>
+        <div class="labels">No wage from your usual job lately, but {{ q.name }} paid in {{ q.count }} times since {{ q.first|day }} (latest {{ q.usual|money }}).</div>
+        <div class="askbtns"><button type="button" data-yes="1">Yes, my new job</button><button type="button" class="small" data-yes="0">No</button></div>
+      {% elif q.type == 'same' %}
+        <div><b>Same bill?</b> 🔁</div>
+        <div class="labels">{{ q.big_text }} ({{ q.big_label }})<br>and {{ q.small_text }} ({{ q.small_label }})</div>
+        <div class="askbtns"><button type="button" data-yes="1">Yes, same bill</button><button type="button" class="small" data-yes="0">No, keep apart</button></div>
+      {% elif q.type == 'rent' %}
+        <div><b>Is this your rent?</b> 🏠 {{ q.payer }}: about {{ q.usual|money }} just after payday ({{ q.examples|length }} found)</div>
+        <div class="labels">{% for e in q.examples[-4:] %}{{ e.date }} · {{ e.amount|money }}{% if e.reference %} · ref {{ e.reference }}{% endif %}<br>{% endfor %}</div>
+        <div class="askbtns">Count as a bill called <input type="text" class="asklabel" value="{{ q.label }}" maxlength="30">
+          <button type="button" data-yes="1">Yes</button><button type="button" class="small" data-yes="0">No</button></div>
+      {% else %}
+        <div><b>Typed spend not in your statements</b> 🧾 {{ q.amount|money }} {{ q.name }} ({{ q.date|day }})</div>
+        <div class="askbtns"><button type="button" data-keep="1">Keep it</button><button type="button" class="small" data-keep="0">Remove it</button></div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% endif %}
+  {% for y in d.pay.yearly %}
+    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b class="yleft" data-amount="{{ y.amount }}">{{ y.left_if_paid|money }}</b></div>
+  {% endfor %}
+
+  {% set bills_last = d.pay.bills|sum(attribute='last') %}
+  {% set c_spend %}
+  <div class="card" data-id="spend" data-card="spend">
+    <h2><span class="handle" title="Drag to move">⠿</span> ➕ Add a spend</h2>
     {% if phone %}
     <form class="inline" id="addform">
       <input class="amount" type="text" id="addamount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
@@ -162,46 +301,67 @@
     {% endif %}
     {% endif %}
     <div class="sum" style="margin-top:12px">
-      <span>Money for spending</span><span class="n">{{ d.money_for_spending|money }}</span>
+      <span>Money for spending</span><span class="n" id="mfs">{{ d.money_for_spending|money }}</span>
       <span>Typed so far</span><span class="n" id="typed">{{ (d.money_for_spending - d.left_now)|money }}</span>
       <span class="eq">Left now</span><span class="n eq" id="leftnow">{{ d.left_now|money }}</span>
     </div>
   </div>
-
-  {% for y in d.pay.yearly %}
-    <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b>{{ y.left_if_paid|money }}</b></div>
-  {% endfor %}
-
-  <!-- No. 2: last month's spending, bills first -->
-  {% set bills_last = d.pay.bills|sum(attribute='last') %}
-  <div class="card">
-    <h2>🛒 Last month's spending</h2>
-    <table>
-      <tr><th>What</th><th class="n">Last month</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th></tr>
-      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are listed below</span></td>
-          <td class="n"><b>{{ bills_last|money }}</b></td><td class="n"><b>{{ d.pay.bills_avg|money }}</b></td></tr>
-      {% for s in d.pay.spending %}
-        <tr><td>{{ s.category }}{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
-            <td class="n">{{ s.last|money }}</td><td class="n">{{ s.avg|money }}</td></tr>
-      {% endfor %}
-      <tr class="total"><td>Total</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td></tr>
-    </table>
-  </div>
-
-  <div class="card">
-    <h2>🏠 Bills (every month)</h2>
-    <table>
-      <tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th></tr>
+  {% endset %}
+  {% set c_bills %}
+  <div class="card" data-id="bills" data-card="bills">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🏠 Bills (every month)</h2>
+    <table id="bills">
+      <thead><tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr></thead>
+      <tbody data-sort="bills">
       {% for b in d.pay.bills %}
-        <tr><td>{{ b.name }}</td><td class="n">{{ b.avg|money }}</td><td class="n">{{ b.last|money if b.last > 0 else '—' }}</td></tr>
+        {% set dflt = b.last if b.last > 0 else b.avg %}
+        <tr class="bill" data-id="{{ b.id }}" data-key="{{ b.key }}" data-avg="{{ b.avg }}" data-default="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}">
+          <td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ b.id }}" data-orig="{{ b.orig }}">{{ b.name }}</span></td><td class="n">{{ b.avg|money }}</td>
+          <td class="n">
+            <button type="button" class="link {{ 'muted' if b.estimated else '' }}" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% elif b.changed %} ✏️{% endif %}</button>
+            <input class="amount billbox" type="text" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}" hidden>
+            <button type="button" class="small x" title="Put it back" {{ '' if b.changed else 'hidden' }}>✖</button>
+          </td>
+          <td class="n diff {{ 'good' if b.diff is not none and b.diff < -0.005 else ('bad' if b.diff is not none and b.diff > 0.005 else 'muted') }}">{{ b.diff|diff }}</td></tr>
       {% endfor %}
-      <tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n">{{ d.pay.bills_last|money }}</td></tr>
+      </tbody>
+      {% set bdiff = d.pay.bills_last - d.pay.bills_avg %}
+      <tbody><tr class="total"><td>Total</td><td class="n">{{ d.pay.bills_avg|money }}</td><td class="n" id="btotal">{{ d.pay.bills_last|money }}</td>
+        <td class="n {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}" id="bdiff">{{ bdiff|diff }}</td></tr></tbody>
+    </table>
+    <div class="labels" style="margin-top:8px">
+      {% if d.pay.bills|selectattr('estimated')|list %}* not paid last month, average used<br>{% endif %}
+      ✏️ Tap a Last month amount to change it for this pay cycle only. Spare cash updates as you type; ✖ puts it back.
+    </div>
+  </div>
+  {% endset %}
+  {% set c_last %}
+  <div class="card" data-id="lastmonth" data-card="lastmonth">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🛒 Last month's spending</h2>
+    <table>
+      <thead><tr><th>What</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
+      {% set bd = bills_last - d.pay.bills_avg %}
+      <tr><td><b>Bills (rent, direct debits, standing orders)</b><span class="labels">all of them are in the 🏠 Bills card</span></td>
+          <td class="n"><b>{{ d.pay.bills_avg|money }}</b></td><td class="n"><b>{{ bills_last|money }}</b></td>
+          <td class="n {{ 'good' if bd < -0.005 else ('bad' if bd > 0.005 else '') }}"><b>{{ bd|diff }}</b></td></tr></thead>
+      <tbody data-sort="lastmonth">
+      {% for s in d.pay.spending %}
+        {% set sd = s.last - s.avg %}
+        <tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span>{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
+            <td class="n">{{ s.avg|money }}</td><td class="n">{{ s.last|money }}</td>
+            <td class="n {{ 'good' if sd < -0.005 else ('bad' if sd > 0.005 else '') }}">{{ sd|diff }}</td></tr>
+      {% endfor %}
+      </tbody>
+      {% set td = bills_last + d.pay.spending_last - d.pay.bills_avg - d.pay.spending_avg %}
+      <tbody><tr class="total"><td>Total</td><td class="n">{{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</td><td class="n">{{ (bills_last + d.pay.spending_last)|money }}</td>
+        <td class="n {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td></tr></tbody>
     </table>
   </div>
-
+  {% endset %}
+  {% set c_where %}
   {% if d.last %}
-  <div class="card">
-    <h2>🔍 Where did last cycle's money go?</h2>
+  <div class="card" data-id="where" data-card="where">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🔍 Where did last cycle's money go?</h2>
     <div class="sub">{{ d.last.start|day }} to {{ d.last.end|day }}</div>
     <div class="tiles">
       <div class="tile"><div class="label">Expected spare</div><div class="num">{{ d.last.expected|money }}</div></div>
@@ -224,38 +384,45 @@
     {% endif %}
   </div>
   {% endif %}
-
-  <div class="card">
-    <h2>📊 Spending by category</h2>
+  {% endset %}
+  {% set c_cats %}
+  <div class="card" data-id="cats" data-card="cats">
+    <h2><span class="handle" title="Drag to move">⠿</span> 📊 Spending by category</h2>
     <div class="sub">This cycle so far vs the {{ d.categories.cycles_used }}-cycle average. Tap one to see inside.</div>
+    <div data-sort="cats">
     {% for r in d.categories.rows %}
-      <details><summary><span class="what">{{ r.category }}<span class="note">now {{ r.now|money }} · usual {{ r.avg|money }}</span></span>
+      <details data-id="{{ r.id }}"><summary><span class="what"><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ r.id }}" data-orig="{{ r.orig }}">{{ r.name }}</span><span class="note">now {{ r.now|money }} · usual {{ r.avg|money }}</span></span>
         <span class="val {{ 'bad' if r.diff > 0.005 else 'good' }}">{{ '+' if r.diff > 0.005 else '' }}{{ r.diff|money }}</span></summary>
         <div class="inside">
           {% for l in r.labels %}<div><span>{{ l.label }}</span><span>{{ l.now|money }} now · {{ l.avg|money }} usual</span></div>{% endfor %}
         </div></details>
     {% endfor %}
+    </div>
   </div>
-
-  <div class="card">
-    <h2>🔁 Subscriptions</h2>
-    {% if d.subs.active %}
+  {% endset %}
+  {% set c_subs %}
+  <div class="card" data-id="subs" data-card="subs">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🔁 Subscriptions</h2>
+    {% if d.subs.active or d.subs.stopped %}
       <table>
-        <tr><th>Still paying</th><th class="n">A month</th><th class="n">Paid so far</th></tr>
-        {% for s in d.subs.active %}<tr><td>{{ s.name }}<span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.total|money }}</td></tr>{% endfor %}
-      </table>
-    {% endif %}
-    {% if d.subs.stopped %}
-      <div class="sub" style="margin:12px 0 4px">Stopped</div>
-      <table>
-        {% for s in d.subs.stopped %}<tr><td>{{ s.name }}<span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.total|money }}</td></tr>{% endfor %}
+        <thead><tr><th>Still paying</th><th class="n">Monthly price</th><th class="n">Last 12 months</th><th class="n">This year</th></tr></thead>
+        <tbody data-sort="subs-active">
+        {% for s in d.subs.active %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span><span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+        </tbody>
+        {% if d.subs.stopped %}
+          <tbody><tr><td colspan="4" class="muted" style="padding-top:14px">Stopped</td></tr></tbody>
+          <tbody data-sort="subs-stopped">
+          {% for s in d.subs.stopped %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span><span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+          </tbody>
+        {% endif %}
       </table>
     {% endif %}
     {% if not d.subs.active and not d.subs.stopped %}<p class="muted">None found.</p>{% endif %}
   </div>
-
-  <div class="card">
-    <h2>🗓️ 6 months, 12 months and this year</h2>
+  {% endset %}
+  {% set c_periods %}
+  <div class="card" data-id="periods" data-card="periods">
+    <h2><span class="handle" title="Drag to move">⠿</span> 🗓️ 6 months, 12 months and this year</h2>
     {% if d.periods %}
     <div class="scroll"><table class="periods">
       <tr><th></th>{% for p in d.periods %}<th class="n">{{ p.name }}<span class="labels">{{ p.cycles }} pay cycle{{ 's' if p.cycles != 1 else '' }}</span></th>{% endfor %}</tr>
@@ -276,14 +443,275 @@
       <span>Unsorted (average)</span><span class="n">{{ d.picture.unsorted_avg|money }}</span>
     </div>
   </div>
+  {% endset %}
+  {% set cards = {"spend": c_spend, "bills": c_bills, "lastmonth": c_last, "where": c_where, "cats": c_cats, "subs": c_subs, "periods": c_periods} %}
+  <!-- Cards and rows in the user's own order, rows renamed (fintrack/layout.py, 3 Oct 2026) -->
+  <div id="cards" data-sort="cards">
+  {% for id in d.cards %}{{ cards[id] }}{% endfor %}
+  </div>
   {% endif %}
 
   {% if phone %}
   <div class="footer">Spends you add here count straight away. Tap 📤 Send to PC, and your PC asks you about them next time it starts.</div>
   {% else %}
-  <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.</div>
+  <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.{% if version %}<br>Version {{ version }}{% endif %}</div>
   {% endif %}
 </div>
+{% if not phone %}
+<script>
+  // Change a bill for this pay cycle only (3 Oct 2026): spare cash, Diff and Total update as you type,
+  // and each change is saved quietly (POST /bill) as a temp note until the next payday. Bills are never changed.
+  const PAGE = {{ {"wage": d.pay.wage, "left": d.pay.left, "typed": d.typed_total}|tojson if d.ready else '{}' }};
+  const money = x => (x < 0 ? '-£' : '£') + Math.abs(x).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const diff = x => Math.abs(x) < 0.005 ? '£0.00' : (x > 0 ? '+' : '') + money(x);
+  const tone = (el, x) => { el.classList.remove('good', 'bad', 'muted'); if (x === null) el.classList.add('muted');
+    else if (x < -0.005) el.classList.add('good'); else if (x > 0.005) el.classList.add('bad'); else el.classList.add('muted'); };
+  const readMoney = t => { t = t.replace(/[£,\s]/g, ''); return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN; };
+
+  function save(row, amount) {
+    fetch('/bill', {method: 'POST', headers: {'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({key: row.dataset.key, amount: amount})});
+  }
+
+  function showRow(row) {
+    const used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1', est = row.dataset.estimated === '1' && !changed;
+    const link = row.querySelector('button.link');
+    link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : ''));
+    link.classList.toggle('muted', est);
+    row.querySelector('button.x').hidden = !changed;
+    const d = est ? null : used - parseFloat(row.dataset.avg);
+    const cell = row.querySelector('td.diff');
+    cell.textContent = d === null ? '' : diff(d); tone(cell, d);
+  }
+
+  function recalc() {
+    let bills = 0, avg = 0;
+    document.querySelectorAll('tr.bill').forEach(r => { bills += parseFloat(r.dataset.used); avg += parseFloat(r.dataset.avg); });
+    const spare = PAGE.wage + PAGE.left - bills, leftNow = spare - PAGE.typed;
+    document.getElementById('btotal').textContent = money(bills);
+    const bd = document.getElementById('bdiff'); bd.textContent = diff(bills - avg); tone(bd, bills - avg); bd.classList.remove('muted');
+    document.getElementById('spare-big').textContent = money(leftNow);
+    document.getElementById('spare-how').textContent = 'Pay ' + money(PAGE.wage) + (PAGE.left ? ' + left ' + money(PAGE.left) : '') +
+      ' − bills ' + money(bills) + ' = ' + money(spare) + (PAGE.typed ? ' − spends ' + money(PAGE.typed) : '');
+    document.getElementById('mfs').textContent = money(spare);
+    document.getElementById('leftnow').textContent = money(leftNow);
+    document.querySelectorAll('.yleft').forEach(el => el.textContent = money(spare - parseFloat(el.dataset.amount)));
+  }
+
+  document.querySelectorAll('tr.bill').forEach(row => {
+    const link = row.querySelector('button.link'), box = row.querySelector('input.billbox'), x = row.querySelector('button.x');
+    let timer = null;
+    link.addEventListener('click', () => { link.hidden = true; box.hidden = false; box.focus(); box.select(); });
+    box.addEventListener('input', () => {
+      const v = readMoney(box.value);
+      box.classList.toggle('badval', isNaN(v) && box.value.trim() !== '');
+      if (isNaN(v)) return;
+      row.dataset.used = v; row.dataset.changed = '1';
+      showRow(row); recalc();
+      clearTimeout(timer); timer = setTimeout(() => save(row, v), 500);
+    });
+    box.addEventListener('keydown', e => { if (e.key === 'Enter') box.blur(); });
+    box.addEventListener('blur', () => { box.hidden = true; link.hidden = false; box.value = parseFloat(row.dataset.used).toFixed(2); box.classList.remove('badval'); });
+    x.addEventListener('click', () => {
+      clearTimeout(timer);
+      row.dataset.used = row.dataset.default; row.dataset.changed = '0';
+      box.value = parseFloat(row.dataset.default).toFixed(2);
+      showRow(row); recalc(); save(row, '');
+    });
+  });
+
+  // Move & rename (3 Oct 2026): drag cards and rows by the handle, click a name to rename it. Saved for good.
+  const post = (url, data) => fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(data)});
+  const editBtn = document.getElementById('editbtn');
+  if (editBtn) editBtn.addEventListener('click', () => {
+    const on = document.body.classList.toggle('editing');
+    editBtn.textContent = on ? '✅ Done' : '✏️ Move & rename';
+    document.querySelectorAll('.rname').forEach(n => n.contentEditable = on ? 'plaintext-only' : 'false');
+  });
+  document.querySelectorAll('summary').forEach(sm => sm.addEventListener('click', e => {
+    if (document.body.classList.contains('editing')) e.preventDefault();      // no opening while editing
+  }));
+  document.querySelectorAll('.rname').forEach(n => {
+    n.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); n.blur(); } });
+    n.addEventListener('blur', () => {
+      const name = n.textContent.trim();
+      if (name === '') n.textContent = n.dataset.orig;
+      post('/name', {id: n.dataset.id, name: name === n.dataset.orig ? '' : name});
+    });
+  });
+
+  // Click a handle to pick a card or row, then arrow up / down to move it (user, 3 Oct 2026). Esc or Done to stop.
+  let picked = null;
+  const unpick = () => { if (picked) picked.classList.remove('picked'); picked = null; };
+  document.querySelectorAll('.handle').forEach(h => h.addEventListener('click', e => {
+    e.preventDefault(); e.stopPropagation();
+    const el = h.closest('[data-id]');
+    if (picked === el) { unpick(); return; }
+    unpick(); picked = el; el.classList.add('picked');
+  }));
+  document.addEventListener('keydown', e => {
+    if (!picked) return;
+    if (e.key === 'Escape') { unpick(); return; }
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault();
+    const box = picked.parentElement;
+    let next = e.key === 'ArrowUp' ? picked.previousElementSibling : picked.nextElementSibling;
+    while (next && !next.dataset.id) next = e.key === 'ArrowUp' ? next.previousElementSibling : next.nextElementSibling;
+    if (!next) return;
+    box.insertBefore(picked, e.key === 'ArrowUp' ? next : next.nextSibling);
+    picked.scrollIntoView({block: picked.classList.contains('card') ? 'start' : 'center'});
+    post('/layout', {sort: box.dataset.sort, ids: [...box.children].filter(c => c.dataset.id).map(c => c.dataset.id)});
+  });
+  if (editBtn) editBtn.addEventListener('click', unpick);
+
+  // While dragging, the page scrolls by itself near the top or bottom of the window.
+  document.addEventListener('dragover', e => {
+    if (!dragEl) return;
+    if (e.clientY < 80) window.scrollBy(0, -20);
+    else if (e.clientY > window.innerHeight - 80) window.scrollBy(0, 20);
+  });
+
+  let dragEl = null;
+  const childOf = (box, node) => { while (node && node.parentElement !== box) node = node.parentElement; return node; };
+  document.querySelectorAll('.handle').forEach(h => h.addEventListener('mousedown', () => {
+    const el = h.closest('[data-id]'); if (el) el.draggable = true;
+  }));
+  document.querySelectorAll('[data-sort]').forEach(box => {
+    box.addEventListener('dragstart', e => {
+      const el = childOf(box, e.target);
+      if (!el || !el.dataset.id || dragEl) return;
+      dragEl = el; el.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', el.dataset.id);
+    });
+    box.addEventListener('dragover', e => {
+      if (!dragEl || dragEl.parentElement !== box) return;
+      e.preventDefault();
+      const over = childOf(box, e.target);
+      if (!over || over === dragEl || !over.dataset.id) return;
+      const r = over.getBoundingClientRect();
+      box.insertBefore(dragEl, e.clientY > r.top + r.height / 2 ? over.nextSibling : over);
+    });
+    box.addEventListener('drop', e => { if (dragEl && dragEl.parentElement === box) e.preventDefault(); });
+    box.addEventListener('dragend', () => {
+      if (!dragEl || dragEl.parentElement !== box) return;
+      dragEl.classList.remove('dragging'); dragEl.draggable = false; dragEl = null;
+      post('/layout', {sort: box.dataset.sort, ids: [...box.children].filter(c => c.dataset.id).map(c => c.dataset.id)});
+    });
+  });
+
+  // 🔄 Update (3 Oct 2026): get the latest code from GitHub; the page restarts itself and reloads.
+  const updBtn = document.getElementById('updbtn');
+  if (updBtn) updBtn.addEventListener('click', async () => {
+    if (!confirm('Get the latest version from GitHub?\n\nYour statements and data are not touched.')) return;
+    updBtn.disabled = true; updBtn.textContent = '⏳ Updating...';
+    const back = () => { updBtn.disabled = false; updBtn.textContent = '🔄 Update'; };
+    let r;
+    try { r = await (await fetch('/update', {method: 'POST'})).json(); }
+    catch (e) { alert('Sorry, the update did not work. Try update.bat in the code folder.'); back(); return; }
+    if (!r.ok) { alert('Sorry, the update did not work (' + r.error + ').\nCheck the internet, or try update.bat in the code folder.'); back(); return; }
+    if (!r.changed) { updBtn.textContent = '✅ Up to date'; setTimeout(back, 3000); return; }
+    updBtn.textContent = '✅ Updated! Restarting...';
+    const wait = () => fetch('/', {cache: 'no-store'}).then(x => { if (x.ok) location.reload(); else setTimeout(wait, 1000); })
+                                                      .catch(() => setTimeout(wait, 1000));
+    setTimeout(wait, 3000);
+  });
+
+  // A new pay = "I got paid": ask before clearing the typed spends (3 Oct 2026). Same pay (a typo fix) asks nothing.
+  const payForm = document.getElementById('payform');
+  if (payForm) payForm.addEventListener('submit', () => {
+    const typed = parseFloat(payForm.pay.value.replace(/[£,\s]/g, ''));
+    if (payForm.dataset.spends === '1' && !isNaN(typed) && Math.abs(typed - parseFloat(payForm.dataset.pay)) >= 0.005)
+      payForm.clear.value = confirm('New pay. Clear your typed spends?\n\nOK = clear them, Cancel = keep them') ? '1' : '0';
+  });
+
+  // No. 6a: drop PDFs anywhere on the page (or click the bar): read in, then the page reloads with any new items to sort
+  const dropbar = document.getElementById('dropbar'), dropfiles = document.getElementById('dropfiles');
+  const dropresult = document.getElementById('dropresult');
+  function showDrop(html) { if (dropresult) { dropresult.innerHTML = html; dropresult.hidden = false; } }
+  try { const m = sessionStorage.getItem('dropmsg'); if (m) { showDrop(m); sessionStorage.removeItem('dropmsg'); } } catch (e) {}
+  async function sendPdfs(files) {
+    files = [...files].filter(f => /\.pdf$/i.test(f.name));
+    if (!files.length) { showDrop('Only PDF statements can be dropped here.'); return; }
+    showDrop('⏳ Reading ' + files.length + ' statement' + (files.length > 1 ? 's' : '') + '...');
+    const fd = new FormData(); files.forEach(f => fd.append('files', f));
+    let r;
+    try { r = await (await fetch('/upload', {method: 'POST', body: fd})).json(); }
+    catch (e) { showDrop('❌ Sorry, that did not work. Is the black window still open?'); return; }
+    const esc = t => String(t).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'}[c]));
+    const lines = r.results.map(x => x.error ? '❌ ' + esc(x.file) + ': ' + esc(x.error)
+      : !x.new ? '↩️ ' + esc(x.file) + ': already in (' + x.start + ' to ' + x.end + ')'
+      : (x.problems.length ? '⚠️ ' : '✅ ') + esc(x.file) + ': ' + x.start + ' to ' + x.end + ', ' + x.payments + ' payments'
+        + (x.problems.length ? '<br><span class="muted">' + x.problems.map(esc).join('<br>') + '</span>' : ''));
+    const html = lines.join('<br>');
+    if (r.results.some(x => x.new)) { try { sessionStorage.setItem('dropmsg', html); } catch (e) {} location.reload(); }
+    else showDrop(html);
+  }
+  if (dropfiles) dropfiles.addEventListener('change', () => sendPdfs(dropfiles.files));
+  document.addEventListener('dragover', e => { if (!dragEl && [...e.dataTransfer.types].includes('Files')) { e.preventDefault(); document.body.classList.add('dragover'); } });
+  document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.body.classList.remove('dragover'); });
+  document.addEventListener('drop', e => {
+    if (dragEl || !e.dataTransfer.files.length) return;
+    e.preventDefault(); document.body.classList.remove('dragover'); sendPdfs(e.dataTransfer.files);
+  });
+
+  // No. 6b: sort new items: buttons, Save, Copy for AI, Paste answers
+  document.querySelectorAll('.seg').forEach(seg => seg.addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  }));
+  const sortSave = document.getElementById('sortsave');
+  if (sortSave) sortSave.addEventListener('click', async () => {
+    const answers = [...document.querySelectorAll('tr.sortrow')].map(r => ({
+      key: r.dataset.key, kind: (r.querySelector('.seg .on') || {}).dataset?.kind || '',
+      label: r.querySelector('.sname').value, category: r.querySelector('.scat').value}));
+    sortSave.disabled = true; sortSave.textContent = '⏳ Saving...';
+    await fetch('/sort/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({answers})});
+    location.reload();
+  });
+  const aiCopy = document.getElementById('aicopy');
+  if (aiCopy) aiCopy.addEventListener('click', async () => {
+    const text = document.getElementById('aitext').value;
+    try { await navigator.clipboard.writeText(text); }
+    catch (e) { const t = document.getElementById('aitext'); t.hidden = false; t.select(); document.execCommand('copy'); t.hidden = true; }
+    aiCopy.textContent = '✅ Copied! Paste it into ChatGPT or Claude';
+    setTimeout(() => aiCopy.textContent = '📋 Copy for AI', 4000);
+  });
+  const aiPasteBtn = document.getElementById('aipastebtn');
+  if (aiPasteBtn) aiPasteBtn.addEventListener('click', () => {
+    const box = document.getElementById('aipaste'); box.hidden = !box.hidden;
+    if (!box.hidden) document.getElementById('aireply').focus();
+  });
+  const aiFill = document.getElementById('aifill');
+  if (aiFill) aiFill.addEventListener('click', async () => {
+    const count = parseInt(document.getElementById('sortcard').dataset.count);
+    const got = await (await fetch('/sort/parse', {method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: document.getElementById('aireply').value, count})})).json();
+    let n = 0;
+    document.querySelectorAll('tr.sortrow').forEach(r => {
+      const a = got[r.dataset.n]; if (!a) return;
+      r.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.kind === a.kind));
+      if (a.category) r.querySelector('.scat').value = a.category;
+      r.classList.add('filled'); n++;
+    });
+    document.getElementById('aimsg').textContent = n ? `Filled in ${n} of ${count}. Check them, then press Save.` :
+      'I could not read any answers. Lines should look like: 1 bill Household';
+  });
+
+  // No. 6c: one click answers a question; the page reloads with the new numbers
+  document.querySelectorAll('.ask').forEach(box => box.addEventListener('click', async e => {
+    const b = e.target.closest('button'); if (!b) return;
+    const q = JSON.parse(box.dataset.q), a = {type: q.type};
+    if (q.type === 'job') Object.assign(a, {name: q.name, yes: b.dataset.yes === '1'});
+    else if (q.type === 'same') Object.assign(a, {big: q.big, small: q.small, yes: b.dataset.yes === '1'});
+    else if (q.type === 'rent') Object.assign(a, {payer: q.payer, usual: q.usual, yes: b.dataset.yes === '1',
+                                                  label: box.querySelector('.asklabel').value});
+    else Object.assign(a, {id: q.id, keep: b.dataset.keep === '1'});
+    box.querySelectorAll('button').forEach(x => x.disabled = true);
+    await fetch('/ask', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(a)});
+    location.reload();
+  }));
+</script>
+{% endif %}
 {% if phone and d.ready %}
 <script id="pcdata" type="application/json">{{ pcdata|safe }}</script>
 <script>
@@ -331,7 +759,7 @@
     var typed = 0;
     list.forEach(function (r) { if (!r.gone) typed += r.amount; });
     var left = PC.money - typed;
-    $('leftbig').textContent = money(left);
+    $('spare-big').textContent = money(left);
     $('leftnow').textContent = money(left);
     $('typed').textContent = money(typed);
     $('spendshow').textContent = typed ? ' − spends ' + money(typed) : '';

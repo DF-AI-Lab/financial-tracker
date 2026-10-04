@@ -15,7 +15,8 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
         items: dict from fintrack.store.get_items: {key: {"kind": str, "label": str, ...}}
 
     Returns dict with "active" and "stopped" lists. Each entry:
-    {"name", "usual", "since": first_regular_date, "last": last_regular_date, "total": sum_all, "months"}
+    {"name", "usual", "since": first_regular_date, "last": last_regular_date, "total": sum_all, "months",
+     "last12": paid in the 365 days up to end, "this_year": paid since 1 Jan of end's year}
 
     - end = latest date of all txns (none -> both lists empty)
     - Look at money-out Txns whose item_key starts with "CARD|"
@@ -121,7 +122,9 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
             "since": since,
             "last": last,
             "total": total,
-            "months": months
+            "months": months,
+            "last12": sum(abs(t.amount) for t in txns_list if (end - t.date).days < 365),
+            "this_year": sum(abs(t.amount) for t in txns_list if t.date.year == end.year)
         }
 
         if is_active:
@@ -163,9 +166,9 @@ def format_subscriptions(s: Dict) -> List[str]:
             name = sub["name"]
             usual = sub["usual"]
             since = sub["since"]
-            total = sub["total"]
             lines.append(
-                f"    {name:<24}{usual:>8.2f} a month   since {since:%b %Y}   paid {total:,.2f} so far"
+                f"    {name:<24}{usual:>8.2f} a month   since {since:%b %Y}   "
+                f"12 mths {sub['last12']:,.2f}   this year {sub['this_year']:,.2f}"
             )
             active_total += usual
 
@@ -179,9 +182,9 @@ def format_subscriptions(s: Dict) -> List[str]:
             usual = sub["usual"]
             since = sub["since"]
             last = sub["last"]
-            total = sub["total"]
             lines.append(
-                f"    {name:<24}{usual:>8.2f} a month   {since:%b %Y} to {last:%b %Y}   paid {total:,.2f}"
+                f"    {name:<24}{usual:>8.2f} a month   {since:%b %Y} to {last:%b %Y}   "
+                f"12 mths {sub['last12']:,.2f}   this year {sub['this_year']:,.2f}"
             )
 
     return lines

@@ -140,7 +140,7 @@ def test_bad_spend_is_not_saved(client, db):
 def test_page_without_data(tmp_path):
     app = web.create_app(tmp_path / "empty.db", wage_payer=ACME)
     html = app.test_client().get("/").get_data(as_text=True)
-    assert "Run run.py first" in html
+    assert "No paydays yet" in html and "Drop statements here" in html     # No. 6: PDFs can be dropped straight away
 
 
 def test_last_month_spending_starts_with_the_bills(client, db):
@@ -150,3 +150,232 @@ def test_last_month_spending_starts_with_the_bills(client, db):
     d = home_data(open_db(db), wage_payer=ACME)
     last_bills = sum(b["last"] for b in d["pay"]["bills"])
     assert money(last_bills + d["pay"]["spending_last"]) in card       # the total now includes the bills
+
+
+# ---- 3 Oct 2026 changes: bills under 'Add a spend', diff column, change a bill, subscriptions ------
+
+def test_bills_card_is_right_under_add_a_spend(client):
+    html = client.get("/").get_data(as_text=True)
+    assert html.index("Add a spend") < html.index("Bills (every month)") < html.index("Last month's spending")
+
+
+def test_avg_then_last_month_then_diff_everywhere(client):
+    html = client.get("/").get_data(as_text=True)
+    for card in ("Last month's spending", "Bills (every month)"):
+        part = html[html.index(card):]
+        assert part.index("-mth avg") < part.index("Last month</th>") < part.index("Diff</th>"), card
+
+
+def test_change_a_bill_for_this_cycle(client, db):
+    d = home_data(open_db(db), wage_payer=ACME)
+    bill = d["pay"]["bills"][0]
+    r = client.post("/bill", data={"key": bill["key"], "amount": "999"})
+    assert r.status_code == 303
+    d2 = home_data(open_db(db), wage_payer=ACME)
+    assert d2["pay"]["spare"] == pytest.approx(d["pay"]["spare"] - (999 - bill["used"]))
+    assert d2["left_now"] == pytest.approx(d2["pay"]["spare"])
+    assert money(999) in client.get("/").get_data(as_text=True)
+    client.post("/bill", data={"key": bill["key"], "amount": ""})          # the x puts it back
+    assert home_data(open_db(db), wage_payer=ACME)["pay"]["spare"] == pytest.approx(d["pay"]["spare"])
+    r = client.post("/bill", data={"key": bill["key"], "amount": "abc"}, follow_redirects=True)
+    assert "Sorry, I could not read that as money." in r.get_data(as_text=True)
+
+
+def test_subscriptions_columns(client):
+    html = client.get("/").get_data(as_text=True)
+    part = html[html.index("Subscriptions"):]
+    assert "Monthly price" in part and "Last 12 months" in part and "This year" in part
+    assert "Paid so far" not in part
+
+
+def test_left_from_last_month_box(client, db):
+    base = home_data(open_db(db), wage_payer=ACME)
+    assert client.post("/left", data={"amount": "220"}).status_code == 303
+    d = home_data(open_db(db), wage_payer=ACME)
+    assert d["pay"]["spare"] == pytest.approx(base["pay"]["spare"] + 220)
+    assert d["left_now"] == pytest.approx(d["pay"]["spare"])
+    html = client.get("/").get_data(as_text=True)
+    assert "+ left £220.00" in html and "Left from last month" in html
+    client.post("/left", data={"amount": ""})                                # the x
+    assert home_data(open_db(db), wage_payer=ACME)["pay"]["spare"] == pytest.approx(base["pay"]["spare"])
+    r = client.post("/left", data={"amount": "abc"}, follow_redirects=True)
+    assert "Sorry, I could not read that as money." in r.get_data(as_text=True)
+
+
+def test_bill_change_from_the_page_script_does_not_reload(client, db):
+    # 3 Oct 2026: typing in a bill box updates the page as you type and saves quietly in the background
+    key = home_data(open_db(db), wage_payer=ACME)["pay"]["bills"][0]["key"]
+    r = client.post("/bill", data={"key": key, "amount": "123"}, headers={"X-Requested-With": "fetch"})
+    assert r.status_code == 204
+    assert any(b["changed"] and b["used"] == 123 for b in home_data(open_db(db), wage_payer=ACME)["pay"]["bills"])
+    html = client.get("/").get_data(as_text=True)
+    assert 'data-key="' in html and 'id="spare-big"' in html
+
+
+# ---- 3 Oct 2026: drag cards and rows, rename rows (page only, kept for good) ----------------------
+
+from fintrack.layout import save_order, set_name
+
+
+def test_saved_row_order_and_names_are_used(db):
+    conn = open_db(db)
+    d = home_data(conn, wage_payer=ACME)
+    ids = [b["id"] for b in d["pay"]["bills"]]
+    save_order(conn, "bills", ids[::-1][:2])                          # two moved to the top, the rest after
+    set_name(conn, ids[0], "My Rent")
+    d2 = home_data(conn, wage_payer=ACME)
+    got = [b["id"] for b in d2["pay"]["bills"]]
+    assert got[:2] == ids[::-1][:2] and sorted(got) == sorted(ids)
+    first = next(b for b in d2["pay"]["bills"] if b["id"] == ids[0])
+    assert first["name"] == "My Rent" and first["orig"] == d["pay"]["bills"][0]["name"]
+    assert d2["pay"]["spare"] == pytest.approx(d["pay"]["spare"])    # nothing but the look changes
+
+
+def test_layout_routes(client, db):
+    r = client.post("/layout", json={"sort": "cards", "ids": ["subs", "bills"]})
+    assert r.status_code == 204
+    html = client.get("/").get_data(as_text=True)
+    assert html.index('data-card="subs"') < html.index('data-card="bills"')   # saved card order is used
+    key = home_data(open_db(db), wage_payer=ACME)["pay"]["bills"][0]["id"]
+    assert client.post("/name", json={"id": key, "name": "Phone"}).status_code == 204
+    assert ">Phone<" in client.get("/").get_data(as_text=True)
+    assert client.post("/layout/reset").status_code == 303
+    html = client.get("/").get_data(as_text=True)
+    assert html.index('data-card="bills"') < html.index('data-card="subs"')
+    assert ">Phone<" in html                                           # reset order keeps the names
+    assert client.post("/layout", json={"sort": "x"}).status_code == 400
+
+
+# ---- 3 Oct 2026: the Update button ------------------------------------------------------------------
+
+def test_update_button(db):
+    calls = []
+    app = web.create_app(db, wage_payer=ACME, updater=lambda: {"changed": ["web.py"], "version": "abc1234"},
+                         restart=lambda: calls.append("restart"))
+    c = app.test_client()
+    assert "🔄 Update" in c.get("/").get_data(as_text=True)
+    r = c.post("/update")
+    assert r.get_json() == {"ok": True, "changed": 1, "version": "abc1234"} and calls == ["restart"]
+    app = web.create_app(db, wage_payer=ACME, updater=lambda: {"changed": [], "version": "abc1234"},
+                         restart=lambda: calls.append("restart"))
+    assert app.test_client().post("/update").get_json()["changed"] == 0 and calls == ["restart"]   # no restart
+    def broken():
+        raise OSError("no internet")
+    app = web.create_app(db, wage_payer=ACME, updater=broken, restart=lambda: None)
+    assert app.test_client().post("/update").get_json()["ok"] is False
+
+
+# ---- 3 Oct 2026: a new pay can clear the typed spends (asked, never automatic) -----------------------
+
+from fintrack.store import add_spend, clear_spends
+
+
+def test_clear_spends(db):
+    conn = open_db(db)
+    add_spend(conn, date(2024, 10, 20), 40.0, "Cash", "Cash")
+    add_spend(conn, date(2024, 10, 21), 5.0, "Costa", None)
+    clear_spends(conn)
+    assert get_spends(conn) == []
+
+
+def test_new_pay_on_the_page_clears_spends_only_when_asked_to(client, db):
+    add_spend(open_db(db), date(2024, 10, 20), 40.0, "Cash", "Cash")
+    html = client.get("/").get_data(as_text=True)
+    assert 'data-spends="1"' in html and 'name="clear"' in html          # the page asks before sending
+    client.post("/pay", data={"pay": "2600"})
+    assert len(get_spends(open_db(db))) == 1                              # not asked to: kept
+    client.post("/pay", data={"pay": "2700", "clear": "1"})
+    assert get_spends(open_db(db)) == [] and get_value(open_db(db), "pay") == "2700.0"
+
+
+def test_new_pay_in_the_terminal_asks_to_clear_spends(db, tmp_path):
+    add_spend(open_db(db), date(2024, 10, 20), 40.0, "Cash", "Cash")
+    asked = []
+
+    def ask(p):
+        asked.append(p)
+        if p.startswith("Latest pay"):
+            return "3000"
+        return "y" if "Clear your typed spends" in p else ""
+    run.main(in_dir=tmp_path / "statements", out_dir=tmp_path / "output", ask=ask, wage_payer=ACME,
+             ask_items=lambda p: "")
+    assert any("New pay. Clear your typed spends?" in p for p in asked)
+    assert get_spends(open_db(db)) == []
+    # Enter (same pay as before) asks nothing
+    add_spend(open_db(db), date(2024, 10, 20), 40.0, "Cash", "Cash")
+    asked.clear()
+    run.main(in_dir=tmp_path / "statements", out_dir=tmp_path / "output", ask=lambda p: asked.append(p) or "",
+             wage_payer=ACME, ask_items=lambda p: "")
+    assert not any("Clear your typed spends" in p for p in asked) and len(get_spends(open_db(db))) == 1
+
+
+# ---- No. 6 (3 Oct 2026): drop PDFs on the page, sort new items on the page --------------------------
+
+import io
+
+
+def test_drop_a_pdf_on_the_page(client, db, tmp_path):
+    data = (DATA / "statement_2024_10.pdf").read_bytes()
+    r = client.post("/upload", data={"files": [(io.BytesIO(data), "again.pdf")]}, content_type="multipart/form-data")
+    got = r.get_json()
+    assert got["results"][0]["new"] is False                              # already read by run.py in the fixture
+    html = client.get("/").get_data(as_text=True)
+    assert "Drop statements here" in html
+
+
+def test_sort_items_on_the_page(client, db):
+    from fintrack.store import set_item
+    from fintrack.sortpage import pending_for_page
+    conn = open_db(db)
+    set_item(conn, "CARD|SOMETHING NEW|", "random", "", "user")
+    html = client.get("/").get_data(as_text=True)
+    assert "Copy for AI" in html
+    r = client.post("/sort/parse", json={"text": "1 bill Household", "count": 3})
+    assert r.get_json() == {"1": {"kind": "bill", "category": "Household"}}
+    r = client.post("/sort/save", json={"answers": [{"key": "CARD|NEW SHOP|", "kind": "random", "label": "",
+                                                       "category": "Shopping"}]})
+    assert r.status_code == 204 and get_items(open_db(db))["CARD|NEW SHOP|"]["kind"] == "random"
+
+
+def test_more_questions_on_the_page(client, db):
+    add_spend(open_db(db), date(2024, 10, 1), 77.77, "Market", None)       # not in the statements
+    html = client.get("/").get_data(as_text=True)
+    assert "Typed spend" in html and "Market" in html
+    sid = get_spends(open_db(db))[0]["id"]
+    assert client.post("/ask", json={"type": "spend", "id": sid, "keep": False}).status_code == 204
+    assert get_spends(open_db(db)) == []
+
+
+def test_every_kind_of_question_shows(client, monkeypatch):
+    import fintrack.pagequestions as pq
+    fake = [{"type": "job", "name": "PENDRAGON PAYROLL", "count": 3, "usual": 2600.0, "first": date(2024, 4, 28),
+             "last": date(2024, 6, 28)},
+            {"type": "same", "big": "SO|A|CAR LOAN", "small": "BP|A|CAR OWED", "big_text": 'SO A "CAR LOAN"',
+             "small_text": 'BP A "CAR OWED"', "big_label": "Car loan", "small_label": "Extra"},
+            {"type": "rent", "payer": "SAM PARKER", "usual": 550.0, "label": "Rent",
+             "examples": [{"date": "2024-01-29", "amount": 550.0, "reference": "RENT", "days": 1}]},
+            {"type": "spend", "id": 1, "name": "Market", "amount": 7.5, "date": date(2024, 10, 1)}]
+    monkeypatch.setattr(pq, "questions", lambda conn, txns, paydays, payers=None: fake)
+    html = client.get("/").get_data(as_text=True)
+    assert "4 quick questions" in html and "Is PENDRAGON PAYROLL your new job?" in html and "Same bill?" in html and "Is this your rent?" in html
+    assert "Typed spend not in your statements" in html and "SAM PARKER" in html
+
+
+# ---- 3 Oct 2026: app icon + silent start ------------------------------------------------------------
+
+def test_the_page_can_be_installed_as_an_app(client):
+    m = client.get("/manifest.json").get_json()
+    assert m["name"] == "Wage Tracker" and m["display"] == "standalone"
+    for icon in m["icons"]:
+        r = client.get(icon["src"])
+        assert r.status_code == 200 and r.data[:4] == b"\x89PNG"
+    assert 'rel="manifest"' in client.get("/").get_data(as_text=True)
+
+
+def test_silent_start_files():
+    from pathlib import Path
+    root = Path(web.__file__).parent
+    assert "server.bat" in (root / "hidden.vbs").read_text() and ", 0," in (root / "hidden.vbs").read_text()
+    assert "FT_QUIET" in (root / "server.bat").read_text() and "pause" not in (root / "server.bat").read_text()
+    assert "hidden.vbs" in (root / "setup.bat").read_text() and (root / "static" / "app.ico").exists()
+    assert "web.py" in (root / "stop.bat").read_text()

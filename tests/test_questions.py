@@ -92,7 +92,7 @@ def runner(*replies):
 def test_accepting_suggestions_saves_everything_once():
     conn, lines = open_db(":memory:"), []
     ask = runner()                                 # always answers "" (Enter)
-    assert review(conn, TXNS, ask, out=lines.append, size=4) == 9
+    assert review(conn, TXNS, ask, out=lines.append, size=4, auto_dd=False) == 9
     assert len(ask.calls) == 3                     # rounds of 4, 4 and 1
     items = get_items(conn)
     assert len(items) == 9
@@ -103,7 +103,7 @@ def test_accepting_suggestions_saves_everything_once():
     assert "suggest: One-off" in text and "550.00" in text
     # never asked twice
     ask2 = runner()
-    assert review(conn, TXNS, ask2, out=lines.append, size=4) == 0
+    assert review(conn, TXNS, ask2, out=lines.append, size=4, auto_dd=False) == 0
     assert ask2.calls == []
 
 
@@ -111,7 +111,7 @@ def test_typed_answers_override_suggestions():
     conn = open_db(":memory:")
     # round 1 order: 1 CAR DEALER, 2 RENT, 3 ENERGY, 4 GYM
     ask = runner("common 1 3  random 2  label 2 Landlord rent", "", "")
-    review(conn, TXNS, ask, out=lambda s: None, size=4)
+    review(conn, TXNS, ask, out=lambda s: None, size=4, auto_dd=False)
     items = get_items(conn)
     assert items["CARD|CAR DEALER|"]["kind"] == "common" and items["CARD|CAR DEALER|"]["source"] == "user"
     assert items["DD|ENERGY CO|"]["kind"] == "common"
@@ -122,12 +122,12 @@ def test_typed_answers_override_suggestions():
 def test_later_skips_now_and_asks_again_next_run():
     conn = open_db(":memory:")
     ask = runner("later 1 2", "", "")
-    assert review(conn, TXNS, ask, out=lambda s: None, size=4) == 7
+    assert review(conn, TXNS, ask, out=lambda s: None, size=4, auto_dd=False) == 7
     items = get_items(conn)
     assert "CARD|CAR DEALER|" not in items and "SO|LANDLORD|RENT" not in items
     assert len(ask.calls) == 3                     # not asked about them again in the same run
     again = runner("")
-    assert review(conn, TXNS, again, out=lambda s: None, size=4) == 2
+    assert review(conn, TXNS, again, out=lambda s: None, size=4, auto_dd=False) == 2
     assert len(again.calls) == 1
     assert "CARD|CAR DEALER|" in get_items(conn)
 
@@ -135,14 +135,14 @@ def test_later_skips_now_and_asks_again_next_run():
 def test_stop_saves_nothing_from_that_round():
     conn = open_db(":memory:")
     ask = runner("", "stop")
-    assert review(conn, TXNS, ask, out=lambda s: None, size=4) == 4
+    assert review(conn, TXNS, ask, out=lambda s: None, size=4, auto_dd=False) == 4
     assert len(get_items(conn)) == 4 and len(ask.calls) == 2
 
 
 def test_bad_answer_is_asked_again():
     conn, lines = open_db(":memory:"), []
     ask = runner("banana", "", "", "")
-    assert review(conn, TXNS, ask, out=lines.append, size=4) == 9
+    assert review(conn, TXNS, ask, out=lines.append, size=4, auto_dd=False) == 9
     assert len(ask.calls) == 4
     assert any(l.startswith("Sorry, I did not understand:") for l in lines)
 
@@ -150,13 +150,13 @@ def test_bad_answer_is_asked_again():
 @pytest.mark.parametrize("err", [EOFError(), OSError()])
 def test_no_keyboard_stops_quietly(err):
     conn = open_db(":memory:")
-    assert review(conn, TXNS, runner(err), out=lambda s: None, size=4) == 0
+    assert review(conn, TXNS, runner(err), out=lambda s: None, size=4, auto_dd=False) == 0
     assert get_items(conn) == {}
 
 
 def test_fix_items_changes_saved_answers():
     conn, lines = open_db(":memory:"), []
-    review(conn, TXNS, runner(), out=lambda s: None, size=10)
+    review(conn, TXNS, runner(), out=lambda s: None, size=10, auto_dd=False)
     ask = runner("common 1  label 2 Car")
     assert fix_items(conn, ask, out=lines.append) == 2
     text = "\n".join(lines)
@@ -198,7 +198,7 @@ def test_parse_answer_all_keyword():
 def test_all_accepts_suggestions_for_everything_left():
     conn = open_db(":memory:")
     ask = runner("all")
-    assert review(conn, TXNS, ask, out=lambda s: None, size=4) == 9
+    assert review(conn, TXNS, ask, out=lambda s: None, size=4, auto_dd=False) == 9
     assert len(ask.calls) == 1 and len(get_items(conn)) == 9
     assert get_items(conn)["CARD|CAR DEALER|"]["kind"] == "oneoff"
 
@@ -206,7 +206,7 @@ def test_all_accepts_suggestions_for_everything_left():
 def test_all_still_respects_typed_answers_and_later():
     conn = open_db(":memory:")
     ask = runner("common 1  later 2  label 3 Power  all")      # round 1: 1 CAR DEALER, 2 RENT, 3 ENERGY, 4 GYM
-    assert review(conn, TXNS, ask, out=lambda s: None, size=4) == 8
+    assert review(conn, TXNS, ask, out=lambda s: None, size=4, auto_dd=False) == 8
     items = get_items(conn)
     assert items["CARD|CAR DEALER|"]["kind"] == "common" and items["CARD|CAR DEALER|"]["source"] == "user"
     assert "SO|LANDLORD|RENT" not in items                      # 'later' is still skipped
@@ -217,7 +217,7 @@ def test_all_still_respects_typed_answers_and_later():
 def test_skip_small_does_not_ask_about_tiny_one_offs():
     conn, lines = open_db(":memory:"), []
     ask = runner()
-    assert review(conn, TXNS, ask, out=lines.append, size=10, skip_small=True) == 8
+    assert review(conn, TXNS, ask, out=lines.append, size=10, skip_small=True, auto_dd=False) == 8
     assert "CARD|EARLY SHOP|" not in get_items(conn)            # 1 payment of 5.00
     assert "EARLY SHOP" not in "\n".join(lines)
     assert "CARD|BARBER|" in get_items(conn)                    # 3 payments: kept

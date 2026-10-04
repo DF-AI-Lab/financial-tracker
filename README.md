@@ -24,6 +24,10 @@ Real statements go in `statements/` (git-ignored). Never commit them.
 The run checks every statement's balances (OK / CHECK), skips duplicate statements,
 and lists any single payment of 1,000 or more under BIG ITEMS.
 
+## Phone copy
+See `PHONE_SETUP.md` (free PythonAnywhere site, PIN, spends added on the phone come back to the PC, which asks first).
+`run.py phone https://NAME.pythonanywhere.com` and `run.py pin 4821` set it up.
+
 ## Home page
 1. One-time setup: `C:\ftvenv\Scripts\python.exe -m pip install flask`
 2. Double-click `start.bat` (or run `C:\ftvenv\Scripts\python.exe web.py` in PowerShell)
@@ -32,6 +36,25 @@ and lists any single payment of 1,000 or more under BIG ITEMS.
 Quick setup (does steps 1-2 and more): double-click `setup.bat` once. It installs flask, puts a
 `Financial Tracker` shortcut on your desktop, starts the page when Windows starts, and opens it now.
 Bookmark http://127.0.0.1:5000 (works while the black window is open; minimise it, don't close it).
+
+## New statements
+Drop the PDFs anywhere on the home page (or click the dashed bar). New items show in a **❓ new items to sort** card:
+my guesses are picked, change any, then **Save**. Or **📋 Copy for AI**, paste into ChatGPT / Claude, copy its reply,
+**📥 Paste answers**, check, **Save**.
+Any other questions (same bill?, is this your rent?, a typed spend not in the statements) show in a
+**❓ quick questions** card: one click each.
+
+## No black window + app icon
+Double-click `setup.bat` once (close any old black Financial Tracker window first). After that the page runs
+silently (no window) and starts by itself when you log in. Open it with the **Financial Tracker** desktop icon.
+To make it a real app: open the page in Chrome or Edge, menu (⋮ or …) -> **Install Wage Tracker** (Chrome: Cast, save
+and share -> Install page; Edge: Apps -> Install this site as an app), then right-click its taskbar icon -> **Pin**.
+To stop it: `stop.bat`. `start.bat` still works (with a window) if you ever need to see errors.
+
+## Updates
+Click **🔄 Update** at the top of the home page. It gets the latest version from GitHub and restarts the page.
+If the page will not open, double-click `update.bat` in the code folder instead, then `start.bat`.
+Your statements, `tracker.db` and settings are never touched.
 
 The page runs on your PC only (no login, no upload). New statements still go through `run.py`.
 

@@ -8,7 +8,6 @@ from fintrack.spare import pay_block, last_cycle_check
 from fintrack.where import where_did_it_go, where_summary
 from fintrack.bycategory import category_spending
 from fintrack.subs import find_subscriptions
-from fintrack.typed import money_for_spending
 from fintrack.sparehist import spare_history
 from fintrack.picture import six_month_picture
 from fintrack.yearly import yearly_due
@@ -38,6 +37,12 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
 
     from fintrack.wages import all_payers
     cycles = build_cycles(txns, payer=all_payers(conn, wage_payer))
+    # No. 6: new items to sort on the page (first, so DD/SO saved as bills by auto_bills count straight away)
+    from fintrack.sortpage import pending_for_page, category_names, ai_prompt
+    sort = pending_for_page(conn, txns)
+    # No. 6c: same bill / rent / typed spend questions (typed spends found in the statements are removed here)
+    from fintrack.pagequestions import questions
+    more = questions(conn, txns, [c.start for c in cycles], payers=all_payers(conn, wage_payer))
     answers = get_items(conn)
     rules = get_rules(conn)
     categories = get_categories(conn)
@@ -67,7 +72,9 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     due = yearly_due(txns, answers, today=today)
 
     # Build the pay block
-    pay = pay_block(cycles, analysis, wage, categories=categories, items=answers, yearly=due)
+    from fintrack.billchange import get_changes, get_left
+    pay = pay_block(cycles, analysis, wage, categories=categories, items=answers, yearly=due,
+                    changes=get_changes(conn, cycles[-1].start), left=get_left(conn, cycles[-1].start))
 
     # Get last cycle check
     last = last_cycle_check(cycles, answers=answers, rules=rules)
@@ -88,7 +95,7 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     spends = get_spends(conn)
 
     # Get money for spending
-    money = money_for_spending(cycles, analysis, wage)
+    money = pay["spare"]                     # pay - bills, with any bill changed for this cycle
 
     # Calculate left_now
     left_now = money - sum(s["amount"] for s in spends)
@@ -102,8 +109,37 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     # Get periods data
     periods = period_totals(cycles, answers=answers, rules=rules)
 
+    # The user's own order and names (page only, fintrack/layout.py)
+    from fintrack.layout import get_layout, apply_order, CARDS
+    lay = get_layout(conn)
+    order, names = lay["order"], lay["names"]
+
+    def named(rows, make_id, field):
+        for r in rows:
+            r["id"] = make_id(r)
+            r["orig"] = r[field]
+            r["name"] = names.get(r["id"], r[field])
+        return rows
+
+    pay["bills"] = apply_order(named(pay["bills"], lambda b: "bill:" + b["key"], "name"), order.get("bills", []), lambda r: r["id"])
+    pay["spending"] = apply_order(named(pay["spending"], lambda r: "cat:" + r["category"], "category"),
+                                  order.get("lastmonth", []), lambda r: r["id"])
+    cats["rows"] = apply_order(named(cats["rows"], lambda r: "cat:" + r["category"], "category"),
+                               order.get("cats", []), lambda r: r["id"])
+    for group in ("active", "stopped"):
+        subs[group] = apply_order(named(subs[group], lambda r: "sub:" + r["name"], "name"),
+                                  order.get("subs-" + group, []), lambda r: r["id"])
+    cards = apply_order(list(CARDS), order.get("cards", []), lambda c: c)
+
+    cat_names = category_names(conn)
+
     return {
         "ready": True,
+        "sort": sort,
+        "more": more,
+        "category_names": cat_names,
+        "ai_text": ai_prompt(sort, cat_names) if sort else "",
+        "cards": cards,
         "pay": pay,
         "last": last,
         "where": where,
@@ -113,8 +149,18 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         "money_for_spending": money,
         "left_now": left_now,
         "typed_total": money - left_now,
+        "cycle_start": cycles[-1].start,
         "history": spare_history(cycles, analysis),
         "picture": picture,
         "statements_to": statements_to,
         "periods": periods
     }
+
+
+def txns_and_paydays(conn, wage_payer):
+    """The payments and paydays the page works from (for answering the questions on the page)."""
+    from fintrack.early import load_moved
+    from fintrack.wages import all_payers
+    txns = sorted(load_moved(conn, all_payers(conn, wage_payer)), key=lambda t: t.date)
+    cycles = build_cycles(txns, payer=all_payers(conn, wage_payer)) if txns else []
+    return txns, [c.start for c in cycles], all_payers(conn, wage_payer)

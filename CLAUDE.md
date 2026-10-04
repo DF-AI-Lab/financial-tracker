@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 3 Oct 2026._
+_Last updated: 4 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -13,7 +13,7 @@ Older project (do not build on it): `python-finance-tracker` repo, see its `IDEA
 - `SPEC.md`: the agreed plan for the next build (steps 1-9). Map + tickets: GitHub issue #1 on this repo.
 - `DECISIONS.md`: everything the user said yes to (rules, question-list behaviour, rent rule). Overrides anything else.
 - `FUTURE_FEATURES.md`: what is built and what is planned.
-- `README.md`: how to run on Windows.
+- `README.md`: how to run on Windows. `PHONE_SETUP.md`: the phone copy setup, step by step.
 
 ## How it runs (user's PC, Windows)
 `C:\ftvenv\Scripts\python.exe run.py` (also `run.py test`, `run.py fix`, `run.py folder "C:\path"`, `cat N`, `show N`,
@@ -44,7 +44,7 @@ Run tests: `.venv/bin/pytest -q` (create with `python3 -m venv .venv && .venv/bi
   (dash, not underscore; attach it with add_repo). Pull requests only if asked.
 
 ## Where we are (1 Oct 2026)
-Built and tested (320 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
+Built and tested (365 tests): reading + balance check, duplicates, cycles, common/random/one-off, database, question list,
 pay question, payday transfer (rent) rule, and from `SPEC.md`: **step 1** (same bill: DDs ignore the reference, one-off
 "Same bill? y/n" for similar SO/BP references, Enter = no) and **step 2** (categories: guessed from keywords in
 `fintrack/categories.py`, `cat 1 Car` in the question list and in `fix`) and **step 3** (yearly bills: `yearly 3`, left out like one-offs, WARNING line 11-13 months after the last payment) and **step 5** (spending by category: `fintrack/bycategory.py`, table after the picture, `run.py cat 2` opens one; "now" = the newest cycle so far) and **step 6** (`fintrack/spare.py`: LAST CYCLE expected vs actual + missing, and the pay question now shows
@@ -58,6 +58,15 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+00. **4 Oct (grill session): step 10 phone copy BUILT (391 tests)** on PythonAnywhere instead of the AWS v3 design (the user
+   chose it in the grill and drew the diagram: PC -> JSON/page -> PythonAnywhere <-> phone; phone changes go back to the PC,
+   which asks y/n). See SPEC.md step 10 + DECISIONS.md 4 Oct. Code: `cloud/flask_app.py` (the site: page.html,
+   changes.json, first key kept, PIN hash, 5 tries = 15 min lock), `fintrack/phone.py` (PC side: connect/pin/upload/
+   fetch/apply, key in ~/.financial_tracker_phone_key.txt so test + real DBs share it), `web.phone_page` (home.html with
+   phone=True: PC-only cards/script hidden, spends done by a small script + localStorage, Send button), `web.push` after
+   every change, `/phone` box on the PC page, run.py asks at start (Enter = all) and pushes at the end, `run.py phone URL`,
+   `run.py pin N`. Built by me, not Haiku. Tried in Chromium at phone width against a local copy of the site.
+   NOT tried on real PythonAnywhere or the user's phone yet: user follows PHONE_SETUP.md (fake data first).
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).
@@ -72,5 +81,45 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    non-bill spending by category -> left if usual; `spare.pay_block`), subscription spotter (`fintrack/subs.py`), a typed
    sentence at the rent question is not saved as a label. User skipped: show guessed categories in `fix`, "finished" kind.
    Still open: where.py bill note says "last month" even when the usual is the average.
+   3 Oct BUILT (329 tests): Bills card under 'Add a spend'; every avg/last table = avg | Last month | Diff (green minus);
+   unpaid bills show the average with * + footnote; tap a bill's Last month amount to change it for THIS cycle only
+   (`fintrack/billchange.py`, kv 'bill_changes' with the cycle start, POST /bill, also used by run.py); subscriptions =
+   one table: Monthly price | Last 12 months | This year ('Paid so far' dropped). 6/12 months table untouched.
+   3 Oct BUILT (333 tests): bill boxes update spare cash/Diff/Total live as you type (page script, quiet POST /bill
+   with X-Requested-With: fetch -> 204), several at once, x puts back. 'Left from last month' box under the pay box
+   (POST /left, x removes; billchange.get_left, kv 'left_over_typed' with the cycle start): spare = pay + left - bills,
+   hero line 'Pay + left - bills', terminal '+ Left from last month'.
+   3 Oct BUILT (337 tests): '✏️ Move & rename' button on the home page: drag cards and rows (Bills, Last month's
+   spending, Spending by category, Subscriptions) by the handle, click a name to rename it (empty = normal name),
+   '↺ Put the order back'. Kept for good (`fintrack/layout.py`, kv 'layout'; POST /layout, /name, /layout/reset);
+   page only. Cards are rendered in the saved order (Jinja set-blocks in home.html). Bill changes still reset at payday.
+   Also: click a handle to pick a card/row, then arrow up/down moves it (drag did not auto-scroll for the user);
+   dragging near the window edge now scrolls too.
+   AGREED PLAN 3 Oct (v2, build in this order, one at a time, user says go):
+   (1) BUILT 3 Oct (340 tests): `fintrack/update.py` (stdlib only; skips statements/, *.db, PDFs, .env; never
+       deletes; version.txt), POST /update, start.bat restarts web.py on exit code 3, update.bat = python -m fintrack.update.
+       Was: '🔄 Update' button on the home page + update.bat backup: fetch main.zip from GitHub, replace the code
+       folder, keep statements + tracker.db. (3) BUILT 3 Oct (342 tests): DD/SO paid in 2+ months = bill automatically
+       (questions.auto_bills, run before the question list), paid once = asked. (2) BUILT 3 Oct (345 tests): a new pay (different from the saved one) with typed spends
+       asks 'New pay. Clear your typed spends?' on the page (confirm, clear=1 to POST /pay) and in run.py (y/n).
+       (6a+6b) BUILT 3 Oct (353 tests): drop PDFs anywhere on the home page (or click the bar): `fintrack/inbox.py`
+       (read from a temp copy; only new statements are kept in the statements folder), POST /upload; new items sorted on
+       the page (`fintrack/sortpage.py`: buttons Bill/Random/One-off/Yearly, category, name; Copy for AI / Paste answers
+       -> POST /sort/parse, POST /sort/save). The page starts with an empty database. 6c BUILT 3 Oct (359 tests): same bill /
+       rent / typed-spend questions on the page ('❓ quick questions' card, `fintrack/pagequestions.py`, POST /ask; same rules
+       and saved answers as run.py; kept typed spends in kv 'kept_spends'). run.py is now only needed for the extras.
+       Was: (6+5) Drop a PDF on the home page: it is read in and the questions show on the page: a simple form
+       (Bill / One-off / Yearly / Random + category per item) AND 'Copy for AI' / 'Paste answers'. Replaces the
+       keyword question list. (4) BUILT 3 Oct (363 tests): new job spotted by itself (`fintrack/newjob.py`: no known wage for
+       35+ days and another payer 500+ in 2+ months since -> '💼 Is X your new job?' in the quick questions; yes = add_payer,
+       no = kv 'not_wage'). ALL of the 3 Oct v2 plan is built. See FUTURE_FEATURES.md.
+   3 Oct late (365 tests): silent start: hidden.vbs runs server.bat (FT_QUIET, no window, no browser, restarts on
+   exit 3) from the Startup shortcut; setup.bat remakes shortcuts (desktop = hidden.vbs open, icon static/app.ico);
+   stop.bat kills web.py; /manifest.json + static/icon-*.png so Chrome/Edge can install it as an app. start.bat
+   unchanged on purpose (never rewrite a running .bat). Windows scripts NOT tried on Windows yet: ask the user.
+   END OF 3 Oct: user is testing v2 on real data (told to back up tracker.db first). NEXT SESSION: fix anything odd
+   they report; then v3 = phone version on AWS:
+   AGREED design in FUTURE_FEATURES.md 'v3 AGREED DESIGN (4 Oct)'. The user is drawing an architecture diagram
+   first: check it against that section before building. 4 Oct: user had not run setup.bat yet (silent start untested).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).

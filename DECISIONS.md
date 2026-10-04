@@ -70,6 +70,11 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
   terminal and the home page. Typed spends then come off the spare cash ("Left now").
 - Payments made just before payday can be counted from that payday: `run.py early N`.
 
+## 3 Oct 2026: DD / SO are bills by default (user)
+- A direct debit or standing order paid in 2+ months, with no saved answer, is saved as Common (a bill) without a
+  question (`questions.auto_bills`, source "auto"). Paid only once: still asked. Saved answers are never changed.
+  Change one with `run.py fix`.
+
 ## 4 Oct 2026: phone copy (user, grill session)
 - PC = final say. Phone changes only happen on the PC after the user says yes (Enter = all).
 - PIN (not a password). PythonAnywhere free (log in there once every 3 months). Phone = spends only.

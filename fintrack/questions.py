@@ -270,7 +270,27 @@ def parse_answer(text: str, count: int) -> dict:
     return result
 
 
-def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bool = False) -> int:
+def auto_bills(conn, txns: List[Txn]) -> int:
+    """DD / SO are bills by default (user, 3 Oct 2026): every direct debit or standing order with no saved answer
+    that was paid in 2 or more months is saved as Common (label and category suggested, source "auto"), so it is
+    not asked about. One paid only once is left for the questions. Saved answers are never changed.
+    Returns how many were saved."""
+    from fintrack.store import get_items, set_item, set_category
+    from fintrack.categories import guess_category
+    saved = get_items(conn)
+    n = 0
+    for key, stat in sorted(item_stats(txns).items()):
+        if key in saved or stat["group"] not in ("DD", "SO") or stat["months"] < 2:
+            continue
+        _, label = suggest(stat)
+        set_item(conn, key, "common", label, "auto")
+        set_category(conn, key, guess_category(stat["name"], label, stat["group"]))
+        n += 1
+    return n
+
+
+def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bool = False,
+           auto_dd: bool = True) -> int:
     """Ask about every item that has no saved answer, `size` at a time. Returns how many items were saved.
 
     - stats = item_stats(txns); saved = fintrack.store.get_items(conn).
@@ -296,10 +316,13 @@ def review(conn, txns: List[Txn], ask, out=print, size: int = 10, skip_small: bo
     from fintrack.store import get_items, set_item, set_category
     from fintrack.categories import guess_category
 
+    auto = auto_bills(conn, txns) if auto_dd else 0     # auto_dd=False: tests of the list itself
+    if auto:
+        out(f"{auto} direct debits / standing orders saved as bills (paid in 2+ months). Change any with: run.py fix")
     stats = item_stats(txns)
     saved = get_items(conn)
 
-    total_saved = 0
+    total_saved = auto
     later_set = set()
     skip_small_set = set()
 

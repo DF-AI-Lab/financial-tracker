@@ -56,6 +56,30 @@ def similar_pairs(stats: Dict) -> List[Tuple[str, str]]:
     return pairs
 
 
+def pending_same_bills(conn, txns: List) -> List[Tuple[str, str]]:
+    """The similar pairs still to ask about: both items saved, not answered yet, and different labels."""
+    saved = get_items(conn)
+    answered = get_same_bills(conn)
+    out = []
+    for key_big, key_small in similar_pairs(item_stats(txns)):
+        if key_big not in saved or key_small not in saved:
+            continue
+        if frozenset({key_big, key_small}) in answered:
+            continue
+        if saved[key_big]["label"].strip().lower() == saved[key_small]["label"].strip().lower():
+            continue
+        out.append((key_big, key_small))
+    return out
+
+
+def answer_same_bill(conn, key_big: str, key_small: str, yes: bool) -> None:
+    """Yes: the small one takes the big one's kind and label (source "same"). No: kept apart. Saved either way."""
+    set_same_bill(conn, key_big, key_small, yes)
+    if yes:
+        first = get_items(conn)[key_big]
+        set_item(conn, key_small, first["kind"], first["label"], source="same")
+
+
 def ask_same_bills(conn, txns: List, ask: Callable, out=print) -> int:
     """Ask about similar-looking items and save answers. Returns how many answers were saved (y or n).
 
