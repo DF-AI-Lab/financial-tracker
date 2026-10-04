@@ -69,3 +69,9 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
   stale when the newest statement ends before the latest payday. "If you spend like usual" is dropped from the
   terminal and the home page. Typed spends then come off the spare cash ("Left now").
 - Payments made just before payday can be counted from that payday: `run.py early N`.
+
+## 4 Oct 2026: phone copy (user, grill session)
+- PC = final say. Phone changes only happen on the PC after the user says yes (Enter = all).
+- PIN (not a password). PythonAnywhere free (log in there once every 3 months). Phone = spends only.
+- Two files online: the PC's copy (only the PC writes it) and the phone's changes (only the phone writes them).
+- PC uploads on start and after every change. Phone: changes count straight away, sent with one Send button.

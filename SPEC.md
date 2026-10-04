@@ -112,5 +112,22 @@ WHERE DID THE £440 GO?
 
 ---
 
+## Step 10: Phone copy (agreed 4 Oct 2026, grill session)
+The PC stays the boss (real database). A copy lives on a free **PythonAnywhere** site the phone opens anywhere.
+- **PC -> online:** the PC renders the same home page (same bill names, spare cash, everything) in phone mode and
+  uploads it (`snapshot`) on start and after every change on the PC (add/remove spend, pay, accepting phone changes).
+- **Phone:** opens `https://NAME.pythonanywhere.com`, types the **PIN** (set on the PC: `run.py pin 4821`;
+  5 wrong tries = locked 15 minutes; remembered on the phone for 30 days). Shows "From PC: <date time>".
+  Phone can **add spends** and **remove any spend**; the countdown changes straight away. Changes wait on the phone
+  until **Send** is tapped; then they wait online ("waiting for PC") as `phone_changes`.
+- **Phone = spends only.** Renaming, categories, pay, PDFs stay on the PC.
+- **PC <- online:** `run.py` asks at the start: list of phone changes, **Enter = do them all**, or numbers to skip.
+  The home page (`start.bat`) shows a "From your phone" box with ticks + one button. Skipped ones are dropped:
+  **the PC has the final say**, and the next upload removes them from the phone.
+- No internet: "Phone sync skipped (no internet)", everything else carries on.
+- Setup once: `run.py phone https://NAME.pythonanywhere.com` (the PC makes a secret key; the site keeps the first
+  key it sees). Server code: `cloud/flask_app.py` (no bank logic on the server; it only stores the page + changes).
+- Try it with fake data first (`run.py test ...`), then real.
+
 ## Not in this spec
 Other banks, email fetching, logins, CSV import, warnings/nudges ("£100 over on food with 10 days to go").
