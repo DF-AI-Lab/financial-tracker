@@ -139,22 +139,18 @@ def test_offline_returns_none(conn):
     assert phone.upload(conn, "<p>x</p>", http=offline) is False
 
 
-def test_apply_changes(conn):
+def test_apply_spend_changes(conn):
     add_spend(conn, date(2026, 10, 1), 12.5, "Costa", "Eating out")
     costa = get_spends(conn)[0]["id"]
     changes = [
         {"cid": "a", "type": "add", "date": "2026-10-04", "amount": 250.0, "name": "Argos TV"},
-        {"cid": "b", "type": "add", "date": "2026-10-04", "amount": 9.99, "name": "Skipped"},
         {"cid": "c", "type": "remove", "id": costa, "name": "Costa", "amount": 12.5},
         {"cid": "d", "type": "remove", "id": 999, "name": "Gone", "amount": 1.0},
+        {"cid": "e", "type": "rename", "name": "Unknown types are ignored"},
+        {"cid": "f", "type": "pay", "amount": "not money"},
     ]
-    assert phone.apply_changes(conn, changes, skip={"b"}) == 2
+    assert phone.apply_changes(conn, changes, wage_payer=ACME) == 2
     assert [(s["date"], s["amount"], s["name"]) for s in get_spends(conn)] == [(date(2026, 10, 4), 250.0, "Argos TV")]
-
-
-def test_describe():
-    assert phone.describe({"type": "add", "date": "2026-10-04", "amount": 250, "name": "Argos"}) == "Add     250.00  Argos  (04 Oct)"
-    assert phone.describe({"type": "remove", "id": 1, "amount": 12.5, "name": "Costa"}) == "Remove   12.50  Costa"
 
 
 class FakeOnline:
@@ -169,24 +165,30 @@ class FakeOnline:
         return {"ok": True}
 
 
-def test_terminal_sync_enter_does_them_all(conn):
+def test_sync_once_does_everything_straight_away(conn):
     phone.connect(conn, "https://x.pythonanywhere.com")
     online = FakeOnline([{"cid": "a", "type": "add", "date": "2026-10-04", "amount": 250.0, "name": "Argos"},
                          {"cid": "b", "type": "add", "date": "2026-10-04", "amount": 5.0, "name": "Greggs"}])
-    lines = []
-    phone.sync_terminal(conn, ask=lambda p: "", out=lines.append, http=online)
+    assert phone.sync_once(conn, wage_payer=ACME, http=online) == 2
     assert [s["name"] for s in get_spends(conn)] == ["Argos", "Greggs"]
     assert ("POST", "clear", {"cids": ["a", "b"]}) in online.calls
-    assert any("FROM YOUR PHONE" in l for l in lines)
 
 
-def test_terminal_sync_skips_numbers_but_clears_them_too(conn):
+def test_sync_once_offline_or_not_set_up(conn):
+    def offline(*a, **k):
+        raise OSError
+    assert phone.sync_once(conn, wage_payer=ACME, http=offline) is None      # not set up: no network either
     phone.connect(conn, "https://x.pythonanywhere.com")
-    online = FakeOnline([{"cid": "a", "type": "add", "date": "2026-10-04", "amount": 250.0, "name": "Argos"},
-                         {"cid": "b", "type": "add", "date": "2026-10-04", "amount": 5.0, "name": "Greggs"}])
-    phone.sync_terminal(conn, ask=lambda p: "2", out=lambda l: None, http=online)
+    assert phone.sync_once(conn, wage_payer=ACME, http=offline) is None
+
+
+def test_terminal_sync_asks_nothing_and_says_how_many(conn):
+    phone.connect(conn, "https://x.pythonanywhere.com")
+    online = FakeOnline([{"cid": "a", "type": "add", "date": "2026-10-04", "amount": 250.0, "name": "Argos"}])
+    lines = []
+    phone.sync_terminal(conn, out=lines.append, http=online, wage_payer=ACME)
     assert [s["name"] for s in get_spends(conn)] == ["Argos"]
-    assert ("POST", "clear", {"cids": ["a", "b"]}) in online.calls
+    assert lines == ["Phone: 1 change from your phone done."]
 
 
 def test_terminal_sync_offline_carries_on(conn):
@@ -194,14 +196,21 @@ def test_terminal_sync_offline_carries_on(conn):
     def offline(*a, **k):
         raise OSError
     lines = []
-    phone.sync_terminal(conn, ask=lambda p: pytest.fail("no question"), out=lines.append, http=offline)
+    phone.sync_terminal(conn, out=lines.append, http=offline, wage_payer=ACME)
     assert lines == ["Phone sync skipped (no internet)."]
 
 
 def test_terminal_sync_nothing_set_up_says_nothing(conn):
     lines = []
-    phone.sync_terminal(conn, ask=lambda p: pytest.fail("no question"), out=lines.append, http=None)
+    phone.sync_terminal(conn, out=lines.append, http=None, wage_payer=ACME)
     assert lines == []
+
+
+def test_upload_sends_a_stamp(conn):
+    phone.connect(conn, "https://x.pythonanywhere.com")
+    online = FakeOnline([])
+    assert phone.upload(conn, "<p>x</p>", http=online, stamp="123.4")
+    assert online.calls[0][2]["stamp"] == "123.4"
 
 
 # ---- the PC home page and the phone page (web.py) -------------------------------------------------
@@ -216,32 +225,69 @@ def db(tmp_path):
     return tmp_path / "tracker.db"
 
 
+def pcdata(html):
+    return json.loads(html.split('<script id="pcdata" type="application/json">')[1].split("</script>")[0])
+
+
 def test_phone_page_is_the_home_page_in_phone_mode(db):
     c = open_db(db)
     add_spend(c, date(2024, 10, 20), 12.5, "Costa", "Eating out")
-    html = web.phone_page(db, wage_payer=ACME, today=date(2024, 10, 25), now="Sat 4 Oct, 19:42")
+    html = web.phone_page(db, wage_payer=ACME, today=date(2024, 10, 25), now="Sat 4 Oct, 19:42", stamp="777")
     assert "From PC: Sat 4 Oct, 19:42" in html
-    assert 'action="/pay"' not in html and 'action="/add"' not in html   # phone = spends only, done by JS
     assert "Bills (every month)" in html                                  # same page as the PC
-    data = json.loads(html.split('<script id="pcdata" type="application/json">')[1].split("</script>")[0])
+    data = pcdata(html)
     assert [(s["name"], s["amount"], s["date"]) for s in data["spends"]] == [("Costa", 12.5, "2024-10-20")]
     assert data["money"] == pytest.approx(web.home_data(c, wage_payer=ACME, today=date(2024, 10, 25))["money_for_spending"])
+    assert data["stamp"] == "777"
 
 
-def test_pc_home_page_shows_phone_changes_and_takes_the_ticked_ones(db):
+def test_phone_changes_pay_left_and_bills(db):
+    c = open_db(db)
+    from fintrack.billchange import get_changes, get_left
+    d = web.home_data(c, wage_payer=ACME, today=date(2024, 10, 25))
+    key = d["pay"]["bills"][0]["key"]
+    start = d["cycle_start"]
+    add_spend(c, date(2024, 10, 20), 12.5, "Costa", "Eating out")
+    n = phone.apply_changes(c, [
+        {"cid": "1", "type": "pay", "amount": 2600.0, "clear": True},
+        {"cid": "2", "type": "left", "amount": 220.0},
+        {"cid": "3", "type": "bill", "key": key, "amount": 99.0},
+        {"cid": "4", "type": "bill", "key": "NOT|A|BILL", "amount": 5.0},
+    ], wage_payer=ACME)
+    assert n == 3
+    assert get_value(c, "pay") == "2600.0" and get_spends(c) == []          # clear = the typed spends go
+    assert get_left(c, start) == 220.0
+    assert get_changes(c, start) == {key: 99.0}
+    phone.apply_changes(c, [{"cid": "5", "type": "left", "amount": None},
+                            {"cid": "6", "type": "bill", "key": key, "amount": None}], wage_payer=ACME)
+    assert get_left(c, start) == 0 and get_changes(c, start) == {}
+
+
+def test_phone_answers_new_items(tmp_path):
+    from fintrack.inbox import import_pdf
+    from fintrack.store import get_items
+    c = open_db(tmp_path / "fresh.db")                    # statements read in, no questions answered yet
+    for n in ("statement_2024_08.pdf", "statement_2024_09.pdf", "statement_2024_10.pdf"):
+        import_pdf(c, tmp_path / "statements", n, (DATA / n).read_bytes())
+    d = web.home_data(c, wage_payer=ACME, today=date(2024, 10, 25))
+    assert d["sort"]
+    item = d["sort"][0]
+    phone.apply_changes(c, [{"cid": "s", "type": "sort", "answers": [
+        {"key": item["key"], "kind": "oneoff", "label": "Sofa", "category": "Household"}]}], wage_payer=ACME)
+    assert get_items(c)[item["key"]]["label"] == "Sofa"
+
+
+def test_pc_home_page_does_phone_changes_by_itself(db):
     c = open_db(db)
     phone.connect(c, "https://x.pythonanywhere.com")
-    online = FakeOnline([{"cid": "a", "type": "add", "date": "2024-10-24", "amount": 250.0, "name": "Argos"},
-                         {"cid": "b", "type": "add", "date": "2024-10-24", "amount": 5.0, "name": "Greggs"}])
+    online = FakeOnline([{"cid": "a", "type": "add", "date": "2024-10-24", "amount": 250.0, "name": "Argos"}])
     app = web.create_app(db, wage_payer=ACME, today=date(2024, 10, 25), phone_http=online)
     app.testing = True
-    client = app.test_client()
-    page = client.get("/").data.decode()
-    assert "From your phone" in page and "Argos" in page and "Greggs" in page
-    client.post("/phone", data={"take": ["a"], "seen": ["a", "b"]})
+    page = app.test_client().get("/").data.decode()
+    assert "Argos" in page and "From your phone" not in page              # no box to tick any more
     assert [s["name"] for s in get_spends(open_db(db))] == ["Argos"]
-    assert ("POST", "clear", {"cids": ["a", "b"]}) in online.calls
-    assert any(name == "upload" for _, name, _ in online.calls)       # fresh copy sent up
+    assert ("POST", "clear", {"cids": ["a"]}) in online.calls
+    assert any(name == "upload" for _, name, _ in online.calls)           # fresh copy sent up
 
 
 def test_pc_add_sends_a_fresh_copy_up(db):
@@ -253,6 +299,108 @@ def test_pc_add_sends_a_fresh_copy_up(db):
     app.test_client().post("/add", data={"amount": "12.50", "name": "Costa"})
     uploads = [b for _, name, b in online.calls if name == "upload"]
     assert len(uploads) == 1 and "Costa" in uploads[0]["html"]
+
+
+def test_engine_tick_takes_phone_changes_and_new_downloads(db, tmp_path):
+    c = open_db(db)
+    phone.connect(c, "https://x.pythonanywhere.com")
+    downloads = tmp_path / "Downloads"
+    downloads.mkdir()
+    online = FakeOnline([{"cid": "a", "type": "add", "date": "2024-10-24", "amount": 5.0, "name": "Greggs"}])
+    r = web.engine_tick(db, wage_payer=ACME, statements_dir=tmp_path / "statements", downloads_dir=downloads,
+                        http=online, today=date(2024, 10, 25))
+    assert r == {"changes": 1, "imported": []}
+    assert sum(1 for _, name, _ in online.calls if name == "upload") == 1
+    online.calls.clear()
+    online.changes = []
+    r = web.engine_tick(db, wage_payer=ACME, statements_dir=tmp_path / "statements", downloads_dir=downloads,
+                        http=online, today=date(2024, 10, 25))
+    assert r == {"changes": 0, "imported": []}
+    assert not any(name == "upload" for _, name, _ in online.calls)       # nothing new = nothing sent
+
+
+# ---- Downloads: HSBC statements are moved in by themselves (fintrack/downloads.py) ----------------
+
+def test_downloads_moves_new_statements_in(tmp_path):
+    from fintrack.downloads import scan_downloads
+    from fintrack.store import load_statements
+    c = open_db(tmp_path / "t.db")
+    downloads, statements = tmp_path / "Downloads", tmp_path / "statements"
+    downloads.mkdir()
+    shutil.copy(DATA / "statement_2024_08.pdf", downloads / "2024-08-22_Statement.pdf")
+    (downloads / "holiday_statement.pdf").write_bytes(b"%PDF-1.4 not really a statement")
+    (downloads / "Statement.txt").write_text("not a pdf")
+    (downloads / "invoice.pdf").write_bytes((DATA / "statement_2024_09.pdf").read_bytes())   # no 'statement' in name
+    assert scan_downloads(c, downloads, statements) == ["2024-08-22_Statement.pdf"]
+    assert not (downloads / "2024-08-22_Statement.pdf").exists()          # moved, not copied
+    assert (statements / "2024-08-22_Statement.pdf").exists()
+    assert len(load_statements(c)) == 1
+    assert (downloads / "holiday_statement.pdf").exists()                 # not a statement: left alone
+    assert (downloads / "invoice.pdf").exists()                           # name does not say statement: left alone
+    assert scan_downloads(c, downloads, statements) == []                 # the bad one is not read again
+
+
+def test_downloads_removes_a_statement_already_stored(tmp_path):
+    from fintrack.downloads import scan_downloads
+    c = open_db(tmp_path / "t.db")
+    downloads, statements = tmp_path / "Downloads", tmp_path / "statements"
+    downloads.mkdir()
+    shutil.copy(DATA / "statement_2024_08.pdf", downloads / "a_Statement.pdf")
+    scan_downloads(c, downloads, statements)
+    shutil.copy(DATA / "statement_2024_08.pdf", downloads / "a_Statement (1).pdf")   # downloaded twice
+    assert scan_downloads(c, downloads, statements) == []
+    assert not (downloads / "a_Statement (1).pdf").exists()
+    assert sorted(p.name for p in statements.iterdir()) == ["a_Statement.pdf"]
+
+
+def test_downloads_folder_missing_is_fine(tmp_path):
+    from fintrack.downloads import scan_downloads
+    assert scan_downloads(open_db(tmp_path / "t.db"), tmp_path / "nope", tmp_path / "statements") == []
+
+
+# ---- the online site: more kinds of change, and the stamp -----------------------------------------
+
+def test_site_takes_the_new_kinds_of_change(site):
+    upload(site)
+    login(site)
+    good = [{"cid": "p", "type": "pay", "amount": 2600, "clear": False},
+            {"cid": "l", "type": "left", "amount": None},
+            {"cid": "b", "type": "bill", "key": "DD|SKY|", "amount": 48},
+            {"cid": "s", "type": "sort", "answers": [{"key": "CARD|X|", "kind": "bill"}]},
+            {"cid": "q", "type": "ask", "answer": {"type": "job", "name": "X", "yes": True}}]
+    assert site.post("/send", json={"changes": good}).status_code == 200
+    assert [c["cid"] for c in site.get("/pending").get_json()["changes"]] == ["p", "l", "b", "s", "q"]
+    huge = {"cid": "h", "type": "sort", "answers": [{"key": "x" * 100}] * 500}
+    assert site.post("/send", json={"changes": [huge]}).status_code == 400
+
+
+def test_site_stamp(site):
+    salt = "salt"
+    site.post("/api/upload", json={"html": "<p>x</p>", "pin_salt": salt, "pin_hash": phone.hash_pin("4821", salt),
+                                   "stamp": "42.5"}, headers={"X-Key": KEY})
+    assert site.get("/stamp").status_code == 401
+    login(site)
+    assert site.get("/stamp").get_json() == {"stamp": "42.5"}
+
+
+# ---- run.py small fixes ---------------------------------------------------------------------------
+
+def test_wage_ignores_the_word_test(tmp_path):
+    from fintrack.wages import all_payers
+    folder = tmp_path / "statements"
+    folder.mkdir()
+    open_db(tmp_path / "tracker.db").close()
+    run.run_command(["wage", "NEW JOB LTD", "test"], out=lambda l: None, in_dir=folder)
+    assert "NEW JOB LTD" in all_payers(open_db(tmp_path / "tracker.db"), ACME)
+    assert "NEW JOB LTD test" not in all_payers(open_db(tmp_path / "tracker.db"), ACME)
+
+
+def test_real_database_found_without_a_statements_folder(tmp_path):
+    from run import pick_folder
+    real = tmp_path / "statements"                 # does not exist
+    open_db(tmp_path / "tracker.db").close()       # but the real database sits there
+    got = pick_folder([], real_dir=real, test_dir=tmp_path / "code" / "statements", saved_file=tmp_path / "none.txt")
+    assert got == real and real.is_dir()
 
 
 # ---- the whole loop: PC -> site -> phone -> site -> PC --------------------------------------------
@@ -280,7 +428,7 @@ def test_whole_loop(db, tmp_path):
     phone_client.post("/send", json={"changes": [
         {"cid": "z", "type": "add", "date": "2024-10-24", "amount": 300.0, "name": "Halfords"}]})
 
-    phone.sync_terminal(c, ask=lambda p: "", out=lambda l: None, http=http)
+    phone.sync_terminal(c, out=lambda l: None, http=http, wage_payer=ACME)
     assert [s["name"] for s in get_spends(c)] == ["Halfords"]
     assert phone_client.get("/pending").get_json()["changes"] == []
 
