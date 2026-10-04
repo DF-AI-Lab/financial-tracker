@@ -109,6 +109,8 @@ expected spare 292.74 on 2,677) (tests first, Haiku builds, verify yourself, tel
    stop.bat kills web.py; /manifest.json + static/icon-*.png so Chrome/Edge can install it as an app. start.bat
    unchanged on purpose (never rewrite a running .bat). Windows scripts NOT tried on Windows yet: ask the user.
    END OF 3 Oct: user is testing v2 on real data (told to back up tracker.db first). NEXT SESSION: fix anything odd
-   they report; then v3 = phone version (FUTURE_FEATURES.md 'Ideas for v3': Tailscale quick, or S3 + CloudFront + Lambda).
+   they report; then v3 = phone version on AWS:
+   AGREED design in FUTURE_FEATURES.md 'v3 AGREED DESIGN (4 Oct)'. The user is drawing an architecture diagram
+   first: check it against that section before building. 4 Oct: user had not run setup.bat yet (silent start untested).
 3. After each step the user runs it on their 18 months and reports anything odd; add a test for every real oddity.
 4. Ideas after that: FUTURE_FEATURES.md (email fetch, other banks...).
