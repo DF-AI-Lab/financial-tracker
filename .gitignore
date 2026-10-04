@@ -12,3 +12,6 @@ output/
 
 # your real data stays on your PC
 *.db
+
+# the online copy keeps its data here (on PythonAnywhere only)
+cloud/data/

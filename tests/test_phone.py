@@ -283,3 +283,10 @@ def test_whole_loop(db, tmp_path):
     phone.sync_terminal(c, ask=lambda p: "", out=lambda l: None, http=http)
     assert [s["name"] for s in get_spends(c)] == ["Halfords"]
     assert phone_client.get("/pending").get_json()["changes"] == []
+
+
+def test_test_and_real_databases_share_one_key(tmp_path):
+    a, b = open_db(tmp_path / "test.db"), open_db(tmp_path / "real.db")
+    phone.connect(a, "https://x.pythonanywhere.com")
+    phone.connect(b, "https://x.pythonanywhere.com")
+    assert phone.settings(a)[1] == phone.settings(b)[1]

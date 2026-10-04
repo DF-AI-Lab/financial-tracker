@@ -1,8 +1,9 @@
 """Step 9 of SPEC.md: the home page (Flask, on this PC only)."""
+import json
 import sys
 import threading
 import webbrowser
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 
 try:
@@ -16,9 +17,39 @@ from fintrack.left import parse_money
 from fintrack.typed import parse_add
 from fintrack.categories import guess_category
 from fintrack.cycles import WAGE_PAYER
+from fintrack import phone
 
 
-def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
+def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None):
+    """Step 10: the same home page in phone mode (spends added/removed by the page itself), for upload."""
+    app = create_app(db_path, wage_payer=wage_payer, today=today)
+    conn = open_db(db_path)
+    d = home_data(conn, wage_payer=wage_payer, today=today)
+    conn.close()
+    pcdata = {"money": d.get("money_for_spending", 0),
+              "spends": [{"id": s["id"], "date": s["date"].isoformat(), "amount": s["amount"], "name": s["name"],
+                          "category": s["category"] or ""} for s in d.get("spends", [])]}
+    if now is None:
+        now = f"{datetime.now():%a} {datetime.now().day} {datetime.now():%b, %H:%M}"
+    with app.app_context():
+        return render_template("home.html", d=d, error=None, phone=True, updated=now,
+                               pcdata=json.dumps(pcdata).replace("</", "<\\/"))
+
+
+def push(db_path, wage_payer=WAGE_PAYER, today=None, http=phone.http_json) -> bool:
+    """Send a fresh copy up if the phone copy is set up. Never raises."""
+    try:
+        conn = open_db(db_path)
+        ready = phone.settings(conn) is not None
+        if ready:
+            ready = phone.upload(conn, phone_page(db_path, wage_payer, today), http=http)
+        conn.close()
+        return ready
+    except Exception:
+        return False
+
+
+def create_app(db_path, wage_payer=WAGE_PAYER, today=None, phone_http=phone.http_json):
     """Create and configure the Flask app.
 
     Args:
@@ -72,7 +103,23 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         elif error_code == "spend":
             error = "Sorry, type an amount and a name, e.g. 12.50 and Costa."
 
-        return render_template("home.html", d=d, error=error)
+        changes = phone.fetch_changes(conn, http=phone_http) or []
+        conn.close()
+        return render_template("home.html", d=d, error=error, phone_changes=changes,
+                               describe=phone.describe)
+
+    # POST /phone: do the ticked phone changes, drop the rest (the PC has the final say)
+    @app.route("/phone", methods=["POST"])
+    def phone_changes():
+        seen = set(request.form.getlist("seen"))
+        take = set(request.form.getlist("take"))
+        conn = open_db(db_path)
+        changes = [c for c in (phone.fetch_changes(conn, http=phone_http) or []) if c["cid"] in seen]
+        phone.apply_changes(conn, changes, skip={c["cid"] for c in changes} - take)
+        phone.clear_changes(conn, [c["cid"] for c in changes], http=phone_http)
+        conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
+        return redirect(url_for("home"), code=303)
 
     # POST /pay
     @app.route("/pay", methods=["POST"])
@@ -86,6 +133,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         conn = open_db(db_path)
         set_value(conn, "pay", str(wage))
         conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
 
         return redirect(url_for("home"), code=303)
 
@@ -107,6 +155,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
         category = guess_category(name)
         add_spend(conn, date.today() if today is None else today, amount, name, category)
         conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
 
         return redirect(url_for("home"), code=303)
 
@@ -120,6 +169,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None):
             conn = open_db(db_path)
             delete_spend(conn, spend_id)
             conn.close()
+            push(db_path, wage_payer, today, http=phone_http)
         except (ValueError, TypeError):
             # Ignore bad id
             pass
@@ -143,6 +193,8 @@ def main():
         print("No database yet. Run run.py first.")
         return
 
+    if push(db_path):
+        print("Sent a fresh copy to your phone.")
     print("Opening your home page... (close this window to stop it)")
 
     # Create the app

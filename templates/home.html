@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Wage Tracker</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Wage Tracker">
 <style>
   * { box-sizing: border-box; }
   :root {
@@ -67,6 +70,12 @@
   .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
   .scroll { overflow-x: auto; }
   @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
+  .phonebar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 14px; color: var(--muted); }
+  .phonebar button { font-size: 16px; }
+  .state { display: block; font-size: 13px; color: var(--warn); }
+  #spendlist td:first-child { white-space: nowrap; }
+  .gone td { text-decoration: line-through; color: var(--muted); }
+  .phonebox label { display: flex; gap: 10px; align-items: center; padding: 6px 0; font-family: ui-monospace, monospace; font-size: 14px; }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
 </head>
@@ -81,21 +90,44 @@
   {% else %}
   <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
 
+  {% if phone %}
+  <div class="phonebar"><span>📱 From PC: {{ updated }} <span id="sendmsg"></span></span>
+    <button id="sendbtn" type="button" hidden>📤 Send to PC</button></div>
+  {% endif %}
+
+  {% if phone_changes %}
+  <div class="card phonebox">
+    <h2>📱 From your phone</h2>
+    <form method="post" action="/phone">
+      {% for c in phone_changes %}
+        <input type="hidden" name="seen" value="{{ c.cid }}">
+        <label><input type="checkbox" name="take" value="{{ c.cid }}" checked> {{ describe(c) }}</label>
+      {% endfor %}
+      <p class="muted" style="font-size:14px">Untick any you don't want. Unticked ones are dropped.</p>
+      <button type="submit">Do the ticked ones</button>
+    </form>
+  </div>
+  {% endif %}
+
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
   <!-- No. 1: spare cash -->
   <div class="hero">
     <div class="label">Spare cash left</div>
-    <div class="big">{{ d.left_now|money }}</div>
-    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</div>
+    <div class="big" id="leftbig">{{ d.left_now|money }}</div>
+    <div class="how">Pay {{ d.pay.wage|money }} − bills {{ d.pay.bills_last|money }} = {{ d.pay.spare|money }}<span id="spendshow">{% if d.typed_total %} − spends {{ d.typed_total|money }}{% endif %}</span></div>
   </div>
 
   <div class="tiles toprow">
+    {% if phone %}
+    <div class="tile"><div class="label">This month's pay</div><div class="num">{{ d.pay.wage|money }}</div></div>
+    {% else %}
     <div class="tile"><div class="label">✏️ This month's pay</div>
       <form class="inline paybox" method="post" action="/pay">
         <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
         <button type="submit">Work it out</button>
       </form></div>
+    {% endif %}
     {% if d.history %}
     <div class="tile"><div class="label">Spare cash last month</div>
       <div class="num">{{ d.history.last|money }}</div></div>
@@ -106,6 +138,15 @@
 
   <div class="card">
     <h2>➕ Add a spend</h2>
+    {% if phone %}
+    <form class="inline" id="addform">
+      <input class="amount" type="text" id="addamount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
+      <input class="name" type="text" id="addname" placeholder="Costa" aria-label="What">
+      <button type="submit">Add</button>
+    </form>
+    <div class="error" id="adderror" hidden>Type an amount and a name, e.g. 12.50 and Costa.</div>
+    <table style="margin-top:12px" id="spendlist"></table>
+    {% else %}
     <form class="inline" method="post" action="/add">
       <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
       <input class="name" type="text" name="name" placeholder="Costa" aria-label="What">
@@ -119,10 +160,11 @@
         {% endfor %}
       </table>
     {% endif %}
+    {% endif %}
     <div class="sum" style="margin-top:12px">
       <span>Money for spending</span><span class="n">{{ d.money_for_spending|money }}</span>
-      <span>Typed so far</span><span class="n">{{ (d.money_for_spending - d.left_now)|money }}</span>
-      <span class="eq">Left now</span><span class="n eq">{{ d.left_now|money }}</span>
+      <span>Typed so far</span><span class="n" id="typed">{{ (d.money_for_spending - d.left_now)|money }}</span>
+      <span class="eq">Left now</span><span class="n eq" id="leftnow">{{ d.left_now|money }}</span>
     </div>
   </div>
 
@@ -236,7 +278,139 @@
   </div>
   {% endif %}
 
+  {% if phone %}
+  <div class="footer">Spends you add here count straight away. Tap 📤 Send to PC, and your PC asks you about them next time it starts.</div>
+  {% else %}
   <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.</div>
+  {% endif %}
 </div>
+{% if phone and d.ready %}
+<script id="pcdata" type="application/json">{{ pcdata|safe }}</script>
+<script>
+(function () {
+  var PC = JSON.parse(document.getElementById('pcdata').textContent);
+  var KEY = 'ft_unsent';
+  var waiting = [];
+  var local = [];
+  try { local = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { local = []; }
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(local)); } catch (e) {} }
+  function $(id) { return document.getElementById(id); }
+  function money(x) {
+    var s = '£' + Math.abs(x).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    return x < 0 ? '-' + s : s;
+  }
+  function day(iso) {
+    var d = new Date(iso + 'T12:00:00');
+    return d.getDate() + ' ' + d.toLocaleString('en-GB', {month: 'short'});
+  }
+  function newId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
+  function todayIso() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  // Every spend the phone knows: the PC's, minus removes, plus adds (sent = waiting, not sent = unsent).
+  function rows() {
+    var changes = waiting.map(function (c) { return [c, 'waiting']; }).concat(local.map(function (c) { return [c, 'unsent']; }));
+    var removed = {};
+    changes.forEach(function (p) { if (p[0].type === 'remove') removed[p[0].id] = p; });
+    var list = PC.spends.map(function (s) {
+      var r = removed[s.id];
+      return {date: s.date, name: s.name, amount: s.amount, note: s.category || 'Unsorted',
+              gone: !!r, change: r ? r[0] : null, state: r ? r[1] : 'pc', id: s.id};
+    });
+    changes.forEach(function (p) {
+      if (p[0].type === 'add') list.push({date: p[0].date, name: p[0].name, amount: p[0].amount, note: '',
+                                          gone: false, change: p[0], state: p[1]});
+    });
+    return list;
+  }
+
+  function draw() {
+    var list = rows();
+    var typed = 0;
+    list.forEach(function (r) { if (!r.gone) typed += r.amount; });
+    var left = PC.money - typed;
+    $('leftbig').textContent = money(left);
+    $('leftnow').textContent = money(left);
+    $('typed').textContent = money(typed);
+    $('spendshow').textContent = typed ? ' − spends ' + money(typed) : '';
+    var t = $('spendlist');
+    t.innerHTML = '';
+    list.forEach(function (r) {
+      var tr = document.createElement('tr');
+      if (r.gone) tr.className = 'gone';
+      var state = r.state === 'unsent' ? '📤 not sent yet' : r.state === 'waiting' ? '⏳ waiting for PC' : '';
+      if (state && r.gone) state += ' (remove)';
+      tr.innerHTML = '<td></td><td><span class="nm"></span><span class="labels"></span><span class="state"></span></td><td class="n"></td><td class="n"><button class="small" type="button"></button></td>';
+      tr.children[0].textContent = day(r.date);
+      tr.querySelector('.nm').textContent = r.name;
+      tr.querySelector('.labels').textContent = r.note;
+      tr.querySelector('.state').textContent = state;
+      tr.children[2].textContent = money(r.amount);
+      var b = tr.querySelector('button');
+      b.textContent = r.gone ? 'Undo' : 'Remove';
+      b.onclick = function () { undoOrRemove(r); };
+      t.appendChild(tr);
+    });
+    $('sendbtn').hidden = local.length === 0;
+    $('sendbtn').textContent = '📤 Send ' + local.length + ' to PC';
+  }
+
+  function undoOrRemove(r) {
+    if (r.state === 'pc') {
+      local.push({cid: newId(), type: 'remove', id: r.id, name: r.name, amount: r.amount});
+    } else if (r.state === 'unsent') {
+      local = local.filter(function (c) { return c.cid !== r.change.cid; });
+    } else if (r.state === 'waiting') {
+      post('cancel', {cid: r.change.cid});
+      return;
+    }
+    save();
+    draw();
+  }
+
+  function msg(text) { $('sendmsg').textContent = text; }
+
+  function post(path, body) {
+    return fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
+                        credentials: 'same-origin'})
+      .then(function (r) {
+        if (r.status === 401) { msg('· PIN needed, refresh the page'); throw new Error('login'); }
+        if (!r.ok) throw new Error('bad');
+        return r.json();
+      })
+      .then(function (j) { waiting = j.changes; draw(); return true; })
+      .catch(function (e) { if (e.message !== 'login') msg('· Could not reach the site, try again'); return false; });
+  }
+
+  $('sendbtn').onclick = function () {
+    msg('· sending...');
+    post('send', {changes: local}).then(function (ok) {
+      if (ok) { local = []; save(); draw(); msg('· sent ✅'); }
+    });
+  };
+
+  $('addform').onsubmit = function (e) {
+    e.preventDefault();
+    var amount = parseFloat($('addamount').value.replace(/[£,\s]/g, ''));
+    var name = $('addname').value.trim();
+    if (!(amount > 0) || !name) { $('adderror').hidden = false; return; }
+    $('adderror').hidden = true;
+    local.push({cid: newId(), type: 'add', date: todayIso(), amount: Math.round(amount * 100) / 100, name: name.slice(0, 60)});
+    save();
+    $('addamount').value = '';
+    $('addname').value = '';
+    draw();
+  };
+
+  draw();
+  fetch('pending', {credentials: 'same-origin'})
+    .then(function (r) { return r.ok ? r.json() : {changes: []}; })
+    .then(function (j) { waiting = j.changes || []; draw(); })
+    .catch(function () { msg('· offline'); });
+})();
+</script>
+{% endif %}
 </body>
 </html>

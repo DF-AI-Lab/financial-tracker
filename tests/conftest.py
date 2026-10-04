@@ -31,3 +31,10 @@ def all_expected_txns(expected):
 @pytest.fixture(scope="session")
 def real_style_txns():
     return [to_txn(t) for st in load_expected("expected_real_style.json") for t in st["transactions"]]
+
+
+@pytest.fixture(autouse=True)
+def phone_key_file(tmp_path, monkeypatch):
+    """Step 10: never touch the real ~/.financial_tracker_phone_key.txt in tests."""
+    from fintrack import phone
+    monkeypatch.setattr(phone, "KEY_FILE", tmp_path / "phone_key.txt")

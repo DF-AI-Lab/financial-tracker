@@ -104,8 +104,10 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
                 print(f"Skipped duplicate: {st.file} (same period as {kept_st.file})")
                 break
 
-    # Open database and import statements
+    # Open database, take any phone changes first (step 10), then import statements
     conn = open_db(db_path)
+    from fintrack.phone import sync_terminal
+    sync_terminal(conn, ask=ask_items, out=print)
     new_count = 0
     for st in kept:
         problems = check_statement(st)
@@ -323,6 +325,25 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
             print(line)
 
 
+def _push(db_path, wage_payer, out):
+    """Step 10: send a fresh copy to the phone site, if it is set up."""
+    from fintrack import phone
+    conn = open_db(db_path)
+    ready = phone.settings(conn) is not None
+    conn.close()
+    if not ready:
+        return
+    try:
+        import web
+    except ImportError:
+        out("Phone copy not sent: flask is missing (C:\\ftvenv\\Scripts\\python.exe -m pip install flask).")
+        return
+    if web.push(db_path, wage_payer):
+        out("Sent a fresh copy to your phone.")
+    else:
+        out(phone.OFFLINE)
+
+
 def _print_spends_block(conn, wage_payer, out):
     """Print the SO FAR THIS CYCLE block. Pay = the one typed last in run.py, else the last wage."""
     from fintrack.store import get_rules
@@ -356,6 +377,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
     - ["remove", <number>]: remove a typed spend by number
     - ["early"]: list payments made just before a payday; ["early", <number>]: count it from that payday (again = undo)
     - ["wage", <name>...]: add another wage payer name (new job); ["wage"] lists them
+    - ["phone", <address>]: set up the phone copy (step 10); ["pin", <digits>]: set the phone PIN
     - anything else ([], ["test"], etc): return False
     """
     if not argv:
@@ -415,6 +437,31 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
             name = f"{t.description} {t.detail}".strip()[:34]
             out(f"  {i:>2}  {t.date:%d %b %Y}  {name:<34} {-t.amount:>9.2f}   payday {payday:%d %b}{mark}")
         out("Count one from its payday (e.g. rent sent early):  run.py early 1   (same again = undo)")
+        return True
+
+    if cmd in ("phone", "pin"):
+        from fintrack import phone
+        if in_dir is None:
+            in_dir = pick_folder(argv)
+        db_path = Path(db_path) if db_path is not None else Path(in_dir).parent / "tracker.db"
+        if not db_path.exists():
+            out("No database yet. Run run.py first.")
+            return True
+        conn = open_db(db_path)
+        if cmd == "pin":
+            if len(argv) < 2 or not phone.set_pin(conn, argv[1]):
+                out("Usage: run.py pin 4821   (4 to 8 numbers)")
+                return True
+            out("PIN saved.")
+        else:
+            if len(argv) < 2 or not argv[1].lower().startswith("https://"):
+                out("Usage: run.py phone https://NAME.pythonanywhere.com")
+                return True
+            phone.connect(conn, argv[1])
+            out(f"Saved. Your phone copy lives at {phone.settings(conn)[0]}")
+            if not get_value(conn, "phone_pin_hash"):
+                out("Now set a PIN: run.py pin 4821")
+        _push(db_path, wage_payer, out)
         return True
 
     if cmd == "wage":
@@ -600,6 +647,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
 
         # Print the spends block
         _print_spends_block(conn, wage_payer, out)
+        _push(db_path, wage_payer, out)
 
         return True
 
@@ -673,6 +721,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
 
         # Print the spends block
         _print_spends_block(conn, wage_payer, out)
+        _push(db_path, wage_payer, out)
 
         return True
 
@@ -682,4 +731,7 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
 
 if __name__ == "__main__":
     if not run_command(sys.argv[1:]):
-        main(in_dir=pick_folder(sys.argv[1:]))
+        folder = pick_folder(sys.argv[1:])
+        main(in_dir=folder)
+        if (folder.parent / "tracker.db").exists():
+            _push(folder.parent / "tracker.db", WAGE_PAYER, print)
