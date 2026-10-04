@@ -94,6 +94,9 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    label or payee name, NOT the DD|..| item key), billchange get/set_stopped (kv stopped_bills: {key: ISO date} or
    "no" = Undo beats the auto stop), POST /stopped, phone change {type bill, key, stopped}, Stop / Undo button per
    bill. Real DB copy: Zopa Credit Cards shows (100, NEW). Haiku built it; I rewrote pay_block (it had re-keyed bills).
+   Always-subscriptions (user, 4 Oct): fintrack/subs.py ALWAYS list (Claude/ANTHROPIC, ChatGPT/OPENAI, Google Play,
+   Audible), card payments matched on description + detail (overseas payments: shop name is in detail), no regularity
+   checks, refunds and cash never count. Add more names to ALWAYS. Real DB: all 4 show (ChatGPT stopped, last Jun 2026).
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).

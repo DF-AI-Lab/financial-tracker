@@ -7,8 +7,19 @@ from fintrack.models import Txn
 from fintrack.store import item_key
 
 
+ALWAYS = [
+    ("Claude", ("ANTHROPIC", "CLAUDE")),
+    ("ChatGPT", ("OPENAI", "CHATGPT")),
+    ("Google Play", ("GOOGLE PLAY",)),
+    ("Audible", ("AUDIBLE",)),
+]  # Always subscriptions (user, 4 Oct 2026), even when they stop and start; card payments only; add more here.
+
+
 def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
     """Find recurring card payments that look like subscriptions.
+
+    Includes always-subscriptions (card payments for known services like Claude, ChatGPT,
+    Google Play, Audible) which are recognized even if paid once or irregularly.
 
     Args:
         txns: list of transactions, sorted by date
@@ -19,8 +30,10 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
      "last12": paid in the 365 days up to end, "this_year": paid since 1 Jan of end's year}
 
     - end = latest date of all txns (none -> both lists empty)
-    - Look at money-out Txns whose item_key starts with "CARD|"
-    - Skip keys whose items answer kind is "oneoff" or "yearly"
+    - Always-subscriptions: card payments whose description + detail contains keywords from ALWAYS list;
+      no regularity checks, treated as subscriptions regardless of payment pattern
+    - Regular subscriptions: look at money-out Txns whose item_key starts with "CARD|"
+    - Skip keys whose items answer kind is "oneoff" or "yearly" (does not apply to always-subscriptions)
     - Group by item_key
     - Per key: skip it when it has more than 1.5 payments per month it was paid in (a shop);
       regular = payments whose exact price comes up at least twice for that payee (prices may change);
@@ -38,9 +51,65 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
 
     end = max(t.date for t in txns)
 
-    # Filter to money-out card transactions
+    subscriptions = []
+    always_processed_indices = set()
+
+    # First: process ALWAYS subscriptions
+    for always_name, keywords in ALWAYS:
+        matching_txns = []
+        matching_indices = []
+
+        for i, t in enumerate(txns):
+            # Skip if already processed by another ALWAYS entry
+            if i in always_processed_indices:
+                continue
+
+            # Must be money-out
+            if t.amount >= 0:
+                continue
+
+            # Must be card payment
+            key = item_key(t)
+            if not key.startswith("CARD|"):
+                continue
+
+            # Check if description + detail contains any keyword (case-insensitive)
+            search_text = (t.description + " " + t.detail).upper()
+            if any(keyword in search_text for keyword in keywords):
+                matching_txns.append(t)
+                matching_indices.append(i)
+
+        # If we found matching txns, create an ALWAYS subscription
+        if matching_txns:
+            always_processed_indices.update(matching_indices)
+            usual = abs(max(matching_txns, key=lambda t: t.date).amount)
+            since = min(t.date for t in matching_txns)
+            last = max(t.date for t in matching_txns)
+            total = sum(abs(t.amount) for t in matching_txns)
+            months_set = set((t.date.year, t.date.month) for t in matching_txns)
+            months = len(months_set)
+            is_active = (end - last).days <= 45
+
+            subscription = {
+                "name": always_name,
+                "usual": usual,
+                "since": since,
+                "last": last,
+                "total": total,
+                "months": months,
+                "last12": sum(abs(t.amount) for t in matching_txns if (end - t.date).days < 365),
+                "this_year": sum(abs(t.amount) for t in matching_txns if t.date.year == end.year)
+            }
+
+            subscriptions.append(("active" if is_active else "stopped", subscription))
+
+    # Second: Filter to money-out card transactions (excluding ALWAYS ones)
     card_txns = []
-    for t in txns:
+    for i, t in enumerate(txns):
+        # Skip if already in ALWAYS
+        if i in always_processed_indices:
+            continue
+
         if t.amount >= 0:  # Money in, skip
             continue
 
@@ -63,8 +132,6 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
         groups[key].append(txn)
 
     # Analyze each group
-    subscriptions = []
-
     for key, txns_list in groups.items():
         # Get amounts (positive)
         amounts = [abs(t.amount) for t in txns_list]
@@ -127,10 +194,7 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
             "this_year": sum(abs(t.amount) for t in txns_list if t.date.year == end.year)
         }
 
-        if is_active:
-            subscriptions.append(("active", subscription))
-        else:
-            subscriptions.append(("stopped", subscription))
+        subscriptions.append(("active" if is_active else "stopped", subscription))
 
     # Sort actives by usual biggest first (ties: name)
     active = [s[1] for s in subscriptions if s[0] == "active"]

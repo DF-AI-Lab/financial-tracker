@@ -89,3 +89,5 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
   (e.g. the old car insurance after a switch). The user can also tap "Stopped" on a bill to drop it sooner.
 - A new bill's first payment counts as paid (e.g. a bigger first month); the ✏️ this-month change still works.
 - Card payments are never auto-bills: a deposit or pay-in-full by card is asked about as a new item (One-off / Yearly).
+- Always subscriptions (4 Oct 2026): Claude, ChatGPT, Google Play and Audible are always listed under Subscriptions,
+  even when they stop and start (card payments only; active = paid in the last 45 days).
