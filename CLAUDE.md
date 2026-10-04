@@ -87,6 +87,9 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    paid once only, 14 Sep 2026 (100.00), inside the cycle still running, so pay_block/analysis (complete cycles only)
    skips it. auto_bills needs 2+ months, so it was asked. Agreed direction: a bill saved as common with a payment in
    the current cycle shows straight away (last = this cycle's amount). Write the failing test first (fake data).
+   DECIDED (user, 4 Oct, see DECISIONS.md 'new and stopped bills'): every DD/SO straight into Bills even if paid once
+   (marked 🆕 new until paid in 2 cycles); not paid in the last finished cycle = stopped and NOT counted (plus a tap
+   'Stopped' button); card payments stay questions. NOT BUILT YET: next build.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).

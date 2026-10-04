@@ -80,3 +80,12 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - PIN (not a password). PythonAnywhere free (log in there once every 3 months). Phone = spends only.
 - Two files online: the PC's copy (only the PC writes it) and the phone's changes (only the phone writes them).
 - PC uploads on start and after every change. Phone: changes count straight away, sent with one Send button.
+
+## 4 Oct 2026: new and stopped bills (user)
+- Every DD / SO goes straight into Bills, even when paid only once, marked "🆕 new" until it has been paid in 2 pay
+  cycles (the user can tap Yearly / One-off if it is not monthly). A new bill shows as soon as it is paid, also in the
+  pay cycle still running (Zopa was hidden because of that).
+- A bill not paid in the last finished pay cycle = stopped: shown as stopped and NOT counted in the bills total any more
+  (e.g. the old car insurance after a switch). The user can also tap "Stopped" on a bill to drop it sooner.
+- A new bill's first payment counts as paid (e.g. a bigger first month); the ✏️ this-month change still works.
+- Card payments are never auto-bills: a deposit or pay-in-full by card is asked about as a new item (One-off / Yearly).
