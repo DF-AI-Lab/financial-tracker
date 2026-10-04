@@ -66,3 +66,19 @@ _Ideas agreed but not built yet. Newest at the bottom._
     (every save kept = free backups). About GBP 0-1 a month on the free tier.
   - Work: split home.html into a static page that fetches JSON; pdfplumber in a Lambda layer; a one-time
     upload of today's tracker.db; step-by-step AWS setup guide for the user.
+
+### v3 AGREED DESIGN (4 Oct, user) - phone version on AWS, PC stays the boss
+- **PC = master.** Main app, local `tracker.db`, all the real maths. Nothing about the PC app changes.
+- **S3 statements bucket:** the statement PDFs live here for good. Both the PC (drop on the page) and the phone
+  (upload on the phone page) can put PDFs in. ONLY the PC reads them into the local database (it checks the bucket for
+  new PDFs when it starts and every so often).
+- **S3 snapshot:** after every change the PC uploads an up-to-date JSON snapshot (what the home page shows) and a
+  backup copy of tracker.db (versioning on = history of backups).
+- **S3 + CloudFront:** the bare-bones phone page (HTTPS). It shows the snapshot. What-ifs on the phone (change a bill,
+  add spends, left from last month) are worked out on the phone and kept on the phone only, never sent to the PC;
+  a new snapshot starts them fresh.
+- **Lambda = gatekeeper:** checks the token, hands the snapshot to the phone, gives the phone a one-time upload link
+  for a PDF. Buckets stay private.
+- **Login = a token, no login screens:** open a secret link once on the phone, the token is remembered on the phone.
+  New token = old phone locked out. (Cognito possible later if wanted.)
+- PC needs an AWS key limited to these buckets only. Excel copy in OneDrive also discussed (optional, not agreed).
