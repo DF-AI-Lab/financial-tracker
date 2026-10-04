@@ -66,7 +66,11 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    phone=True: PC-only cards/script hidden, spends done by a small script + localStorage, Send button), `web.push` after
    every change, `/phone` box on the PC page, run.py asks at start (Enter = all) and pushes at the end, `run.py phone URL`,
    `run.py pin N`. Built by me, not Haiku. Tried in Chromium at phone width against a local copy of the site.
-   NOT tried on real PythonAnywhere or the user's phone yet: user follows PHONE_SETUP.md (fake data first).
+   4 Oct LIVE: https://darrenfawcett2448.pythonanywhere.com (Python 3.13), real data on the phone, phone spend reached
+   the PC prompt. Real DB found only after making an (empty) `Financial Tracker Project\statements` folder.
+   Known snags: fake PDFs are paid by ACME so `run.py test` gives "No paydays" on the phone (PHONE_SETUP Part 2 is
+   misleading: skip to Part 3); `run.py wage NAME test` would save "NAME test". User told to run setup.bat in the new
+   folder so shortcuts point at it, and to use the PC home page's "From your phone" box.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).
