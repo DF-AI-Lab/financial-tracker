@@ -80,6 +80,9 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    ⏳ Syncing N / ✅ Up to date / 📴 Offline, changes sent at once (localStorage queue), reloads when /stamp changes,
    tables become cards under 640px (CSS media query, [data-card] tables, data-label from headers). Email fetch ON HOLD
    (user asks HSBC for the PDF; check if HSBC can email it). Browser check script: see git log of this round.
+   4 Oct evening: phone page acts instantly (removed spends vanish, numbers follow), every device applies ALL waiting
+   changes (applyPending: pay/left/bills/cleared spends), cards = 3 equal columns. User ran setup.bat: hidden start
+   WORKS on Windows (127.0.0.1:5000 with no window). User very happy. Next: wait for oddities from real use.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).
