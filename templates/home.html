@@ -809,14 +809,18 @@
   function rows() {
     var changes = waiting.map(function (c) { return [c, 'waiting']; }).concat(local.map(function (c) { return [c, 'unsent']; }));
     var removed = {};
-    changes.forEach(function (p) { if (p[0].type === 'remove') removed[p[0].id] = p; });
+    var cleared = -1;                                      // a new pay that cleared the typed spends
+    changes.forEach(function (p, i) {
+      if (p[0].type === 'remove') removed[p[0].id] = p;
+      if (p[0].type === 'pay' && p[0].clear) cleared = i;
+    });
     var list = PC.spends.map(function (s) {
-      var r = removed[s.id];
+      var r = removed[s.id] || (cleared >= 0 ? changes[cleared] : null);
       return {date: s.date, name: s.name, amount: s.amount, note: s.category || 'Unsorted',
               gone: !!r, change: r ? r[0] : null, state: r ? r[1] : 'pc', id: s.id};
     });
-    changes.forEach(function (p) {
-      if (p[0].type === 'add') list.push({date: p[0].date, name: p[0].name, amount: p[0].amount, note: '',
+    changes.forEach(function (p, i) {
+      if (p[0].type === 'add' && i > cleared) list.push({date: p[0].date, name: p[0].name, amount: p[0].amount, note: '',
                                           gone: false, change: p[0], state: p[1]});
     });
     return list;
@@ -1090,10 +1094,39 @@
   });
 
   // Polling: get pending changes and check for page updates
+  // Every device shows every waiting change (user, 4 Oct 2026): pay, left-over and bills changed on another device
+  // show here too, even while the PC is off. Spends are merged in rows().
+  function applyPending() {
+    var all = (waiting || []).concat(local);
+    var focused = document.activeElement;
+    all.forEach(function (c) {
+      if (c.type === 'pay' && typeof c.amount === 'number') {
+        PC.wage = c.amount;
+        var f = document.querySelector('#payform input[name=pay]');
+        if (f && f !== focused) f.value = c.amount.toFixed(2);
+      } else if (c.type === 'left') {
+        PC.left = typeof c.amount === 'number' ? c.amount : 0;
+        var l = document.querySelector('form[action="/left"] input[name=amount]');
+        if (l && l !== focused) l.value = typeof c.amount === 'number' ? c.amount.toFixed(2) : '';
+      } else if (c.type === 'bill') {
+        document.querySelectorAll('tr.bill').forEach(function (row) {
+          if (row.dataset.key !== c.key) return;
+          var box = row.querySelector('input.billbox');
+          if (box === focused) return;
+          row.dataset.used = typeof c.amount === 'number' ? c.amount : row.dataset.default;
+          row.dataset.changed = typeof c.amount === 'number' ? '1' : '0';
+          if (box) box.value = parseFloat(row.dataset.used).toFixed(2);
+          showBill(row);
+        });
+      }
+    });
+  }
+
   function poll() {
     Promise.all([
       fetch('pending', {credentials: 'same-origin'}).then(function (r) { return r.ok ? r.json() : {changes: []}; }).then(function (j) {
         waiting = j.changes || [];
+        applyPending();
         draw();
       }).catch(function () {}),
       fetch('stamp', {credentials: 'same-origin'}).then(function (r) { return r.ok ? r.json() : {stamp: ''}; }).then(function (j) {
