@@ -82,11 +82,12 @@
        with their column name above them (data-label, copied from the header by the script at the bottom). */
     [data-card]:not([data-card="spend"]) table thead,
     [data-card]:not([data-card="spend"]) table tr:has(th) { display: none; }
-    [data-card]:not([data-card="spend"]) table tr { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 10px; margin-bottom: 8px;
-      border: 1px solid var(--border); border-radius: 10px; }
+    [data-card]:not([data-card="spend"]) table tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 14px;
+      padding: 10px 14px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 10px; }
     [data-card]:not([data-card="spend"]) table tr.total { border-width: 2px; }
-    [data-card]:not([data-card="spend"]) table td { display: block; border: 0; padding: 0; flex: 1 1 0; min-width: 0; text-align: left; }
-    [data-card]:not([data-card="spend"]) table td:first-child { flex-basis: 100%; font-weight: 700; }
+    [data-card]:not([data-card="spend"]) table td { display: block; border: 0; padding: 0; min-width: 0; text-align: left; white-space: normal; }
+    [data-card]:not([data-card="spend"]) table td:first-child { grid-column: 1 / -1; font-weight: 700; }
+    [data-card]:not([data-card="spend"]) table td .x { margin-left: 4px; padding: 2px 7px; }
     [data-card]:not([data-card="spend"]) table td.n::before { content: attr(data-label); display: block; font-size: 11px;
       color: var(--muted); text-transform: uppercase; font-weight: 600; white-space: normal; }
   }
@@ -842,10 +843,9 @@
     if (!t) return;
     t.innerHTML = '';
     list.forEach(function (r) {
+      if (r.gone) return;                                  // removed on the phone: gone at once, the PC catches up later
       var tr = document.createElement('tr');
-      if (r.gone) tr.className = 'gone';
-      var state = r.state === 'unsent' ? '📤 not sent yet' : r.state === 'waiting' ? '⏳ waiting for PC' : '';
-      if (state && r.gone) state += ' (remove)';
+      var state = r.state === 'pc' ? '' : '⏳ syncing';
       tr.innerHTML = '<td></td><td><span class="nm"></span><span class="labels"></span><span class="state"></span></td><td class="n"></td><td class="n"><button class="small" type="button"></button></td>';
       tr.children[0].textContent = day(r.date);
       tr.querySelector('.nm').textContent = r.name;
@@ -853,10 +853,11 @@
       tr.querySelector('.state').textContent = state;
       tr.children[2].textContent = money(r.amount);
       var b = tr.querySelector('button');
-      b.textContent = r.gone ? 'Undo' : 'Remove';
+      b.textContent = 'Remove';
       b.onclick = function () { undoOrRemove(r); };
       t.appendChild(tr);
     });
+    recalc();
   }
 
   function undoOrRemove(r) {
@@ -864,10 +865,17 @@
       local.push({cid: newId(), type: 'remove', id: r.id, name: r.name, amount: r.amount});
     } else if (r.state === 'unsent') {
       local = local.filter(function (c) { return c.cid !== r.change.cid; });
-    } else if (r.state === 'waiting') {
-      local.push({cid: newId(), type: 'remove', id: r.id, name: r.name, amount: r.amount});
+    } else if (r.state === 'waiting') {                  // an add still waiting online: take it back there
+      fetch('cancel', {method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin',
+                       body: JSON.stringify({cid: r.change.cid})})
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (j) { if (j) waiting = j.changes || []; draw(); updateSyncIcon(); })
+        .catch(function () {});
+      waiting = waiting.filter(function (c) { return c.cid !== r.change.cid; });
     }
     save();
+    draw();
+    updateSyncIcon();
     queueSend().then(function () { draw(); updateSyncIcon(); });
   }
 
@@ -923,7 +931,24 @@
     });
   }
 
-  // Bill changes
+  // Bill changes: redraw the row (amount, ✏️, ✖, Diff) and the Total, like the PC page does
+  function diffText(x) { return Math.abs(x) < 0.005 ? '£0.00' : (x > 0 ? '+' : '') + money(x); }
+  function tone(el, x) {
+    el.classList.remove('good', 'bad', 'muted');
+    el.classList.add(x === null || Math.abs(x) < 0.005 ? 'muted' : (x < 0 ? 'good' : 'bad'));
+  }
+  function showBill(row) {
+    var used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1';
+    var est = row.dataset.estimated === '1' && !changed;
+    var link = row.querySelector('button.link'), x = row.querySelector('button.x'), cell = row.querySelector('td.diff');
+    if (link) { link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : '')); link.classList.toggle('muted', est); }
+    if (x) x.hidden = !changed;
+    if (cell) { var d = est ? null : used - parseFloat(row.dataset.avg); cell.textContent = d === null ? '' : diffText(d); tone(cell, d); }
+    var bills = 0, avg = 0;
+    document.querySelectorAll('tr.bill').forEach(function (r) { bills += parseFloat(r.dataset.used); avg += parseFloat(r.dataset.avg); });
+    var bt = $('btotal'); if (bt) bt.textContent = money(bills);
+    var bd = $('bdiff'); if (bd) { bd.textContent = diffText(bills - avg); tone(bd, bills - avg); }
+  }
   document.querySelectorAll('tr.bill').forEach(function (row) {
     var link = row.querySelector('button.link'), box = row.querySelector('input.billbox'), x = row.querySelector('button.x');
     if (!link || !box) return;
@@ -934,6 +959,8 @@
       box.classList.toggle('badval', isNaN(v) && box.value.trim() !== '');
       if (isNaN(v)) return;
       row.dataset.used = v;
+      row.dataset.changed = '1';
+      showBill(row);
       recalc();
       clearTimeout(timer);
       timer = setTimeout(function () {
@@ -947,7 +974,9 @@
       x.addEventListener('click', function () {
         clearTimeout(timer);
         row.dataset.used = row.dataset.default;
+        row.dataset.changed = '0';
         box.value = parseFloat(row.dataset.default).toFixed(2);
+        showBill(row);
         phoneSend({cid: newId(), type: 'bill', key: row.dataset.key, amount: null});
         recalc();
         updateSyncIcon();

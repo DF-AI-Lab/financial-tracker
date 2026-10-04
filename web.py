@@ -30,6 +30,7 @@ def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None, stamp=None)
     d = home_data(conn, wage_payer=wage_payer, today=today)
     conn.close()
     pcdata = {"money": d.get("money_for_spending", 0),
+              "wage": d["pay"]["wage"] if d.get("ready") else 0, "left": d["pay"].get("left", 0) if d.get("ready") else 0,
               "spends": [{"id": s["id"], "date": s["date"].isoformat(), "amount": s["amount"], "name": s["name"],
                           "category": s["category"] or ""} for s in d.get("spends", [])],
               "stamp": stamp}
