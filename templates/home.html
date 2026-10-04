@@ -24,8 +24,8 @@
       --hero: #1d4f8f; --hero-text: #ffffff;
     }
   }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; overflow-x: hidden; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 16px; width: 100%; box-sizing: border-box; overflow: hidden; }
   h1 { font-size: 22px; margin: 8px 0 2px; }
   .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
   .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 18px; }
@@ -77,6 +77,20 @@
   .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
   .scroll { overflow-x: auto; }
   @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
+  @media (max-width: 640px) {
+    /* Card mode on narrow screens (user, 4 Oct 2026): each row is a card, the name on top, the numbers side by side
+       with their column name above them (data-label, copied from the header by the script at the bottom). */
+    [data-card]:not([data-card="spend"]) table thead,
+    [data-card]:not([data-card="spend"]) table tr:has(th) { display: none; }
+    [data-card]:not([data-card="spend"]) table tr { display: flex; flex-wrap: wrap; gap: 4px 10px; padding: 10px; margin-bottom: 8px;
+      border: 1px solid var(--border); border-radius: 10px; }
+    [data-card]:not([data-card="spend"]) table tr.total { border-width: 2px; }
+    [data-card]:not([data-card="spend"]) table td { display: block; border: 0; padding: 0; flex: 1 1 0; min-width: 0; text-align: left; }
+    [data-card]:not([data-card="spend"]) table td:first-child { flex-basis: 100%; font-weight: 700; }
+    [data-card]:not([data-card="spend"]) table td.n::before { content: attr(data-label); display: block; font-size: 11px;
+      color: var(--muted); text-transform: uppercase; font-weight: 600; white-space: normal; }
+  }
+
   button.link { background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; text-decoration: underline dotted; text-underline-offset: 3px; }
   button.link.muted { color: var(--muted); }
   input.billbox { width: 90px; padding: 4px 6px; text-align: right; }
@@ -141,8 +155,7 @@
   <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
 
 {{ '' }}  {% if phone %}
-  <div class="phonebar"><span>📱 From PC: {{ updated }} <span id="sendmsg"></span></span>
-    <button id="sendbtn" type="button" hidden>📤 Send to PC</button></div>
+  <div class="phonebar"><span>📱 From PC: {{ updated }} <span id="sendmsg"></span></span></div>
   {% endif %}
 
   {% if not phone %}
@@ -164,10 +177,6 @@
   </div>
 
   <div class="tiles toprow">
-    {% if phone %}
-    <div class="tile"><div class="label">This month's pay</div><div class="num">{{ d.pay.wage|money }}</div>
-      {% if d.pay.left %}<div class="label" style="margin-top:12px">Left from last month</div><div class="num">{{ d.pay.left|money }}</div>{% endif %}</div>
-    {% else %}
     <div class="tile"><div class="label">✏️ This month's pay</div>
       <form class="inline paybox" method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}">
         <input type="hidden" name="clear" value="0">
@@ -182,7 +191,6 @@
         </form>
         {% if d.pay.left %}<form class="leftx" method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
       </div></div>
-    {% endif %}
     {% if d.history %}
     <div class="tile"><div class="label">Spare cash last month</div>
       <div class="num">{{ d.history.last|money }}</div></div>
@@ -198,6 +206,8 @@
     <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
   </label>
   <div id="dropresult" class="dropresult" hidden></div>
+  {% endif %}
+
   <!-- No. 6b: new items sorted on the page (my guess is picked; change any, then Save) -->
   {% if d.sort %}
   <div class="card sortcard" id="sortcard" data-count="{{ d.sort|length }}">
@@ -226,6 +236,7 @@
     </table></div>
   </div>
   {% endif %}
+
   <!-- No. 6c: the other questions (same bill, rent, typed spends), answered with one click -->
   {% if d.more %}
   <div class="card sortcard" id="morecard">
@@ -252,8 +263,6 @@
     </div>
     {% endfor %}
   </div>
-  {% endif %}
-
   {% endif %}
   {% for y in d.pay.yearly %}
     <div class="warn">⚠️ Possible yearly bill: <b>{{ y.label }}</b> {{ y.amount|money }}, paid {{ y.paid|month }}. If it is paid this month too, left: <b class="yleft" data-amount="{{ y.amount }}">{{ y.left_if_paid|money }}</b></div>
@@ -443,6 +452,24 @@
   <div class="footer">New statements? Put the PDFs in the statements folder, run run.py (it asks any questions), then refresh this page.{% if version %}<br>Version {{ version }}{% endif %}</div>
   {% endif %}
 </div>
+
+<script>
+  // Set up data-label attributes for responsive tables (runs on all pages before other scripts)
+  document.querySelectorAll('table').forEach(function (table) {
+    var headers = [];
+    table.querySelectorAll('th').forEach(function (th, i) {
+      headers[i] = (th.childNodes[0] ? th.childNodes[0].textContent : th.textContent).trim();
+    });
+    table.querySelectorAll('tbody td').forEach(function (td) {
+      var row = td.parentElement;
+      var idx = [...row.children].indexOf(td);
+      if (headers[idx] && !td.dataset.label) {
+        td.dataset.label = headers[idx];
+      }
+    });
+  });
+</script>
+
 {% if not phone %}
 <script>
   // Change a bill for this pay cycle only (3 Oct 2026): spare cash, Diff and Total update as you type,
@@ -706,6 +733,9 @@
   var KEY = 'ft_unsent';
   var waiting = [];
   var local = [];
+  var offline = false;
+  var pollTimer = null;
+  var lastStamp = PC.stamp || '';
   try { local = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { local = []; }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(local)); } catch (e) {} }
   function $(id) { return document.getElementById(id); }
@@ -722,8 +752,59 @@
     var d = new Date();
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
+  function readMoney(t) { t = t.replace(/[£,\s]/g, ''); return /^\d+(\.\d+)?$/.test(t) ? parseFloat(t) : NaN; }
 
-  // Every spend the phone knows: the PC's, minus removes, plus adds (sent = waiting, not sent = unsent).
+  // Helper to send a single change or batch to the site
+  function phoneSend(changes) {
+    if (!Array.isArray(changes)) changes = [changes];
+    local.push.apply(local, changes);
+    save();
+    return queueSend();
+  }
+
+  var sending = false;
+  function queueSend() {
+    if (sending || local.length === 0) return Promise.resolve(false);
+    sending = true;
+    updateSyncIcon();
+    var msg_func = function (text) { var el = $('sendmsg'); if (el) el.textContent = text; };
+    return fetch('send', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                          body: JSON.stringify({changes: local}), credentials: 'same-origin'})
+      .then(function (r) {
+        if (r.status === 401) { msg_func('· PIN needed, refresh the page'); throw new Error('login'); }
+        if (!r.ok) throw new Error('bad');
+        return r.json();
+      })
+      .then(function (j) {
+        local = [];
+        offline = false;
+        waiting = j.changes || [];
+        save();
+        sending = false;
+        draw();
+        updateSyncIcon();
+        return true;
+      })
+      .catch(function (e) {
+        sending = false;
+        if (e.message !== 'login') offline = true;
+        updateSyncIcon();
+        return false;
+      });
+  }
+
+  function updateSyncIcon() {
+    var el = $('sendmsg');
+    if (!el) return;
+    var pending = (waiting || []).length;
+    var unsent = local.length;
+    var total = pending + unsent;
+    if (offline && unsent) el.textContent = '📴 Offline, ' + total + ' waiting';
+    else if (total === 0) el.textContent = '✅ Up to date';
+    else el.textContent = '⏳ Syncing ' + total;
+  }
+
+  // Every spend the phone knows: the PC's, minus removes, plus adds
   function rows() {
     var changes = waiting.map(function (c) { return [c, 'waiting']; }).concat(local.map(function (c) { return [c, 'unsent']; }));
     var removed = {};
@@ -740,16 +821,25 @@
     return list;
   }
 
-  function draw() {
+  function recalc() {
     var list = rows();
     var typed = 0;
     list.forEach(function (r) { if (!r.gone) typed += r.amount; });
-    var left = PC.money - typed;
-    $('spare-big').textContent = money(left);
-    $('leftnow').textContent = money(left);
-    $('typed').textContent = money(typed);
-    $('spendshow').textContent = typed ? ' − spends ' + money(typed) : '';
+    var billTotal = 0;
+    document.querySelectorAll('tr.bill').forEach(function (r) { billTotal += parseFloat(r.dataset.used || r.dataset.default || 0); });
+    var spare = PC.wage + (PC.left || 0) - billTotal;
+    var leftNow = spare - typed;
+    var el = $('spare-big'); if (el) el.textContent = money(leftNow);
+    el = $('leftnow'); if (el) el.textContent = money(leftNow);
+    el = $('typed'); if (el) el.textContent = money(typed);
+    el = $('spendshow'); if (el) el.textContent = typed ? ' − spends ' + money(typed) : '';
+    return leftNow;
+  }
+
+  function draw() {
+    var list = rows();
     var t = $('spendlist');
+    if (!t) return;
     t.innerHTML = '';
     list.forEach(function (r) {
       var tr = document.createElement('tr');
@@ -767,8 +857,6 @@
       b.onclick = function () { undoOrRemove(r); };
       t.appendChild(tr);
     });
-    $('sendbtn').hidden = local.length === 0;
-    $('sendbtn').textContent = '📤 Send ' + local.length + ' to PC';
   }
 
   function undoOrRemove(r) {
@@ -777,52 +865,225 @@
     } else if (r.state === 'unsent') {
       local = local.filter(function (c) { return c.cid !== r.change.cid; });
     } else if (r.state === 'waiting') {
-      post('cancel', {cid: r.change.cid});
-      return;
+      local.push({cid: newId(), type: 'remove', id: r.id, name: r.name, amount: r.amount});
     }
     save();
-    draw();
+    queueSend().then(function () { draw(); updateSyncIcon(); });
   }
 
-  function msg(text) { $('sendmsg').textContent = text; }
-
-  function post(path, body) {
-    return fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body),
-                        credentials: 'same-origin'})
-      .then(function (r) {
-        if (r.status === 401) { msg('· PIN needed, refresh the page'); throw new Error('login'); }
-        if (!r.ok) throw new Error('bad');
-        return r.json();
-      })
-      .then(function (j) { waiting = j.changes; draw(); return true; })
-      .catch(function (e) { if (e.message !== 'login') msg('· Could not reach the site, try again'); return false; });
+  // Add form
+  var addform = $('addform');
+  if (addform) {
+    addform.onsubmit = function (e) {
+      e.preventDefault();
+      var amount = readMoney($('addamount').value);
+      var name = $('addname').value.trim();
+      if (!(amount > 0) || !name) { $('adderror').hidden = false; return; }
+      $('adderror').hidden = true;
+      phoneSend({cid: newId(), type: 'add', date: todayIso(), amount: Math.round(amount * 100) / 100, name: name.slice(0, 60)});
+      $('addamount').value = '';
+      $('addname').value = '';
+      draw();
+      updateSyncIcon();
+    };
   }
 
-  $('sendbtn').onclick = function () {
-    msg('· sending...');
-    post('send', {changes: local}).then(function (ok) {
-      if (ok) { local = []; save(); draw(); msg('· sent ✅'); }
+  // Pay form
+  var payform = $('payform');
+  if (payform) {
+    payform.onsubmit = function (e) {
+      e.preventDefault();
+      var typed = readMoney(payform.pay.value);
+      var clear = '0';
+      if (payform.dataset.spends === '1' && !isNaN(typed) && Math.abs(typed - parseFloat(payform.dataset.pay)) >= 0.005)
+        clear = confirm('New pay. Clear your typed spends?\n\nOK = clear them, Cancel = keep them') ? '1' : '0';
+      if (!isNaN(typed)) {
+        phoneSend({cid: newId(), type: 'pay', amount: typed, clear: clear === '1'});
+        PC.wage = typed;
+        recalc();
+        updateSyncIcon();
+      }
+    };
+  }
+
+  // Left form
+  var leftforms = document.querySelectorAll('form[action="/left"]');
+  if (leftforms) {
+    leftforms.forEach(function (form) {
+      form.onsubmit = function (e) {
+        e.preventDefault();
+        var amount = readMoney(form.amount.value);
+        phoneSend({cid: newId(), type: 'left', amount: isNaN(amount) ? (form.amount.value === '' ? null : undefined) : Math.round(amount * 100) / 100});
+        if (!isNaN(amount) || form.amount.value === '') {
+          PC.left = isNaN(amount) ? 0 : amount;
+          recalc();
+          updateSyncIcon();
+        }
+      };
     });
-  };
+  }
 
-  $('addform').onsubmit = function (e) {
-    e.preventDefault();
-    var amount = parseFloat($('addamount').value.replace(/[£,\s]/g, ''));
-    var name = $('addname').value.trim();
-    if (!(amount > 0) || !name) { $('adderror').hidden = false; return; }
-    $('adderror').hidden = true;
-    local.push({cid: newId(), type: 'add', date: todayIso(), amount: Math.round(amount * 100) / 100, name: name.slice(0, 60)});
-    save();
-    $('addamount').value = '';
-    $('addname').value = '';
-    draw();
-  };
+  // Bill changes
+  document.querySelectorAll('tr.bill').forEach(function (row) {
+    var link = row.querySelector('button.link'), box = row.querySelector('input.billbox'), x = row.querySelector('button.x');
+    if (!link || !box) return;
+    var timer = null;
+    link.addEventListener('click', function () { link.hidden = true; box.hidden = false; box.focus(); box.select(); });
+    box.addEventListener('input', function () {
+      var v = readMoney(box.value);
+      box.classList.toggle('badval', isNaN(v) && box.value.trim() !== '');
+      if (isNaN(v)) return;
+      row.dataset.used = v;
+      recalc();
+      clearTimeout(timer);
+      timer = setTimeout(function () {
+        phoneSend({cid: newId(), type: 'bill', key: row.dataset.key, amount: v});
+        updateSyncIcon();
+      }, 500);
+    });
+    box.addEventListener('keydown', function (e) { if (e.key === 'Enter') box.blur(); });
+    box.addEventListener('blur', function () { box.hidden = true; link.hidden = false; box.value = parseFloat(row.dataset.used).toFixed(2); box.classList.remove('badval'); });
+    if (x) {
+      x.addEventListener('click', function () {
+        clearTimeout(timer);
+        row.dataset.used = row.dataset.default;
+        box.value = parseFloat(row.dataset.default).toFixed(2);
+        phoneSend({cid: newId(), type: 'bill', key: row.dataset.key, amount: null});
+        recalc();
+        updateSyncIcon();
+      });
+    }
+  });
 
+  // Sort segment buttons
+  document.querySelectorAll('.seg').forEach(function (seg) {
+    seg.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      seg.querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); });
+    });
+  });
+
+  // AI copy
+  var aiCopy = $('aicopy');
+  if (aiCopy) {
+    aiCopy.addEventListener('click', function () {
+      var text = $('aitext').value;
+      try { navigator.clipboard.writeText(text); }
+      catch (e) { var t = $('aitext'); t.hidden = false; t.select(); document.execCommand('copy'); t.hidden = true; }
+      aiCopy.textContent = '✅ Copied! Paste it into ChatGPT or Claude';
+      setTimeout(function () { aiCopy.textContent = '📋 Copy for AI'; }, 4000);
+    });
+  }
+
+  // AI paste button
+  var aiPasteBtn = $('aipastebtn');
+  if (aiPasteBtn) {
+    aiPasteBtn.addEventListener('click', function () {
+      var box = $('aipaste');
+      if (box) { box.hidden = !box.hidden; if (!box.hidden) $('aireply').focus(); }
+    });
+  }
+
+  // AI fill
+  var aiFill = $('aifill');
+  if (aiFill) {
+    aiFill.addEventListener('click', function () {
+      var count = parseInt($('sortcard').dataset.count || 0);
+      var text = $('aireply').value;
+      fetch('/sort/parse', {method: 'POST', headers: {'Content-Type': 'application/json'},
+                            body: JSON.stringify({text: text, count: count}), credentials: 'same-origin'})
+        .then(function (r) { return r.ok ? r.json() : {}; })
+        .then(function (got) {
+          var n = 0;
+          document.querySelectorAll('tr.sortrow').forEach(function (r) {
+            var a = got[r.dataset.n];
+            if (!a) return;
+            r.querySelectorAll('.seg button').forEach(function (b) { b.classList.toggle('on', b.dataset.kind === a.kind); });
+            var catInput = r.querySelector('.scat');
+            if (catInput && a.category) catInput.value = a.category;
+            r.classList.add('filled');
+            n++;
+          });
+          var msg = n ? 'Filled in ' + n + ' of ' + count + '. Check them, then press Save.' :
+            'I could not read any answers. Lines should look like: 1 bill Household';
+          var msgEl = $('aimsg');
+          if (msgEl) msgEl.textContent = msg;
+        })
+        .catch(function () {});
+    });
+  }
+
+  // Sort save
+  var sortSave = $('sortsave');
+  if (sortSave) {
+    sortSave.addEventListener('click', function () {
+      var answers = [];
+      document.querySelectorAll('tr.sortrow').forEach(function (r) {
+        var onBtn = r.querySelector('.seg .on');
+        answers.push({
+          key: r.dataset.key,
+          kind: onBtn ? (onBtn.dataset.kind || '') : '',
+          label: r.querySelector('.sname').value,
+          category: r.querySelector('.scat').value
+        });
+      });
+      sortSave.disabled = true;
+      sortSave.textContent = '⏳ Saving...';
+      phoneSend({cid: newId(), type: 'sort', answers: answers}).then(function () {
+        sortSave.disabled = false;
+        sortSave.textContent = '💾 Save';
+        var card = $('sortcard');
+        if (card) {
+          card.innerHTML = '<p>⏳ Sent. Your PC will save them.</p>';
+        }
+        updateSyncIcon();
+      });
+    });
+  }
+
+  // Quick questions
+  document.querySelectorAll('.ask').forEach(function (box) {
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('button');
+      if (!b) return;
+      var q = JSON.parse(box.dataset.q);
+      var a = {type: q.type};
+      if (q.type === 'job') Object.assign(a, {name: q.name, yes: b.dataset.yes === '1'});
+      else if (q.type === 'same') Object.assign(a, {big: q.big, small: q.small, yes: b.dataset.yes === '1'});
+      else if (q.type === 'rent') Object.assign(a, {payer: q.payer, usual: q.usual, yes: b.dataset.yes === '1',
+                                                    label: box.querySelector('.asklabel').value});
+      else Object.assign(a, {id: q.id, keep: b.dataset.keep === '1'});
+      b.closest('.askbtns').parentElement.innerHTML = '<p>⏳ Sent.</p>';
+      phoneSend({cid: newId(), type: 'ask', answer: a});
+      updateSyncIcon();
+    });
+  });
+
+  // Polling: get pending changes and check for page updates
+  function poll() {
+    Promise.all([
+      fetch('pending', {credentials: 'same-origin'}).then(function (r) { return r.ok ? r.json() : {changes: []}; }).then(function (j) {
+        waiting = j.changes || [];
+        draw();
+      }).catch(function () {}),
+      fetch('stamp', {credentials: 'same-origin'}).then(function (r) { return r.ok ? r.json() : {stamp: ''}; }).then(function (j) {
+        var newStamp = j.stamp || '';
+        if (newStamp && newStamp !== lastStamp && !document.querySelector('input:focus') && !document.querySelector('textarea:focus')) {
+          lastStamp = newStamp;
+          location.reload();
+        }
+      }).catch(function () {})
+    ]).then(function () {
+      updateSyncIcon();
+      pollTimer = setTimeout(poll, window.FT_POLL_MS || 60000);
+    });
+  }
+
+  // Initial load
   draw();
-  fetch('pending', {credentials: 'same-origin'})
-    .then(function (r) { return r.ok ? r.json() : {changes: []}; })
-    .then(function (j) { waiting = j.changes || []; draw(); })
-    .catch(function () { msg('· offline'); });
+  updateSyncIcon();
+  poll();
 })();
 </script>
 {% endif %}

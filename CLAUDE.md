@@ -71,6 +71,15 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    Known snags: fake PDFs are paid by ACME so `run.py test` gives "No paydays" on the phone (PHONE_SETUP Part 2 is
    misleading: skip to Part 3); `run.py wage NAME test` would save "NAME test". User told to run setup.bat in the new
    folder so shortcuts point at it, and to use the PC home page's "From your phone" box.
+   4 Oct ROUND 2 BUILT (404 tests + browser check, Haiku built both parts, I fixed and verified). User's choices (grill):
+   the WEBSITE is the main screen (phone and PC); the PC runs hidden (setup.bat -> hidden.vbs/server.bat) and every
+   5 min (web.engine_tick thread) does phone changes STRAIGHT AWAY (no y/n; phone.sync_once, kv phone_done stops doing a
+   change twice) and moves HSBC '*statement*.pdf' from Downloads into statements (fintrack/downloads.py, kv
+   downloads_seen). Phone can change spends, pay (+clear), left, this-cycle bills, answer sort/quick questions (change
+   types in phone.apply_changes; site accepts them, cloud/flask_app.py MUST BE RE-PASTED on PythonAnywhere). Phone page:
+   ⏳ Syncing N / ✅ Up to date / 📴 Offline, changes sent at once (localStorage queue), reloads when /stamp changes,
+   tables become cards under 640px (CSS media query, [data-card] tables, data-label from headers). Email fetch ON HOLD
+   (user asks HSBC for the PDF; check if HSBC can email it). Browser check script: see git log of this round.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).
