@@ -152,6 +152,8 @@ def create_app(data_dir=None, secure=True):
             return jsonify(error="no page"), 400
         (data / "page.html").write_text(body["html"], encoding="utf-8")
         write("pin.json", {"salt": str(body.get("pin_salt", "")), "hash": str(body.get("pin_hash", ""))})
+        stamp = body.get("stamp", "")
+        (data / "stamp.txt").write_text(str(stamp))
         return jsonify(ok=True)
 
     @app.route("/api/changes")
@@ -168,26 +170,48 @@ def create_app(data_dir=None, secure=True):
         write("changes.json", [c for c in read("changes.json", []) if c["cid"] not in done])
         return jsonify(ok=True)
 
+    @app.route("/stamp")
+    def stamp():
+        if not logged_in():
+            return jsonify(error="login"), 401
+        stamp_text = ""
+        try:
+            stamp_text = (data / "stamp.txt").read_text().strip()
+        except OSError:
+            pass
+        return jsonify(stamp=stamp_text)
+
     return app
 
 
 def valid(c):
-    """A phone change: add {cid, date, amount, name} or remove {cid, id, name, amount}."""
+    """A phone change: add {cid, date, amount, name} or remove {cid, id, name, amount},
+    or pay/left/bill/sort/ask for the PC."""
     if not isinstance(c, dict) or not isinstance(c.get("cid"), str) or not 0 < len(c["cid"]) <= 40:
         return False
-    if not isinstance(c.get("name"), str) or not 0 < len(c["name"].strip()) <= 60:
-        return False
-    amount = c.get("amount")
-    if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not 0 < amount < 1_000_000:
-        return False
-    if c.get("type") == "add":
+    ctype = c.get("type")
+    if ctype == "add":
+        if not isinstance(c.get("name"), str) or not 0 < len(c["name"].strip()) <= 60:
+            return False
+        amount = c.get("amount")
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not 0 < amount < 1_000_000:
+            return False
         try:
             date.fromisoformat(c.get("date"))
         except (TypeError, ValueError):
             return False
         return True
-    if c.get("type") == "remove":
+    if ctype == "remove":
+        if not isinstance(c.get("name"), str) or not 0 < len(c["name"].strip()) <= 60:
+            return False
+        amount = c.get("amount")
+        if isinstance(amount, bool) or not isinstance(amount, (int, float)) or not 0 < amount < 1_000_000:
+            return False
         return isinstance(c.get("id"), int) and not isinstance(c.get("id"), bool)
+    # New types for PC: just check cid and that the JSON is not too big
+    if ctype in ("pay", "left", "bill", "sort", "ask"):
+        body_str = json.dumps(c)
+        return len(body_str) <= 20000
     return False
 
 

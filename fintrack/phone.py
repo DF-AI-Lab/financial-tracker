@@ -88,13 +88,14 @@ def clear_changes(conn, cids, http=http_json) -> bool:
         return False
 
 
-def upload(conn, html, http=http_json) -> bool:
+def upload(conn, html, http=http_json, stamp=None) -> bool:
     """Send the PC's copy of the page (and the PIN hash) up. False if not set up or no internet."""
     s = settings(conn)
     if s is None:
         return False
     body = {"html": html, "pin_salt": get_value(conn, "phone_pin_salt") or "",
-            "pin_hash": get_value(conn, "phone_pin_hash") or ""}
+            "pin_hash": get_value(conn, "phone_pin_hash") or "",
+            "stamp": str(stamp) if stamp is not None else str(__import__('time').time())}
     try:
         http("POST", s[0] + "/api/upload", s[1], body)
         return True
@@ -102,53 +103,131 @@ def upload(conn, html, http=http_json) -> bool:
         return False
 
 
-def describe(c) -> str:
-    if c["type"] == "add":
-        return f"Add    {c['amount']:>7.2f}  {c['name']}  ({date.fromisoformat(c['date']):%d %b})"
-    return f"Remove {c['amount']:>7.2f}  {c['name']}"
+def apply_changes(conn, changes, wage_payer) -> int:
+    """Apply phone changes (add, remove, pay, left, bill, sort, ask types).
+    Returns how many were done. Never raises on bad input."""
+    from fintrack.home import home_data
+    from fintrack.billchange import set_change, clear_change, set_left, clear_left
+    from fintrack.sortpage import save_answers
+    from fintrack.pagequestions import answer as answer_question
 
-
-def apply_changes(conn, changes, skip=()) -> int:
-    """Do the changes not in skip (a set of cids). A remove whose spend is already gone is ignored.
-    Returns how many were done."""
     ids = {s["id"] for s in get_spends(conn)}
     done = 0
     for c in changes:
-        if c["cid"] in skip:
-            continue
-        if c["type"] == "add":
-            add_spend(conn, date.fromisoformat(c["date"]), float(c["amount"]), c["name"], guess_category(c["name"]))
-            done += 1
-        elif c["type"] == "remove" and c["id"] in ids:
-            delete_spend(conn, c["id"])
-            done += 1
+        cid = c.get("cid")
+        ctype = c.get("type")
+        try:
+            if ctype == "add":
+                if not isinstance(c.get("amount"), (int, float)) or isinstance(c.get("amount"), bool):
+                    continue
+                if c.get("amount") <= 0:
+                    continue
+                try:
+                    d = date.fromisoformat(c.get("date", ""))
+                except (TypeError, ValueError):
+                    continue
+                name = c.get("name", "")
+                if not name:
+                    continue
+                add_spend(conn, d, float(c["amount"]), name, guess_category(name))
+                done += 1
+            elif ctype == "remove":
+                if not isinstance(c.get("id"), int) or isinstance(c.get("id"), bool):
+                    continue
+                if c["id"] in ids:
+                    delete_spend(conn, c["id"])
+                    done += 1
+            elif ctype == "pay":
+                amount = c.get("amount")
+                if not isinstance(amount, (int, float)) or isinstance(amount, bool) or amount <= 0:
+                    continue
+                from fintrack.store import set_value, clear_spends
+                set_value(conn, "pay", str(float(amount)))
+                if c.get("clear") is True:
+                    clear_spends(conn)
+                done += 1
+            elif ctype == "left":
+                d = home_data(conn, wage_payer=wage_payer)
+                if not d.get("ready"):
+                    continue
+                amount = c.get("amount")
+                if amount is None:
+                    clear_left(conn, d["cycle_start"])
+                    done += 1
+                elif isinstance(amount, (int, float)) and not isinstance(amount, bool):
+                    set_left(conn, d["cycle_start"], float(amount))
+                    done += 1
+            elif ctype == "bill":
+                d = home_data(conn, wage_payer=wage_payer)
+                if not d.get("ready"):
+                    continue
+                key = c.get("key")
+                valid_keys = [b["key"] for b in d["pay"]["bills"]]
+                if key not in valid_keys:
+                    continue
+                amount = c.get("amount")
+                if amount is None:
+                    clear_change(conn, d["cycle_start"], key)
+                    done += 1
+                elif isinstance(amount, (int, float)) and not isinstance(amount, bool):
+                    set_change(conn, d["cycle_start"], key, float(amount))
+                    done += 1
+            elif ctype == "sort":
+                answers = c.get("answers")
+                if isinstance(answers, list):
+                    save_answers(conn, answers)
+                    done += 1
+            elif ctype == "ask":
+                d = home_data(conn, wage_payer=wage_payer)
+                if not d.get("ready"):
+                    continue
+                from fintrack.home import txns_and_paydays
+                txns, paydays, payers = txns_and_paydays(conn, wage_payer)
+                answer_data = c.get("answer")
+                if isinstance(answer_data, dict):
+                    answer_question(conn, answer_data, txns, paydays, payers=payers)
+                    done += 1
+        except Exception:
+            # Silently ignore any errors processing this change
+            pass
     return done
 
 
-def sync_terminal(conn, ask=input, out=print, http=http_json):
-    """run.py start: list the phone's changes, Enter = do them all, numbers = skip those.
-    Every listed change is then cleared online (skipped ones are dropped: the PC has the final say)."""
+def sync_once(conn, wage_payer, http=http_json):
+    """Fetch and apply all phone changes, then clear them online.
+    Returns count done (0+) or None if offline/not set up."""
     if settings(conn) is None:
-        return
+        return None
     changes = fetch_changes(conn, http)
     if changes is None:
-        out(OFFLINE)
-        return
+        return None
     if not changes:
-        return
-    out("")
-    out("FROM YOUR PHONE")
-    for i, c in enumerate(changes, 1):
-        out(f"  {i:>2}  {describe(c)}")
+        return 0
+    # Changes already done (the clear may have failed last time) are never done twice
     try:
-        answer = ask("Enter = do them all, or type the numbers to skip (e.g. 2 3): ")
-    except (EOFError, OSError):
-        out("(No keyboard available, phone changes left for next time.)")
+        done_cids = json.loads(get_value(conn, "phone_done") or "[]")
+    except ValueError:
+        done_cids = []
+    todo = [c for c in changes if c.get("cid") not in done_cids]
+    done = apply_changes(conn, todo, wage_payer)
+    set_value(conn, "phone_done", json.dumps((done_cids + [c.get("cid") for c in todo])[-500:]))
+    clear_changes(conn, [c.get("cid") for c in changes], http)
+    return done
+
+
+def sync_terminal(conn, out=print, http=http_json, wage_payer=None):
+    """Terminal output only, no user interaction. Never asks, never raises."""
+    if settings(conn) is None:
         return
-    skip = set()
-    for word in answer.replace(",", " ").split():
-        if word.isdigit() and 1 <= int(word) <= len(changes):
-            skip.add(changes[int(word) - 1]["cid"])
-    done = apply_changes(conn, changes, skip)
-    clear_changes(conn, [c["cid"] for c in changes], http)
-    out(f"Done {done} from your phone" + (f", skipped {len(skip)}." if skip else "."))
+    try:
+        n = sync_once(conn, wage_payer, http)
+    except Exception:
+        out("Phone sync skipped (no internet).")
+        return
+    if n is None:
+        out("Phone sync skipped (no internet).")
+    elif n >= 1:
+        msg = f"Phone: {n} change from your phone done."
+        if n != 1:
+            msg = f"Phone: {n} changes from your phone done."
+        out(msg)

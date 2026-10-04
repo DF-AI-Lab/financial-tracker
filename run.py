@@ -45,7 +45,8 @@ OUT_DIR = HERE / "output"
 def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR, saved_file=None):
     """Which statements folder to read: "test" on the command line -> test_dir;
     otherwise the remembered folder (fintrack.settings.saved_folder) if it exists;
-    else real_dir if it is a directory; else test_dir."""
+    else real_dir if it is a directory; else test_dir.
+    If real_dir doesn't exist but tracker.db does nearby, create real_dir."""
     if "test" in argv:
         return Path(test_dir)
 
@@ -55,8 +56,14 @@ def pick_folder(argv, real_dir=REAL_DIR, test_dir=IN_DIR, saved_file=None):
     if remembered is not None:
         return remembered
 
-    if Path(real_dir).is_dir():
-        return Path(real_dir)
+    real_path = Path(real_dir)
+    if real_path.is_dir():
+        return real_path
+
+    # If real_dir doesn't exist but tracker.db is at its parent, create real_dir
+    if (real_path.parent / "tracker.db").exists():
+        real_path.mkdir(parents=True, exist_ok=True)
+        return real_path
 
     return Path(test_dir)
 
@@ -108,7 +115,7 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     # Open database, take any phone changes first (step 10), then import statements
     conn = open_db(db_path)
     from fintrack.phone import sync_terminal
-    sync_terminal(conn, ask=ask_items, out=print)
+    sync_terminal(conn, out=print, wage_payer=wage_payer)
     new_count = 0
     for st in kept:
         problems = check_statement(st)
@@ -464,15 +471,19 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
             return True
         conn = open_db(db_path)
         if cmd == "pin":
-            if len(argv) < 2 or not phone.set_pin(conn, argv[1]):
+            # Filter out "test" from argv for the argument
+            args_no_test = [a for a in argv[1:] if a.lower() != "test"]
+            if len(args_no_test) == 0 or not phone.set_pin(conn, args_no_test[0]):
                 out("Usage: run.py pin 4821   (4 to 8 numbers)")
                 return True
             out("PIN saved.")
         else:
-            if len(argv) < 2 or not argv[1].lower().startswith("https://"):
+            # Filter out "test" from argv for the argument
+            args_no_test = [a for a in argv[1:] if a.lower() != "test"]
+            if len(args_no_test) == 0 or not args_no_test[0].lower().startswith("https://"):
                 out("Usage: run.py phone https://NAME.pythonanywhere.com")
                 return True
-            phone.connect(conn, argv[1])
+            phone.connect(conn, args_no_test[0])
             out(f"Saved. Your phone copy lives at {phone.settings(conn)[0]}")
             if not get_value(conn, "phone_pin_hash"):
                 out("Now set a PIN: run.py pin 4821")
@@ -484,8 +495,10 @@ def run_command(argv, ask=input, out=print, saved_file=None, db_path=None, in_di
             in_dir = pick_folder(argv)
         db_path = Path(db_path) if db_path is not None else Path(in_dir).parent / "tracker.db"
         conn = open_db(db_path)
-        if len(argv) > 1:
-            out(f"Saved. Money in from {add_payer(conn, ' '.join(argv[1:]))} (500 or more) now counts as your wage.")
+        # Filter out "test" from argv for the wage name
+        args_no_test = [a for a in argv[1:] if a.lower() != "test"]
+        if len(args_no_test) > 0:
+            out(f"Saved. Money in from {add_payer(conn, ' '.join(args_no_test))} (500 or more) now counts as your wage.")
             out("Run run.py again to redo your payday cycles.")
         else:
             out("Wage payers: " + ", ".join(all_payers(conn, wage_payer)))

@@ -20,15 +20,19 @@ from fintrack.cycles import WAGE_PAYER
 from fintrack import phone
 
 
-def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None):
+def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None, stamp=None):
     """Step 10: the same home page in phone mode (spends added/removed by the page itself), for upload."""
+    if stamp is None:
+        import time
+        stamp = str(time.time())
     app = create_app(db_path, wage_payer=wage_payer, today=today)
     conn = open_db(db_path)
     d = home_data(conn, wage_payer=wage_payer, today=today)
     conn.close()
     pcdata = {"money": d.get("money_for_spending", 0),
               "spends": [{"id": s["id"], "date": s["date"].isoformat(), "amount": s["amount"], "name": s["name"],
-                          "category": s["category"] or ""} for s in d.get("spends", [])]}
+                          "category": s["category"] or ""} for s in d.get("spends", [])],
+              "stamp": stamp}
     if now is None:
         now = f"{datetime.now():%a} {datetime.now().day} {datetime.now():%b, %H:%M}"
     import base64
@@ -42,14 +46,46 @@ def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None):
 def push(db_path, wage_payer=WAGE_PAYER, today=None, http=phone.http_json) -> bool:
     """Send a fresh copy up if the phone copy is set up. Never raises."""
     try:
+        import time
+        stamp = str(time.time())
         conn = open_db(db_path)
         ready = phone.settings(conn) is not None
         if ready:
-            ready = phone.upload(conn, phone_page(db_path, wage_payer, today), http=http)
+            html = phone_page(db_path, wage_payer, today, stamp=stamp)
+            ready = phone.upload(conn, html, http=http, stamp=stamp)
         conn.close()
         return ready
     except Exception:
         return False
+
+
+def engine_tick(db_path, wage_payer=WAGE_PAYER, statements_dir=None, downloads_dir=None, http=phone.http_json, today=None) -> dict:
+    """Sync phone changes and scan downloads once. Returns {"changes": int, "imported": [names]}.
+    Never raises."""
+    try:
+        from fintrack.downloads import scan_downloads
+
+        db_path = Path(db_path)
+        if statements_dir is None:
+            statements_dir = db_path.parent / "statements"
+        else:
+            statements_dir = Path(statements_dir)
+        if downloads_dir is None:
+            downloads_dir = Path.home() / "Downloads"
+        else:
+            downloads_dir = Path(downloads_dir)
+
+        conn = open_db(db_path)
+        n = phone.sync_once(conn, wage_payer, http) or 0
+        imported = scan_downloads(conn, downloads_dir, statements_dir)
+        conn.close()
+
+        if n or imported:
+            push(db_path, wage_payer, today, http=http)
+
+        return {"changes": n, "imported": imported}
+    except Exception:
+        return {"changes": 0, "imported": []}
 
 
 def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart=None, statements_dir=None,
@@ -116,6 +152,8 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
             open_db(db_path).close()                    # an empty database, so PDFs can be dropped on the page
 
         conn = open_db(db_path)
+        # Sync phone changes first
+        n = phone.sync_once(conn, wage_payer, http=phone_http) or 0
         d = home_data(conn, wage_payer=wage_payer, today=today)
 
         # Get error message from query string
@@ -128,23 +166,13 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
 
         vfile = Path(__file__).parent / "version.txt"
         version = vfile.read_text().strip() if vfile.exists() else None
-        changes = phone.fetch_changes(conn, http=phone_http) or []
         conn.close()
-        return render_template("home.html", d=d, error=error, version=version, phone_changes=changes,
-                               describe=phone.describe)
 
-    # POST /phone: do the ticked phone changes, drop the rest (the PC has the final say)
-    @app.route("/phone", methods=["POST"])
-    def phone_changes():
-        seen = set(request.form.getlist("seen"))
-        take = set(request.form.getlist("take"))
-        conn = open_db(db_path)
-        changes = [c for c in (phone.fetch_changes(conn, http=phone_http) or []) if c["cid"] in seen]
-        phone.apply_changes(conn, changes, skip={c["cid"] for c in changes} - take)
-        phone.clear_changes(conn, [c["cid"] for c in changes], http=phone_http)
-        conn.close()
-        push(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        # If we did phone changes, push the update up
+        if n and n > 0:
+            push(db_path, wage_payer, today, http=phone_http)
+
+        return render_template("home.html", d=d, error=error, version=version)
 
     # POST /pay
     @app.route("/pay", methods=["POST"])
@@ -359,14 +387,25 @@ def main():
     # Find the database exactly like run.py does (the remembered folder, else the statements folder)
     from run import pick_folder
     db_path = pick_folder(sys.argv[1:]).parent / "tracker.db"
-
+    statements_dir = pick_folder(sys.argv[1:])
 
     if push(db_path):
         print("Sent a fresh copy to your phone.")
     print("Opening your home page... (close this window to stop it)")
 
     # Create the app
-    app = create_app(db_path, wage_payer=WAGE_PAYER, statements_dir=pick_folder(sys.argv[1:]))
+    app = create_app(db_path, wage_payer=WAGE_PAYER, statements_dir=statements_dir)
+
+    # Start a daemon thread to sync phone changes and downloads every 300 seconds
+    def engine_loop():
+        while True:
+            import time
+            time.sleep(300)
+            engine_tick(db_path, wage_payer=WAGE_PAYER, statements_dir=statements_dir)
+
+    engine_thread = threading.Thread(target=engine_loop)
+    engine_thread.daemon = True
+    engine_thread.start()
 
     # Open browser after a short delay (not after an update: the page is already open and reloads itself)
     import os

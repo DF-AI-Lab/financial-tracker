@@ -145,20 +145,6 @@
     <button id="sendbtn" type="button" hidden>📤 Send to PC</button></div>
   {% endif %}
 
-  {% if phone_changes %}
-  <div class="card phonebox">
-    <h2>📱 From your phone</h2>
-    <form method="post" action="/phone">
-      {% for c in phone_changes %}
-        <input type="hidden" name="seen" value="{{ c.cid }}">
-        <label><input type="checkbox" name="take" value="{{ c.cid }}" checked> {{ describe(c) }}</label>
-      {% endfor %}
-      <p class="muted" style="font-size:14px">Untick any you don't want. Unticked ones are dropped.</p>
-      <button type="submit">Do the ticked ones</button>
-    </form>
-  </div>
-  {% endif %}
-
   {% if not phone %}
   <div class="editbar">
     <button type="button" class="small" id="updbtn" title="Get the latest version from GitHub">🔄 Update</button>

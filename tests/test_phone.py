@@ -438,3 +438,32 @@ def test_test_and_real_databases_share_one_key(tmp_path):
     phone.connect(a, "https://x.pythonanywhere.com")
     phone.connect(b, "https://x.pythonanywhere.com")
     assert phone.settings(a)[1] == phone.settings(b)[1]
+
+
+def test_a_change_is_never_done_twice(conn):
+    """The internet drops after the PC did the changes but before it cleared them online: next time they are skipped."""
+    phone.connect(conn, "https://x.pythonanywhere.com")
+    changes = [{"cid": "a", "type": "add", "date": "2026-10-04", "amount": 250.0, "name": "Argos"}]
+
+    def clear_fails(method, url, key, body=None):
+        if url.endswith("/api/changes"):
+            return {"changes": changes}
+        raise OSError("dropped")
+    phone.sync_once(conn, wage_payer=ACME, http=clear_fails)
+    online = FakeOnline(changes)
+    assert phone.sync_once(conn, wage_payer=ACME, http=online) == 0
+    assert [s["name"] for s in get_spends(conn)] == ["Argos"]
+    assert ("POST", "clear", {"cids": ["a"]}) in online.calls             # cleared this time
+
+
+def test_downloads_keeps_a_copy_when_the_statement_file_is_missing(tmp_path):
+    from fintrack.downloads import scan_downloads
+    c = open_db(tmp_path / "t.db")
+    downloads, statements = tmp_path / "Downloads", tmp_path / "statements"
+    downloads.mkdir()
+    shutil.copy(DATA / "statement_2024_08.pdf", downloads / "a_Statement.pdf")
+    scan_downloads(c, downloads, statements)
+    (statements / "a_Statement.pdf").unlink()                              # the user deleted it from the folder
+    shutil.copy(DATA / "statement_2024_08.pdf", downloads / "a_Statement.pdf")
+    scan_downloads(c, downloads, statements)
+    assert (statements / "a_Statement.pdf").exists()
