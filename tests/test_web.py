@@ -68,7 +68,7 @@ def test_home_data_matches_the_terminal_numbers(db):
     txns = sorted(load_txns(conn), key=lambda t: t.date)
     cs = build_cycles(txns, payer=ACME)
     a = analyse(cs, answers=get_items(conn), rules=get_rules(conn))
-    want = pay_block(cs, a, 2500.0)                                   # 2,500 = the pay remembered by run.py
+    want = pay_block(cs, a, 2500.0, items=get_items(conn))            # 2,500 = the pay remembered by run.py
     assert d["ready"] is True
     assert d["pay"]["wage"] == 2500.0 and d["pay"]["spare"] == pytest.approx(want["spare"])
     assert d["pay"]["left_usual"] == pytest.approx(want["left_usual"])

@@ -52,7 +52,7 @@ def test_a_dd_paid_once_is_saved_as_a_bill(tmp_path):
 
 def test_new_bill_in_the_running_cycle_shows_and_counts():
     p = block([Txn(date(2024, 5, 14), "DD", "ZOPA CREDIT CARDS", "", -100.0)], answers={ZOPA: common("Zopa")})
-    z = bill(p, ZOPA)
+    z = bill(p, "Zopa")                                               # bill keys = the saved label (or payee name)
     assert z is not None
     assert (z["name"], z["last"], z["used"], z["new"], z["stopped"]) == ("Zopa", pytest.approx(100), pytest.approx(100), True, False)
     assert p["bills_last"] == pytest.approx(500 + 95 + 100)          # rent + energy (95 last finished cycle) + Zopa
@@ -61,17 +61,17 @@ def test_new_bill_in_the_running_cycle_shows_and_counts():
 def test_new_bill_paid_once_in_the_last_finished_cycle_is_marked_new():
     p = block([Txn(date(2024, 4, 14), "DD", "GYM CLUB", "", -30.0),
                Txn(date(2024, 5, 4), "DD", "GYM CLUB", "", -30.0)], answers={GYM: common("Gym")})
-    g = bill(p, GYM)
+    g = bill(p, "Gym")
     assert g["new"] is True and g["stopped"] is False                # new until paid in 2 FINISHED cycles
-    assert bill(p, "SO|LANDLORD|RENT")["new"] is False
+    assert bill(p, "LANDLORD - RENT")["new"] is False
 
 
 # ---- a stopped bill drops out --------------------------------------------------------------------
 
 def test_bill_not_paid_in_the_last_finished_cycle_is_stopped_and_not_counted():
     old = [Txn(date(2024, 2, 10), "DD", "OLD INSURER", "", -40.0), Txn(date(2024, 3, 10), "DD", "OLD INSURER", "", -40.0)]
-    key = "DD|OLD INSURER|"
-    p = block(old, answers={key: common("Old car insurance")})
+    p = block(old, answers={"DD|OLD INSURER|": common("Old car insurance")})
+    key = "Old car insurance"
     o = bill(p, key)
     assert o is not None and o["stopped"] is True and o["used"] == 0
     assert p["bills_last"] == pytest.approx(sum(b["used"] for b in p["bills"]))
@@ -83,15 +83,15 @@ def test_bill_late_but_paid_in_the_running_cycle_is_not_stopped():
     tx = [Txn(date(2024, 2, 10), "DD", "LATE CO", "", -40.0), Txn(date(2024, 3, 10), "DD", "LATE CO", "", -40.0),
           Txn(date(2024, 5, 5), "DD", "LATE CO", "", -40.0)]
     p = block(tx, answers={"DD|LATE CO|": common("Late co")})
-    assert bill(p, "DD|LATE CO|")["stopped"] is False
+    assert bill(p, "Late co")["stopped"] is False
 
 
 def test_tapped_stopped_drops_a_bill_until_it_is_paid_again():
-    p = block([], stopped={"DD|ENERGY CO|": "2024-05-03"})
-    e = bill(p, "DD|ENERGY CO|")
+    p = block([], stopped={"ENERGY CO": "2024-05-03"})
+    e = bill(p, "ENERGY CO")
     assert e["stopped"] is True and e["used"] == 0                    # last paid 2 May, before the tap
-    p = block([Txn(date(2024, 5, 20), "DD", "ENERGY CO", "", -80.0)], stopped={"DD|ENERGY CO|": "2024-05-03"})
-    assert bill(p, "DD|ENERGY CO|")["stopped"] is False                # paid again after the tap
+    p = block([Txn(date(2024, 5, 20), "DD", "ENERGY CO", "", -80.0)], stopped={"ENERGY CO": "2024-05-03"})
+    assert bill(p, "ENERGY CO")["stopped"] is False                # paid again after the tap
 
 
 def test_stopped_kept_in_the_database(tmp_path):
@@ -100,7 +100,7 @@ def test_stopped_kept_in_the_database(tmp_path):
     set_stopped(conn, "DD|ENERGY CO|", True, date(2024, 5, 3))
     assert get_stopped(conn) == {"DD|ENERGY CO|": "2024-05-03"}
     set_stopped(conn, "DD|ENERGY CO|", False, date(2024, 5, 4))
-    assert get_stopped(conn) == {}
+    assert get_stopped(conn) == {"DD|ENERGY CO|": "no"}                # "Not stopped" is remembered
 
 
 # ---- the page and the phone ----------------------------------------------------------------------
@@ -132,7 +132,7 @@ def test_pc_page_stopped_button(db):
     page = client.get("/").data.decode()
     assert "🛑 stopped" in page
     client.post("/stopped", data={"key": key, "stopped": "0"})
-    assert key not in get_stopped(open_db(db))
+    assert get_stopped(open_db(db))[key] == "no"
 
 
 def test_phone_can_tap_stopped(db):
@@ -144,4 +144,11 @@ def test_phone_can_tap_stopped(db):
                                wage_payer="ACME MOTORS PLC") == 1
     assert key in get_stopped(c)
     phone.apply_changes(c, [{"cid": "t", "type": "bill", "key": key, "stopped": False}], wage_payer="ACME MOTORS PLC")
-    assert key not in get_stopped(c)
+    assert get_stopped(c)[key] == "no"
+
+
+def test_not_stopped_beats_the_automatic_stop():
+    old = [Txn(date(2024, 2, 10), "DD", "OLD INSURER", "", -40.0), Txn(date(2024, 3, 10), "DD", "OLD INSURER", "", -40.0)]
+    p = block(old, answers={"DD|OLD INSURER|": common("Insurance")}, stopped={"Insurance": "no"})
+    i = bill(p, "Insurance")
+    assert i["stopped"] is False and i["estimated"] is True and i["used"] == pytest.approx(80 / 3)

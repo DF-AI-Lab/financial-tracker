@@ -97,6 +97,9 @@
   input.billbox { width: 90px; padding: 4px 6px; text-align: right; }
   input.billbox.badval { border-color: var(--bad); }
   td button.small.x { padding: 0 6px; margin-left: 4px; }
+  tr.bill.stopped td { opacity: .55; }
+  form.stopform { float: right; margin-left: 8px; }
+  button.stopbtn { padding: 1px 8px; font-size: 12px; color: var(--muted); }
   .handle, .onlyedit { display: none; }
   body.editing .handle { display: inline-block; cursor: grab; color: var(--muted); margin-right: 6px; user-select: none; }
   body.editing .onlyedit { display: inline-block; }
@@ -311,8 +314,8 @@
       <tbody data-sort="bills">
       {% for b in d.pay.bills %}
         {% set dflt = b.last if b.last > 0 else b.avg %}
-        <tr class="bill" data-id="{{ b.id }}" data-key="{{ b.key }}" data-avg="{{ b.avg }}" data-default="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}">
-          <td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ b.id }}" data-orig="{{ b.orig }}">{{ b.name }}</span></td><td class="n">{{ b.avg|money }}</td>
+        <tr class="bill{{ ' stopped' if b.stopped else '' }}" data-id="{{ b.id }}" data-key="{{ b.key }}" data-avg="{{ b.avg if not b.stopped else 0 }}" data-avg0="{{ b.avg }}" data-default="{{ dflt if not b.stopped else 0 }}" data-default0="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}" data-new="{{ 1 if b.new else 0 }}" data-stopped="{{ 1 if b.stopped else 0 }}">
+          <td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ b.id }}" data-orig="{{ b.orig }}">{{ b.name }}{{ ' 🆕' if b.new else '' }}</span>{% if b.stopped %}<span style="opacity:0.6;font-size:0.85em;"> 🛑 stopped</span>{% endif %}<form method="post" action="/stopped" class="stopform" style="display:inline"><input type="hidden" name="key" value="{{ b.key }}"><input type="hidden" name="stopped" value="{{ '0' if b.stopped else '1' }}"><button class="small stopbtn" type="submit" title="{{ 'Count this bill again' if b.stopped else 'This bill has stopped: stop counting it' }}">{{ 'Undo' if b.stopped else 'Stop' }}</button></form></td><td class="n">{{ b.avg|money }}</td>
           <td class="n">
             <button type="button" class="link {{ 'muted' if b.estimated else '' }}" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% elif b.changed %} ✏️{% endif %}</button>
             <input class="amount billbox" type="text" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}" hidden>
@@ -988,6 +991,37 @@
     }
   });
 
+  // Stopped button forms on the phone page
+  document.querySelectorAll('.stopform').forEach(function (form) {
+    form.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var row = form.closest('tr.bill');
+      if (!row) return;
+      var stopped_str = form.querySelector('input[name=stopped]').value;
+      var stopped_val = stopped_str === '1';
+      var key = form.querySelector('input[name=key]').value;
+      phoneSend({cid: newId(), type: 'bill', key: key, stopped: stopped_val});
+      updateSyncIcon();
+      // Toggle visually
+      row.classList.toggle('stopped', stopped_val);
+      var btn = form.querySelector('button');
+      if (btn) btn.textContent = stopped_val ? 'Undo' : 'Stop';
+      form.querySelector('input[name=stopped]').value = stopped_val ? '0' : '1';
+      // Toggle data attributes for visual calculation
+      if (stopped_val) {
+        row.dataset.used = '0';
+        row.dataset.avg = '0';
+        row.dataset.default = '0';
+      } else {
+        row.dataset.used = row.dataset.default0 || row.dataset.default;
+        row.dataset.avg = row.dataset.avg0 || row.dataset.avg;
+        row.dataset.default = row.dataset.default0 || row.dataset.default;
+      }
+      showBill(row);
+      recalc();
+    });
+  });
+
   // Sort segment buttons
   document.querySelectorAll('.seg').forEach(function (seg) {
     seg.addEventListener('click', function (e) {
@@ -1111,12 +1145,30 @@
       } else if (c.type === 'bill') {
         document.querySelectorAll('tr.bill').forEach(function (row) {
           if (row.dataset.key !== c.key) return;
-          var box = row.querySelector('input.billbox');
-          if (box === focused) return;
-          row.dataset.used = typeof c.amount === 'number' ? c.amount : row.dataset.default;
-          row.dataset.changed = typeof c.amount === 'number' ? '1' : '0';
-          if (box) box.value = parseFloat(row.dataset.used).toFixed(2);
-          showBill(row);
+          if (typeof c.stopped === 'boolean') {
+            // Handle stopped change
+            row.classList.toggle('stopped', c.stopped);
+            var btn = row.querySelector('.stopform button');
+            if (btn) btn.textContent = c.stopped ? 'Undo' : 'Stop';
+            if (c.stopped) {
+              row.dataset.used = '0';
+              row.dataset.avg = '0';
+              row.dataset.default = '0';
+            } else {
+              row.dataset.used = row.dataset.default0 || row.dataset.default;
+              row.dataset.avg = row.dataset.avg0 || row.dataset.avg;
+              row.dataset.default = row.dataset.default0 || row.dataset.default;
+            }
+            showBill(row);
+          } else {
+            // Handle amount change
+            var box = row.querySelector('input.billbox');
+            if (box === focused) return;
+            row.dataset.used = typeof c.amount === 'number' ? c.amount : row.dataset.default;
+            row.dataset.changed = typeof c.amount === 'number' ? '1' : '0';
+            if (box) box.value = parseFloat(row.dataset.used).toFixed(2);
+            showBill(row);
+          }
         });
       }
     });

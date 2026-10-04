@@ -89,7 +89,11 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    the current cycle shows straight away (last = this cycle's amount). Write the failing test first (fake data).
    DECIDED (user, 4 Oct, see DECISIONS.md 'new and stopped bills'): every DD/SO straight into Bills even if paid once
    (marked 🆕 new until paid in 2 cycles); not paid in the last finished cycle = stopped and NOT counted (plus a tap
-   'Stopped' button); card payments stay questions. NOT BUILT YET: next build.
+   'Stopped' button); card payments stay questions. BUILT 4 Oct (414 tests): questions.auto_bills (any DD/SO),
+   spare.pay_block (new/stopped flags, bills paid only in the running cycle, spare.common_key = analyse's key: saved
+   label or payee name, NOT the DD|..| item key), billchange get/set_stopped (kv stopped_bills: {key: ISO date} or
+   "no" = Undo beats the auto stop), POST /stopped, phone change {type bill, key, stopped}, Stop / Undo button per
+   bill. Real DB copy: Zopa Credit Cards shows (100, NEW). Haiku built it; I rewrote pay_block (it had re-keyed bills).
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).

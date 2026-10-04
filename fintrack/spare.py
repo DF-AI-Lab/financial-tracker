@@ -4,7 +4,8 @@ from typing import Optional, List
 import statistics
 
 from fintrack.models import Analysis, Cycle, Txn
-from fintrack.common import analyse
+from fintrack.common import analyse, payee_key
+from fintrack.store import item_key
 from fintrack.yearly import yearly_lines
 
 
@@ -84,11 +85,15 @@ def expected_spare(cycles: List[Cycle], analysis: Analysis, wage: float, yearly:
 
 
 def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=None, items=None, yearly=None,
-              changes=None, left=0.0) -> dict:
+              changes=None, left=0.0, stopped=None) -> dict:
     """Calculate the pay block: bills, spending, spare cash.
 
     Returns dict with keys: "start", "cycles_used", "left_over", "wage", "bills", "bills_avg",
     "bills_last", "spare", "spending", "spending_last", "spending_avg", "left_usual".
+    Every bill also has "new" (paid in fewer than 2 finished cycles) and "stopped" (user, 4 Oct 2026: not paid in the
+    last finished cycle nor in the running one, or tapped Stopped (`stopped` = {key: ISO date}) and not paid since;
+    a stopped bill counts 0 and is left out of the totals). A bill saved as common that is only paid in the running
+    cycle is shown too (new).
     """
     if categories is None:
         categories = {}
@@ -104,11 +109,23 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
     # used = what counts for this cycle: a change typed on the home page (fintrack/billchange.py), else last month,
     # else the average (not paid last month: shown with a *). diff = used - average (None when the average is used).
     changes = changes or {}
+    stopped = stopped or {}
+    running = cycles[-1] if cycles and not cycles[-1].complete else None
+    running_out = [t for t in running.txns if t.amount < 0] if running else []
+    running_keys = {common_key(t, items) for t in running_out}
+
+    def paid_since(key, day):
+        return any(t.amount < 0 and t.date > day and common_key(t, items) == key for c in cycles for t in c.txns)
+
     bills = []
     for key, entry in analysis.common.items():
         changed = key in changes
-        estimated = not changed and entry["last"] <= 0
-        used = changes[key] if changed else (entry["average"] if estimated else entry["last"])
+        tap = stopped.get(key)
+        is_stopped = not changed and tap != "no" and (
+            (entry["last"] <= 0 and key not in running_keys)
+            or (tap is not None and not paid_since(key, date.fromisoformat(tap))))
+        estimated = not changed and not is_stopped and entry["last"] <= 0
+        used = changes[key] if changed else (0.0 if is_stopped else (entry["average"] if estimated else entry["last"]))
         bills.append({
             "key": key,
             "name": entry.get("label", key),
@@ -117,15 +134,31 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
             "used": used,
             "changed": changed,
             "estimated": estimated,
-            "diff": None if estimated else used - entry["average"]
+            "diff": None if (estimated or is_stopped) else used - entry["average"],
+            "new": entry["cycles"] < 2,
+            "stopped": is_stopped,
         })
 
-    # Sort by avg biggest first (ties: name)
-    bills.sort(key=lambda b: (-b["avg"], b["name"]))
+    # Saved as a bill but only paid in the running cycle so far (e.g. a new direct debit): shown and counted at once
+    fresh = {}
+    for t in running_out:
+        k = item_key(t)
+        if items.get(k, {}).get("kind") in ("common", "regular"):
+            ck = common_key(t, items)
+            if ck not in analysis.common:
+                fresh[ck] = fresh.get(ck, 0.0) + abs(t.amount)
+    for key, total in fresh.items():
+        changed = key in changes
+        used = changes[key] if changed else total
+        bills.append({"key": key, "name": key, "avg": total, "last": total, "used": used, "changed": changed,
+                      "estimated": False, "diff": used - total, "new": True, "stopped": False})
 
-    # Calculate bills_avg and bills_last
-    bills_avg = sum(b["avg"] for b in bills)
-    bills_last = sum(b["used"] for b in bills)
+    # Sort by avg biggest first (ties: name); stopped bills last
+    bills.sort(key=lambda b: (b["stopped"], -b["avg"], b["name"]))
+
+    # Calculate bills_avg and bills_last (stopped bills are not counted)
+    bills_avg = sum(b["avg"] for b in bills if not b["stopped"])
+    bills_last = sum(b["used"] for b in bills if not b["stopped"])
 
     # Spare = pay - bills (last month's amounts). Left over is not added (user, 3 Oct 2026).
     # left = what the user typed as left from last month (fintrack/billchange.py, 3 Oct 2026), 0 when not typed
@@ -402,3 +435,13 @@ def format_last_cycle(c: Optional[dict]) -> List[str]:
         lines.append(f"  {'Better than expected by':<28}{fmt_money(-c['missing']):>10}")
 
     return lines
+
+
+def common_key(t, items) -> str:
+    """The key analyse() gives a payment's common entry: the saved label (or item key) when it is saved as common,
+    otherwise its payee key."""
+    k = item_key(t)
+    saved = items.get(k)
+    if saved and saved.get("kind") in ("common", "regular"):
+        return saved.get("label") or k
+    return payee_key(t)

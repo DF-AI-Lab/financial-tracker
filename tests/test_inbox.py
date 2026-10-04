@@ -52,11 +52,11 @@ TX = [T(1, "VIS", "CORNER SHOP", 12), T(2, "VIS", "CORNER SHOP", 9), T(3, "VIS",
 def test_pending_items_for_the_page(tmp_path):
     conn = open_db(tmp_path / "t.db")
     items = pending_for_page(conn, TX)
-    assert [i["name"] for i in items] == ["Currys", "Corner Shop", "New Gym"]        # biggest first; tiny skipped
-    assert "DD|ENERGY CO|" in get_items(conn)                                       # DD in 2 months: saved as a bill
+    assert [i["name"] for i in items] == ["Currys", "Corner Shop"]                  # biggest first; tiny skipped
+    assert "DD|ENERGY CO|" in get_items(conn)                                       # DDs are saved as bills,
+    assert get_items(conn)["DD|NEW GYM|"]["kind"] == "common"                       # even paid once (4 Oct 2026)
     currys = items[0]
     assert (currys["n"], currys["kind"], currys["group"]) == (1, "oneoff", "Card")
-    assert items[2]["kind"] == "bill" and items[2]["category"]
     assert set(KINDS) == {"bill", "random", "oneoff", "yearly"}
 
 
@@ -71,7 +71,7 @@ def test_save_answers_from_the_page(tmp_path):
     assert saved[items[1]["key"]]["kind"] == "common" and saved[items[1]["key"]]["label"] == "Corner Shop"
     assert get_categories(conn)[items[0]["key"]] == "Shopping"
     assert "X|BAD|" not in saved
-    assert [i["name"] for i in pending_for_page(conn, TX)] == ["New Gym"]
+    assert pending_for_page(conn, TX) == []
 
 
 def test_category_names_include_the_users_own(tmp_path):
@@ -95,7 +95,6 @@ def test_copy_for_ai_and_paste_the_answers_back(tmp_path):
 """
     got = parse_ai(reply, len(items), ["Household", "Shopping", "Food shopping"])
     assert got == {1: {"kind": "oneoff", "category": "Shopping"},
-                   2: {"kind": "random", "category": "Food shopping"},
-                   3: {"kind": "bill", "category": "Household"}}                    # 4 is not an item: ignored
+                   2: {"kind": "random", "category": "Food shopping"}}               # 3 and 4 are not items: ignored
     assert parse_ai("1 one-off\n2 common Gym stuff", 3, ["Household"]) == {
         1: {"kind": "oneoff", "category": ""}, 2: {"kind": "bill", "category": "Gym stuff"}}

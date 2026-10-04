@@ -34,7 +34,7 @@ from fintrack.picture import six_month_picture, format_picture
 from fintrack.bycategory import category_spending, format_categories, format_category_detail
 from fintrack.where import where_did_it_go, format_where, show_lines
 from fintrack.subs import find_subscriptions, format_subscriptions
-from fintrack.billchange import get_changes, get_left
+from fintrack.billchange import get_changes, get_left, get_stopped
 
 HERE = Path(__file__).parent
 IN_DIR = HERE / "statements"          # the folder inside the code folder (testing)
@@ -329,7 +329,8 @@ def main(in_dir=IN_DIR, out_dir=OUT_DIR, ask=input, wage_payer=WAGE_PAYER, ask_i
     set_value(conn, "pay", str(wage))
     for line in format_pay_block(pay_block(cycles, analysis, wage, categories=get_categories(conn), items=answers, yearly=due,
                                             changes=get_changes(conn, cycles[-1].start),
-                                            left=get_left(conn, cycles[-1].start))):
+                                            left=get_left(conn, cycles[-1].start),
+                                            stopped=get_stopped(conn))):
         print(line)
 
     # Print subscriptions

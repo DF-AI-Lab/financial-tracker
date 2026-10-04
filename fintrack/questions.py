@@ -271,16 +271,16 @@ def parse_answer(text: str, count: int) -> dict:
 
 
 def auto_bills(conn, txns: List[Txn]) -> int:
-    """DD / SO are bills by default (user, 3 Oct 2026): every direct debit or standing order with no saved answer
-    that was paid in 2 or more months is saved as Common (label and category suggested, source "auto"), so it is
-    not asked about. One paid only once is left for the questions. Saved answers are never changed.
+    """DD / SO are bills by default (user, 4 Oct 2026): every direct debit or standing order with no saved answer
+    is saved as Common (label and category suggested, source "auto"), so it is not asked about, even when paid
+    only once. Saved answers are never changed.
     Returns how many were saved."""
     from fintrack.store import get_items, set_item, set_category
     from fintrack.categories import guess_category
     saved = get_items(conn)
     n = 0
     for key, stat in sorted(item_stats(txns).items()):
-        if key in saved or stat["group"] not in ("DD", "SO") or stat["months"] < 2:
+        if key in saved or stat["group"] not in ("DD", "SO"):
             continue
         _, label = suggest(stat)
         set_item(conn, key, "common", label, "auto")

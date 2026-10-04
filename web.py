@@ -376,6 +376,26 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
 
         return redirect(url_for("home"), code=303)
 
+    @app.route("/stopped", methods=["POST"])
+    def stopped():
+        from fintrack.billchange import set_stopped
+        key = request.form.get("key", "")
+        stopped_str = request.form.get("stopped", "")
+        conn = open_db(db_path)
+        d = home_data(conn, wage_payer=wage_payer, today=today)
+        if not d["ready"] or key not in [b["key"] for b in d["pay"]["bills"]]:
+            conn.close()
+            return redirect(url_for("home"), code=303)
+        try:
+            stopped_val = stopped_str == "1"
+            set_stopped(conn, key, stopped_val, today or date.today())
+        except Exception:
+            conn.close()
+            return redirect(url_for("home"), code=303)
+        conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
+        return redirect(url_for("home"), code=303)
+
     return app
 
 

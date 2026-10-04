@@ -57,3 +57,24 @@ def set_left(conn, start: date, amount: float) -> None:
 
 def clear_left(conn, start: date) -> None:
     set_value(conn, LEFT_KEY, "{}")
+
+
+# Stopped bills (user, 4 Oct 2026): not paid in the last finished cycle or manually tapped as stopped.
+# Stored as JSON in kv table under "stopped_bills": {key: "YYYY-MM-DD"} (tapped Stopped that day) or {key: "no"} (tapped Not stopped).
+STOPPED_KEY = "stopped_bills"
+
+
+def get_stopped(conn) -> dict:
+    """{bill key: ISO date when stopped}; {} when none are stopped."""
+    try:
+        return json.loads(get_value(conn, STOPPED_KEY) or "{}")
+    except ValueError:
+        return {}
+
+
+def set_stopped(conn, key: str, on: bool, today: date) -> None:
+    """on=True: stopped from today (ISO date). on=False: "no" = the user says it is NOT stopped, which also beats the
+    automatic stop (a bill not paid last cycle)."""
+    stopped = get_stopped(conn)
+    stopped[key] = today.isoformat() if on else "no"
+    set_value(conn, STOPPED_KEY, json.dumps(stopped))

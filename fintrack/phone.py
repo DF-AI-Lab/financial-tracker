@@ -165,13 +165,22 @@ def apply_changes(conn, changes, wage_payer) -> int:
                 valid_keys = [b["key"] for b in d["pay"]["bills"]]
                 if key not in valid_keys:
                     continue
-                amount = c.get("amount")
-                if amount is None:
-                    clear_change(conn, d["cycle_start"], key)
-                    done += 1
-                elif isinstance(amount, (int, float)) and not isinstance(amount, bool):
-                    set_change(conn, d["cycle_start"], key, float(amount))
-                    done += 1
+                # Handle stopped flag
+                if "stopped" in c:
+                    from fintrack.billchange import set_stopped
+                    stopped_val = c.get("stopped")
+                    if isinstance(stopped_val, bool):
+                        set_stopped(conn, key, stopped_val, date.today())
+                        done += 1
+                else:
+                    # Handle amount change
+                    amount = c.get("amount")
+                    if amount is None:
+                        clear_change(conn, d["cycle_start"], key)
+                        done += 1
+                    elif isinstance(amount, (int, float)) and not isinstance(amount, bool):
+                        set_change(conn, d["cycle_start"], key, float(amount))
+                        done += 1
             elif ctype == "sort":
                 answers = c.get("answers")
                 if isinstance(answers, list):

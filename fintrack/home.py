@@ -72,9 +72,10 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     due = yearly_due(txns, answers, today=today)
 
     # Build the pay block
-    from fintrack.billchange import get_changes, get_left
+    from fintrack.billchange import get_changes, get_left, get_stopped
     pay = pay_block(cycles, analysis, wage, categories=categories, items=answers, yearly=due,
-                    changes=get_changes(conn, cycles[-1].start), left=get_left(conn, cycles[-1].start))
+                    changes=get_changes(conn, cycles[-1].start), left=get_left(conn, cycles[-1].start),
+                    stopped=get_stopped(conn))
 
     # Get last cycle check
     last = last_cycle_check(cycles, answers=answers, rules=rules)
