@@ -45,6 +45,8 @@
   .tiles.toprow .paytile { grid-row: span 2; }
   .tiles.toprow .half { padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; }
   .tiles.toprow .half .num { font-size: 21px; line-height: 1.2; }
+  .tiles.toprow .half .paybox { margin-top: 4px; }
+  .tiles.toprow .half input.amount { width: 100px; padding: 5px 8px; font-weight: 700; text-align: center; }
   @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr 1fr; } .tiles.toprow .paytile { grid-row: auto; grid-column: 1 / -1; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
@@ -216,9 +218,12 @@
     <div class="tile half"><div class="label">{{ d.history.months }}-month average</div>
       <div class="num">{{ d.history.avg|money }}</div></div>
     {% endif %}
-    <div class="tile half"><div class="label">💳 Credit card used</div>
-      <div class="num" id="ccused">{{ d.card.used|money }}</div></div>
-    <div class="tile half"><div class="label">💳 Credit card free</div>
+    <div class="tile half"><div class="label">💳 Zopa used</div>
+      <form class="inline paybox" method="post" action="/card/balance" id="ccbalform">
+        <input class="amount" type="text" name="amount" id="ccused" inputmode="decimal" value="{{ '%.2f'|format(d.card.used) }}" aria-label="What the Zopa card owes now">
+        <button class="small" type="submit">Change</button>
+      </form></div>
+    <div class="tile half"><div class="label">💳 Zopa free</div>
       <div class="num {{ 'bad' if d.card.free < 0 else 'good' }}" id="ccfree">{{ d.card.free|money }}</div></div>
   </div>
 
@@ -1004,6 +1009,10 @@
       return {id: i.id, date: i.date, name: i.name, amount: i.amount, gone: !!r, state: r ? r[1] : 'pc', change: r ? r[0] : null};
     });
     changes.forEach(function (p) {
+      if (p[0].action === 'balance') {                     // what the card owes now: everything before it goes
+        list.forEach(function (r) { if (!r.gone) { r.gone = true; r.state = p[1]; } });
+        if (p[0].amount) list.push({date: p[0].date, name: 'Balance', amount: p[0].amount, gone: false, state: p[1], change: p[0]});
+      }
       if (p[0].action === 'add') list.push({date: p[0].date, name: p[0].name, amount: p[0].amount, gone: false, state: p[1], change: p[0]});
     });
     return {limit: limit, list: list};
@@ -1013,7 +1022,7 @@
     var c = cardRows(), t = $('cardlist'), used = 0;
     c.list.forEach(function (r) { if (!r.gone) used += r.amount; });
     var free = c.limit - used, el;
-    el = $('ccused'); if (el) el.textContent = money(used);
+    el = $('ccused'); if (el && document.activeElement !== el) el.value = used.toFixed(2);
     el = $('ccused2'); if (el) el.textContent = money(used);
     el = $('ccfree2'); if (el) el.textContent = money(free);
     el = $('ccfree'); if (el) { el.textContent = money(free); el.classList.toggle('bad', free < 0); el.classList.toggle('good', free >= 0); }
@@ -1101,6 +1110,18 @@
     $('cardname').value = '';
     draw();
     updateSyncIcon();
+  }
+  var ccbal = $('ccbalform');
+  if (ccbal) {
+    ccbal.onsubmit = function (e) {
+      e.preventDefault();
+      var t = ccbal.amount.value.trim(), amount = t === '' ? 0 : readMoney(t);
+      if (isNaN(amount)) return;
+      phoneSend({cid: newId(), type: 'card', action: 'balance', date: todayIso(), amount: Math.round(amount * 100) / 100});
+      ccbal.amount.blur();
+      draw();
+      updateSyncIcon();
+    };
   }
   var cardform = $('cardform');
   if (cardform) {

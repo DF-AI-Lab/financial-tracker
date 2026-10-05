@@ -58,3 +58,12 @@ def set_limit(conn, limit: float) -> None:
     card = _load(conn)
     card["limit"] = float(limit)
     _save(conn, card)
+
+
+def set_balance(conn, d: date, amount: float) -> None:
+    """The user typed what the card owes now (user, 5 Oct 2026): the list becomes one 'Balance' line (0 = empty)."""
+    card = _load(conn)
+    card["items"] = []
+    _save(conn, card)
+    if round(float(amount), 2) != 0:
+        add_card(conn, d, amount, "Balance")

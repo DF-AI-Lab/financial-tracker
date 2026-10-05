@@ -76,7 +76,7 @@ def test_limit_can_change(conn):
 
 def test_page_shows_the_tiles_and_the_card(client):
     page = client.get("/").data.decode()
-    assert "Credit card used" in page and "Credit card free" in page
+    assert "Zopa used" in page and "Zopa free" in page
     assert "💳 Credit card" in page
     assert 'action="/card/add"' in page
 
@@ -140,3 +140,31 @@ def test_site_accepts_card_changes(tmp_path):
     site.post("/login", data={"pin": "4821"})
     ch = {"cid": "c1", "type": "card", "action": "add", "date": "2026-10-04", "amount": 9.99, "name": "Shell"}
     assert site.post("/send", json={"changes": [ch]}).status_code == 200
+
+
+def test_set_balance_replaces_the_list_with_one_line(conn):
+    cc.add_card(conn, date(2026, 10, 1), 120.0, "Tyres")
+    cc.set_balance(conn, date(2026, 10, 5), 230.0)
+    card = cc.get_card(conn)
+    assert [(i["name"], i["amount"]) for i in card["items"]] == [("Balance", 230.0)]
+    assert card["used"] == 230.0 and card["free"] == 270.0
+    cc.add_card(conn, date(2026, 10, 6), 20.0, "Shell")                       # spends after it add on
+    assert cc.get_card(conn)["used"] == 250.0
+    cc.set_balance(conn, date(2026, 10, 7), 0)
+    assert cc.get_card(conn)["items"] == [] and cc.get_card(conn)["used"] == 0
+
+
+def test_page_tile_is_an_edit_box(client, db):
+    page = client.get("/").data.decode()
+    assert 'action="/card/balance"' in page and "Zopa used" in page
+    client.post("/card/balance", data={"amount": "310.50"})
+    assert cc.get_card(open_db(db))["used"] == 310.5
+    client.post("/card/balance", data={"amount": "0"})
+    assert cc.get_card(open_db(db))["used"] == 0
+
+
+def test_phone_balance_change(db):
+    c = open_db(db)
+    assert phone.apply_changes(c, [{"cid": "b", "type": "card", "action": "balance", "date": "2026-10-05",
+                                    "amount": 75.0}], wage_payer=ACME) == 1
+    assert cc.get_card(c)["used"] == 75.0

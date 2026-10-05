@@ -200,6 +200,13 @@ def apply_changes(conn, changes, wage_payer) -> int:
                 elif action == "remove" and isinstance(c.get("id"), int) and not isinstance(c.get("id"), bool):
                     if creditcard.remove_card(conn, c["id"]):
                         done += 1
+                elif action == "balance" and is_num and amount >= 0:
+                    try:
+                        d = date.fromisoformat(c.get("date", ""))
+                    except (TypeError, ValueError):
+                        continue
+                    creditcard.set_balance(conn, d, float(amount))
+                    done += 1
                 elif action == "limit" and is_num and amount > 0:
                     creditcard.set_limit(conn, float(amount))
                     done += 1

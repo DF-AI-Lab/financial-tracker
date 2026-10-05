@@ -222,7 +222,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         return redirect(url_for("home"), code=303)
 
     # Credit card (5 Oct 2026): POST /card/add {amount, name, paid=1 for money paid off}, /card/remove {id},
-    # /card/limit {amount}
+    # /card/limit {amount}, /card/balance {amount} (what the card owes now, from the tile)
     @app.route("/card/add", methods=["POST"])
     def card_add():
         from fintrack.creditcard import add_card
@@ -246,6 +246,19 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
             return redirect(url_for("home"), code=303)
         conn = open_db(db_path)
         remove_card(conn, item_id)
+        conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
+        return redirect(url_for("home"), code=303)
+
+    @app.route("/card/balance", methods=["POST"])
+    def card_balance():
+        from fintrack.creditcard import set_balance
+        text = request.form.get("amount", "").strip()
+        amount = 0.0 if text.lstrip("£").replace(".", "").strip("0") == "" else parse_money(text)
+        if amount is None:
+            return redirect(url_for("home", error="pay"), code=303)
+        conn = open_db(db_path)
+        set_balance(conn, date.today() if today is None else today, amount)
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
         return redirect(url_for("home"), code=303)
