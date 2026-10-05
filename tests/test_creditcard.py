@@ -142,29 +142,115 @@ def test_site_accepts_card_changes(tmp_path):
     assert site.post("/send", json={"changes": [ch]}).status_code == 200
 
 
-def test_set_balance_replaces_the_list_with_one_line(conn):
+def rows(conn):
+    return [(r["name"], r["amount"], r["status"], r["left"]) for r in cc.get_card(conn)["rows"]]
+
+
+# ---- Paid off clears the oldest first (user, 5 Oct 2026) ------------------------------------------
+
+def test_paid_off_clears_the_oldest_first(conn):
     cc.add_card(conn, date(2026, 10, 1), 120.0, "Tyres")
-    cc.set_balance(conn, date(2026, 10, 5), 230.0)
+    cc.add_card(conn, date(2026, 10, 2), 50.0, "Shell")
+    cc.add_card(conn, date(2026, 10, 3), -100.0, "Paid off")
+    assert rows(conn) == [("Tyres", 120.0, "part", 20.0), ("Shell", 50.0, "owed", 50.0),
+                          ("Paid off", -100.0, "credit", 0)]
+    cc.add_card(conn, date(2026, 10, 4), -30.0, "Paid off")
+    assert rows(conn)[:2] == [("Tyres", 120.0, "paid", 0), ("Shell", 50.0, "part", 40.0)]
+    assert cc.get_card(conn)["used"] == pytest.approx(40.0)
+
+
+def test_removing_a_payment_brings_the_items_back(conn):
+    cc.add_card(conn, date(2026, 10, 1), 120.0, "Tyres")
+    cc.add_card(conn, date(2026, 10, 3), -120.0, "Paid off")
+    assert rows(conn)[0][2] == "paid"
+    pay = cc.get_card(conn)["rows"][1]
+    assert pay["removable"] and not cc.get_card(conn)["rows"][0]["removable"]   # crossed out: no Remove
+    cc.remove_card(conn, pay["id"])
+    assert rows(conn) == [("Tyres", 120.0, "owed", 120.0)]
+
+
+# ---- Used box in the card: a Correction line makes it match, the list stays -----------------------
+
+def test_used_box_adds_a_correction(conn):
+    cc.add_card(conn, date(2026, 10, 1), 120.0, "Tyres")
+    cc.add_card(conn, date(2026, 10, 2), 50.0, "Shell")
+    cc.set_used(conn, date(2026, 10, 5), 150.0)                  # Zopa app says 150: -20 works like a payment
     card = cc.get_card(conn)
-    assert [(i["name"], i["amount"]) for i in card["items"]] == [("Balance", 230.0)]
-    assert card["used"] == 230.0 and card["free"] == 270.0
-    cc.add_card(conn, date(2026, 10, 6), 20.0, "Shell")                       # spends after it add on
-    assert cc.get_card(conn)["used"] == 250.0
-    cc.set_balance(conn, date(2026, 10, 7), 0)
-    assert cc.get_card(conn)["items"] == [] and cc.get_card(conn)["used"] == 0
+    assert card["used"] == pytest.approx(150.0)
+    assert rows(conn) == [("Tyres", 120.0, "part", 100.0), ("Shell", 50.0, "owed", 50.0),
+                          ("Correction", -20.0, "credit", 0)]
+    assert card["rows"][2]["removable"]
+    cc.set_used(conn, date(2026, 10, 6), 180.0)                  # +30 works like a new item
+    assert rows(conn)[-1] == ("Correction", 30.0, "owed", 30.0)
+    cc.set_used(conn, date(2026, 10, 6), 180.0)                  # already right: nothing added
+    assert len(cc.get_card(conn)["rows"]) == 4
 
 
-def test_page_tile_is_an_edit_box(client, db):
+def test_only_the_5_newest_paid_lines_are_kept_and_the_sums_stay_right(conn):
+    for n in range(8):
+        cc.add_card(conn, date(2026, 10, 1), 10.0, f"Item {n}")
+    cc.add_card(conn, date(2026, 10, 1), 15.0, "Still owed")
+    for n in range(8):
+        cc.add_card(conn, date(2026, 10, 2), -10.0, "Paid off")
+    card = cc.get_card(conn)
+    assert card["used"] == pytest.approx(15.0) and card["free"] == pytest.approx(485.0)
+    paid = [r["name"] for r in card["rows"] if r["status"] == "paid"]
+    assert paid == ["Item 3", "Item 4", "Item 5", "Item 6", "Item 7"]
+    assert len([r for r in card["rows"] if r["status"] == "credit"]) == 5
+    assert [r for r in card["rows"] if r["name"] == "Still owed"][0]["left"] == pytest.approx(15.0)
+    cc.add_card(conn, date(2026, 10, 3), -5.0, "Paid off")
+    assert cc.get_card(conn)["used"] == pytest.approx(10.0)
+
+
+def test_old_saved_balance_line_still_counts(conn):
+    from fintrack.store import set_value
+    import json
+    set_value(conn, "credit_card", json.dumps({"limit": 500, "next": 2, "items": [
+        {"id": 1, "date": "2026-10-05", "amount": 230.0, "name": "Balance"}]}))
+    assert cc.get_card(conn)["used"] == 230.0 and rows(conn) == [("Balance", 230.0, "owed", 230.0)]
+
+
+def test_page_used_box_is_in_the_card_not_the_tiles(client, db):
     page = client.get("/").data.decode()
-    assert 'action="/card/balance"' in page and "Zopa used" in page
-    client.post("/card/balance", data={"amount": "310.50"})
-    assert cc.get_card(open_db(db))["used"] == 310.5
-    client.post("/card/balance", data={"amount": "0"})
-    assert cc.get_card(open_db(db))["used"] == 0
+    tiles = page.split('class="tiles toprow"')[1].split('id="dropbar"')[0]
+    assert "Zopa used" in tiles and "/card/balance" not in tiles
+    assert 'action="/card/balance"' in page
+    client.post("/card/add", data={"amount": "120", "name": "Tyres"})
+    client.post("/card/balance", data={"amount": "100"})
+    card = cc.get_card(open_db(db))
+    assert card["used"] == 100.0 and [r["name"] for r in card["rows"]] == ["Tyres", "Correction"]
+    client.post("/card/add", data={"amount": "100", "paid": "1"})
+    page = client.get("/").data.decode()
+    assert "crossed" in page                                     # Tyres is paid: line through
 
 
-def test_phone_balance_change(db):
+def test_phone_balance_change_is_a_correction(db):
     c = open_db(db)
+    cc.add_card(c, date(2026, 10, 1), 50.0, "Shell")
     assert phone.apply_changes(c, [{"cid": "b", "type": "card", "action": "balance", "date": "2026-10-05",
                                     "amount": 75.0}], wage_payer=ACME) == 1
-    assert cc.get_card(c)["used"] == 75.0
+    card = cc.get_card(c)
+    assert card["used"] == 75.0 and [r["name"] for r in card["rows"]] == ["Shell", "Correction"]
+
+
+def test_phone_page_carries_the_carry(db):
+    import json
+    html = web.phone_page(db, wage_payer=ACME, today=date(2024, 10, 25), stamp="1")
+    data = json.loads(html.split('<script id="pcdata" type="application/json">')[1].split("</script>")[0])
+    assert data["card"]["carry"] == 0
+
+
+# ---- the phone follows the PC's card order and names straight away --------------------------------
+
+@pytest.mark.parametrize("path,body", [("/layout", {"sort": "cards", "ids": ["card", "spend"]}),
+                                       ("/name", {"id": "bill:X", "name": "Rent"})])
+def test_moving_or_renaming_sends_a_fresh_copy_up(db, path, body):
+    c = open_db(db)
+    phone.connect(c, "https://x.pythonanywhere.com")
+    from tests.test_phone import FakeOnline
+    online = FakeOnline([])
+    app = web.create_app(db, wage_payer=ACME, today=date(2024, 10, 25), phone_http=online)
+    app.testing = True
+    app.test_client().post(path, json=body)
+    web.wait_for_push()
+    assert any(name == "upload" for _, name, _ in online.calls)
