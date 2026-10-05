@@ -33,9 +33,10 @@ def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None, stamp=None)
               "wage": d["pay"]["wage"] if d.get("ready") else 0, "left": d["pay"].get("left", 0) if d.get("ready") else 0,
               "spends": [{"id": s["id"], "date": s["date"].isoformat(), "amount": s["amount"], "name": s["name"],
                           "category": s["category"] or ""} for s in d.get("spends", [])],
-              "card": {"limit": d["card"]["limit"],
-                       "items": [{"id": i["id"], "date": i["date"].isoformat(), "amount": i["amount"], "name": i["name"]}
-                                 for i in d["card"]["items"]]} if d.get("ready") else {"limit": 0, "items": []},
+              "card": {"limit": d["card"]["limit"], "carry": d["card"]["carry"],
+                       "items": [{"id": i["id"], "date": i["date"].isoformat(), "amount": i["amount"], "name": i["name"],
+                                  "kind": i["kind"]} for i in d["card"]["items"]]}
+                      if d.get("ready") else {"limit": 0, "carry": 0, "items": []},
               "stamp": stamp}
     if now is None:
         now = f"{datetime.now():%a} {datetime.now().day} {datetime.now():%b, %H:%M}"
@@ -61,6 +62,29 @@ def push(db_path, wage_payer=WAGE_PAYER, today=None, http=phone.http_json) -> bo
         return ready
     except Exception:
         return False
+
+
+_push_timer = None
+
+
+def push_soon(db_path, wage_payer=WAGE_PAYER, today=None, http=phone.http_json, delay=2.0) -> None:
+    """Send a fresh copy up a moment later, once (moving cards, renaming, typing in a bill box send many quick
+    changes; the page answers at once and the phone gets the last one)."""
+    global _push_timer
+    if _push_timer is not None:
+        _push_timer.cancel()
+    _push_timer = threading.Timer(delay, push, args=(db_path, wage_payer, today), kwargs={"http": http})
+    _push_timer.daemon = True
+    _push_timer.start()
+
+
+def wait_for_push() -> None:
+    """Tests: send the waiting copy now."""
+    global _push_timer
+    t, _push_timer = _push_timer, None
+    if t is not None:
+        t.cancel()
+        t.function(*t.args, **t.kwargs)
 
 
 def engine_tick(db_path, wage_payer=WAGE_PAYER, statements_dir=None, downloads_dir=None, http=phone.http_json, today=None) -> dict:
@@ -299,6 +323,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
                 return redirect(url_for("home", error="pay"), code=303)
             set_change(conn, d["cycle_start"], key, amount)
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         if request.headers.get("X-Requested-With") == "fetch":
             return ("", 204)                         # saved quietly by the page script, no reload
         return redirect(url_for("home"), code=303)
@@ -322,6 +347,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
                 return redirect(url_for("home", error="pay"), code=303)
             set_left(conn, d["cycle_start"], amount)
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return redirect(url_for("home"), code=303)
 
     # Layout (page only, kept for good): POST /layout {"sort", "ids"} after a drag, POST /name {"id", "name"},
@@ -335,6 +361,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn = open_db(db_path)
         save_order(conn, data["sort"], data["ids"])
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return ("", 204)
 
     @app.route("/name", methods=["POST"])
@@ -346,6 +373,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn = open_db(db_path)
         set_name(conn, data["id"], str(data.get("name", ""))[:60])
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return ("", 204)
 
     @app.route("/layout/reset", methods=["POST"])
@@ -354,6 +382,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn = open_db(db_path)
         reset_order(conn)
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return redirect(url_for("home"), code=303)
 
     # The app icon (3 Oct 2026): Chrome / Edge can install the page as an app ('Install Wage Tracker')
@@ -388,6 +417,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
                     r[k] = f"{r[k].day} {r[k]:%b %Y}"
             results.append(r)
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return {"results": results}
 
     @app.route("/sort/parse", methods=["POST"])
@@ -407,6 +437,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         txns, paydays, payers = txns_and_paydays(conn, wage_payer)
         answer(conn, request.get_json(silent=True) or {}, txns, paydays, payers=payers)
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return ("", 204)
 
     @app.route("/sort/save", methods=["POST"])
@@ -416,6 +447,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn = open_db(db_path)
         save_answers(conn, data.get("answers") or [])
         conn.close()
+        push_soon(db_path, wage_payer, today, http=phone_http)
         return ("", 204)
 
     # POST /remove

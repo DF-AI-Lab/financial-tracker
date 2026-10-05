@@ -106,8 +106,13 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    typed by hand: Add = spend, Paid off = negative; used = sum, free = limit - used; not part of spare cash), card 'card'
    in CARDS, POST /card/add|remove|limit, phone change {type card, action add/remove/limit} (cloud/flask_app.py
    accepts 'card': RE-PASTE on PythonAnywhere). Top row: pay box spans 2 rows, 4 half-height tiles (spare last month,
-   avg, Zopa used = edit box: type what the card owes, Change = list becomes one "Balance" line (set_balance,
-   POST /card/balance, phone action balance), Zopa free). Built by me.
+   avg, Zopa used, Zopa free: plain numbers).
+   5 Oct grill + BUILT (441 tests + browser check, by me): payments clear the OLDEST lines first (creditcard.allocate:
+   owed / part "£X left" / paid = crossed out, no Remove); Used box INSIDE the card adds a "Correction" line (set_used,
+   POST /card/balance, phone action balance; minus = like a payment, plus = like an item); only the 5 newest crossed
+   lines + 5 used-up payments kept, the rest folded into "carry"; the Zopa DD in statements is NOT a payment (bank is a
+   month behind). Phone follows PC layout/names: web.push_soon (2 s, once) after /layout, /name, /layout/reset, /bill,
+   /left, /ask, /sort/save, /upload. Folding stays per device. See DECISIONS.md 5 Oct.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).

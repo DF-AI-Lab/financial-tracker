@@ -91,3 +91,12 @@ _Last updated 30 Sep 2026. Only things you have said yes to._
 - Card payments are never auto-bills: a deposit or pay-in-full by card is asked about as a new item (One-off / Yearly).
 - Always subscriptions (4 Oct 2026): Claude, ChatGPT, Google Play and Audible are always listed under Subscriptions,
   even when they stop and start (card payments only; active = paid in the last 45 days).
+
+
+## 5 Oct 2026: Zopa credit card
+- Typed by hand on the page (Add / Paid off / Remove), limit 500. Not part of spare cash.
+- Paid off pays the balance: the oldest lines are cleared first. Fully paid = crossed out (no Remove); part paid shows "£X left".
+- The Used box in the card (not the top tiles) makes it exact: a Correction line, the list stays.
+- Only the 5 newest crossed-out lines are kept. No "paid off" total line.
+- The Zopa Direct Debit on the HSBC statement is NOT counted as paid off (the bank is a month behind): press Paid off.
+- Card order and names set on the PC go to the phone straight away; folding stays per device.

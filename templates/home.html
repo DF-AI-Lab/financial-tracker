@@ -45,8 +45,9 @@
   .tiles.toprow .paytile { grid-row: span 2; }
   .tiles.toprow .half { padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; }
   .tiles.toprow .half .num { font-size: 21px; line-height: 1.2; }
-  .tiles.toprow .half .paybox { margin-top: 4px; }
-  .tiles.toprow .half input.amount { width: 100px; padding: 5px 8px; font-weight: 700; text-align: center; }
+  tr.crossed td { text-decoration: line-through; opacity: .55; }
+  .cardsum .inline { justify-content: flex-end; flex-wrap: nowrap; }
+  .cardsum input.amount { width: 100px; padding: 5px 8px; text-align: right; }
   @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr 1fr; } .tiles.toprow .paytile { grid-row: auto; grid-column: 1 / -1; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
@@ -219,10 +220,7 @@
       <div class="num">{{ d.history.avg|money }}</div></div>
     {% endif %}
     <div class="tile half"><div class="label">💳 Zopa used</div>
-      <form class="inline paybox" method="post" action="/card/balance" id="ccbalform">
-        <input class="amount" type="text" name="amount" id="ccused" inputmode="decimal" value="{{ '%.2f'|format(d.card.used) }}" aria-label="What the Zopa card owes now">
-        <button class="small" type="submit">Change</button>
-      </form></div>
+      <div class="num" id="ccused">{{ d.card.used|money }}</div></div>
     <div class="tile half"><div class="label">💳 Zopa free</div>
       <div class="num {{ 'bad' if d.card.free < 0 else 'good' }}" id="ccfree">{{ d.card.free|money }}</div></div>
   </div>
@@ -349,18 +347,19 @@
       <button type="submit">Add</button>
       <button type="submit" class="small" name="paid" value="1" title="Money you paid off the card (name can be empty)">Paid off</button>
     </form>
-    {% if d.card['items'] %}
+    {% if d.card.rows %}
       <table style="margin-top:12px">
-        {% for i in d.card['items'] %}
-          <tr><td>{{ i.date|day }}</td><td>{{ i.name }}</td><td class="n {{ 'good' if i.amount < 0 else '' }}">{{ i.amount|money }}</td>
-              <td class="n"><form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ i.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
+        {% for r in d.card.rows %}
+          <tr class="{{ 'crossed' if r.status == 'paid' else '' }}"><td>{{ r.date|day }}</td><td>{{ r.name }}{% if r.status == 'part' %}<span class="labels">{{ r.left|money }} left</span>{% endif %}</td>
+              <td class="n {{ 'good' if r.amount < 0 else '' }}">{{ r.amount|money }}</td>
+              <td class="n">{% if r.removable %}<form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ r.id }}"><button class="small" type="submit">Remove</button></form>{% endif %}</td></tr>
         {% endfor %}
       </table>
     {% endif %}
     {% endif %}
-    <div class="sum" style="margin-top:12px">
-      <span>Limit</span><span class="n">{% if phone %}<span id="cclimit">{{ d.card.limit|money }}</span>{% else %}<form class="inline" method="post" action="/card/limit" style="justify-content:flex-end"><input class="amount" type="text" name="amount" inputmode="decimal" value="{{ '%.2f'|format(d.card.limit) }}" aria-label="Limit"><button class="small" type="submit">Change</button></form>{% endif %}</span>
-      <span>Used</span><span class="n" id="ccused2">{{ d.card.used|money }}</span>
+    <div class="sum cardsum" style="margin-top:12px">
+      <span>Limit</span><span class="n">{% if phone %}<span id="cclimit">{{ d.card.limit|money }}</span>{% else %}<form class="inline" method="post" action="/card/limit"><input class="amount" type="text" name="amount" inputmode="decimal" value="{{ '%.2f'|format(d.card.limit) }}" aria-label="Limit"><button class="small" type="submit">Change</button></form>{% endif %}</span>
+      <span>Used <span class="labels">type the Zopa app's amount to make it exact</span></span><span class="n"><form class="inline" method="post" action="/card/balance" id="ccbalform"><input class="amount" type="text" name="amount" id="ccused2" inputmode="decimal" value="{{ '%.2f'|format(d.card.used) }}" aria-label="What the Zopa card owes now"><button class="small" type="submit">Change</button></form></span>
       <span class="eq">Free</span><span class="n eq" id="ccfree2">{{ d.card.free|money }}</span>
     </div>
   </div>
@@ -995,50 +994,63 @@
     drawCard();
   }
 
-  // Credit card (5 Oct 2026): the PC's list, minus removes, plus adds; used/free follow at once
+  // Credit card (5 Oct 2026): the PC's lines, minus removes, plus adds and corrections; payments clear the oldest
+  // first, like fintrack/creditcard.py allocate (the PC tidies old crossed-out lines next time)
   function cardRows() {
     var changes = waiting.map(function (c) { return [c, 'waiting']; }).concat(local.map(function (c) { return [c, 'unsent']; }))
       .filter(function (p) { return p[0].type === 'card'; });
-    var removed = {}, limit = (PC.card || {}).limit || 0;
+    var removed = {}, card = PC.card || {}, limit = card.limit || 0, carry = card.carry || 0;
     changes.forEach(function (p) {
-      if (p[0].action === 'remove') removed[p[0].id] = p;
+      if (p[0].action === 'remove') removed[p[0].id] = true;
       if (p[0].action === 'limit') limit = p[0].amount;
     });
-    var list = ((PC.card || {}).items || []).map(function (i) {
-      var r = removed[i.id];
-      return {id: i.id, date: i.date, name: i.name, amount: i.amount, gone: !!r, state: r ? r[1] : 'pc', change: r ? r[0] : null};
+    var list = (card.items || []).filter(function (i) { return !removed[i.id]; }).map(function (i) {
+      return {id: i.id, date: i.date, name: i.name, amount: i.amount, state: 'pc', change: null};
     });
+    function used() { var u = carry; list.forEach(function (r) { u += r.amount; }); return Math.round(u * 100) / 100; }
     changes.forEach(function (p) {
-      if (p[0].action === 'balance') {                     // what the card owes now: everything before it goes
-        list.forEach(function (r) { if (!r.gone) { r.gone = true; r.state = p[1]; } });
-        if (p[0].amount) list.push({date: p[0].date, name: 'Balance', amount: p[0].amount, gone: false, state: p[1], change: p[0]});
+      var c = p[0];
+      if (c.action === 'add') list.push({date: c.date, name: c.name, amount: c.amount, state: p[1], change: c});
+      if (c.action === 'balance') {
+        var diff = Math.round((c.amount - used()) * 100) / 100;
+        if (diff) list.push({date: c.date, name: 'Correction', amount: diff, state: p[1], change: c});
       }
-      if (p[0].action === 'add') list.push({date: p[0].date, name: p[0].name, amount: p[0].amount, gone: false, state: p[1], change: p[0]});
     });
-    return {limit: limit, list: list};
+    var debts = Math.max(carry, 0), credit = Math.max(-carry, 0);
+    list.forEach(function (r) { if (r.amount > 0) debts += r.amount; else credit -= r.amount; });
+    var pot = credit - Math.max(carry, 0);
+    list.forEach(function (r) {
+      if (r.amount > 0) {
+        var take = Math.min(Math.max(pot, 0), r.amount);
+        pot = Math.round((pot - take) * 100) / 100;
+        r.left = Math.round((r.amount - take) * 100) / 100;
+        r.status = r.left <= 0 ? 'paid' : (take > 0 ? 'part' : 'owed');
+      } else r.status = 'credit';
+    });
+    return {limit: limit, list: list, used: used()};
   }
 
   function drawCard() {
-    var c = cardRows(), t = $('cardlist'), used = 0;
-    c.list.forEach(function (r) { if (!r.gone) used += r.amount; });
-    var free = c.limit - used, el;
-    el = $('ccused'); if (el && document.activeElement !== el) el.value = used.toFixed(2);
-    el = $('ccused2'); if (el) el.textContent = money(used);
+    var c = cardRows(), t = $('cardlist'), used = c.used, free = c.limit - used, el;
+    el = $('ccused'); if (el) el.textContent = money(used);
+    el = $('ccused2'); if (el && document.activeElement !== el) el.value = used.toFixed(2);
     el = $('ccfree2'); if (el) el.textContent = money(free);
     el = $('ccfree'); if (el) { el.textContent = money(free); el.classList.toggle('bad', free < 0); el.classList.toggle('good', free >= 0); }
     el = $('cclimit'); if (el) el.textContent = money(c.limit);
     if (!t) return;
     t.innerHTML = '';
     c.list.forEach(function (r) {
-      if (r.gone) return;
       var tr = document.createElement('tr');
-      tr.innerHTML = '<td></td><td><span class="nm"></span><span class="state"></span></td><td class="n"></td><td class="n"><button class="small" type="button">Remove</button></td>';
+      if (r.status === 'paid') tr.className = 'crossed';
+      tr.innerHTML = '<td></td><td><span class="nm"></span><span class="labels"></span><span class="state"></span></td><td class="n"></td><td class="n"><button class="small" type="button">Remove</button></td>';
       tr.children[0].textContent = day(r.date);
       tr.querySelector('.nm').textContent = r.name;
+      tr.querySelector('.labels').textContent = r.status === 'part' ? money(r.left) + ' left' : '';
       tr.querySelector('.state').textContent = r.state === 'pc' ? '' : ' ⏳ syncing';
       tr.children[2].textContent = money(r.amount);
       if (r.amount < 0) tr.children[2].classList.add('good');
-      tr.querySelector('button').onclick = function () { removeCard(r); };
+      var b = tr.querySelector('button');
+      if (r.status === 'paid') b.remove(); else b.onclick = function () { removeCard(r); };
       t.appendChild(tr);
     });
   }
