@@ -41,6 +41,11 @@
   .leftrow { position: relative; display: flex; justify-content: center; }
   .leftrow .leftx { position: absolute; top: 50%; transform: translateY(-50%); left: calc(50% + 120px); margin: 0; } /* x to the right, boxes stay in line */
   @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr; } }
+  /* Credit card (5 Oct 2026): the pay box spans 2 rows, 4 half-height tiles fill the right (2 x 2) */
+  .tiles.toprow .paytile { grid-row: span 2; }
+  .tiles.toprow .half { padding: 8px 10px; display: flex; flex-direction: column; justify-content: center; }
+  .tiles.toprow .half .num { font-size: 21px; line-height: 1.2; }
+  @media (max-width: 640px) { .tiles.toprow { grid-template-columns: 1fr 1fr; } .tiles.toprow .paytile { grid-row: auto; grid-column: 1 / -1; } }
   .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 18px; }
   .tile { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px; text-align: center; }
   .tile .label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
@@ -191,7 +196,7 @@
   </div>
 
   <div class="tiles toprow">
-    <div class="tile"><div class="label">✏️ This month's pay</div>
+    <div class="tile paytile"><div class="label">✏️ This month's pay</div>
       <form class="inline paybox" method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}">
         <input type="hidden" name="clear" value="0">
         <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
@@ -206,11 +211,15 @@
         {% if d.pay.left %}<form class="leftx" method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
       </div></div>
     {% if d.history %}
-    <div class="tile"><div class="label">Spare cash last month</div>
+    <div class="tile half"><div class="label">Spare cash last month</div>
       <div class="num">{{ d.history.last|money }}</div></div>
-    <div class="tile"><div class="label">{{ d.history.months }}-month average</div>
+    <div class="tile half"><div class="label">{{ d.history.months }}-month average</div>
       <div class="num">{{ d.history.avg|money }}</div></div>
     {% endif %}
+    <div class="tile half"><div class="label">💳 Credit card used</div>
+      <div class="num" id="ccused">{{ d.card.used|money }}</div></div>
+    <div class="tile half"><div class="label">💳 Credit card free</div>
+      <div class="num {{ 'bad' if d.card.free < 0 else 'good' }}" id="ccfree">{{ d.card.free|money }}</div></div>
   </div>
 
   {% if not phone %}
@@ -313,6 +322,41 @@
       <span>Money for spending</span><span class="n" id="mfs">{{ d.money_for_spending|money }}</span>
       <span>Typed so far</span><span class="n" id="typed">{{ (d.money_for_spending - d.left_now)|money }}</span>
       <span class="eq">Left now</span><span class="n eq" id="leftnow">{{ d.left_now|money }}</span>
+    </div>
+  </div>
+  {% endset %}
+  {% set c_card %}
+  <div class="card" data-id="card" data-card="card">
+    <h2><span class="handle" title="Drag to move">⠿</span> 💳 Credit card<button type="button" class="fold" title="Fold">▾</button></h2>
+    {% if phone %}
+    <form class="inline" id="cardform">
+      <input class="amount" type="text" id="cardamount" inputmode="decimal" placeholder="40" aria-label="Amount">
+      <input class="name" type="text" id="cardname" placeholder="Shell" aria-label="What">
+      <button type="submit">Add</button>
+      <button type="button" class="small" id="cardpaid">Paid off</button>
+    </form>
+    <div class="error" id="carderror" hidden>Type an amount and a name, e.g. 40 and Shell.</div>
+    <table style="margin-top:12px" id="cardlist"></table>
+    {% else %}
+    <form class="inline" method="post" action="/card/add">
+      <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="40" aria-label="Amount">
+      <input class="name" type="text" name="name" placeholder="Shell" aria-label="What">
+      <button type="submit">Add</button>
+      <button type="submit" class="small" name="paid" value="1" title="Money you paid off the card (name can be empty)">Paid off</button>
+    </form>
+    {% if d.card['items'] %}
+      <table style="margin-top:12px">
+        {% for i in d.card['items'] %}
+          <tr><td>{{ i.date|day }}</td><td>{{ i.name }}</td><td class="n {{ 'good' if i.amount < 0 else '' }}">{{ i.amount|money }}</td>
+              <td class="n"><form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ i.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
+        {% endfor %}
+      </table>
+    {% endif %}
+    {% endif %}
+    <div class="sum" style="margin-top:12px">
+      <span>Limit</span><span class="n">{% if phone %}<span id="cclimit">{{ d.card.limit|money }}</span>{% else %}<form class="inline" method="post" action="/card/limit" style="justify-content:flex-end"><input class="amount" type="text" name="amount" inputmode="decimal" value="{{ '%.2f'|format(d.card.limit) }}" aria-label="Limit"><button class="small" type="submit">Change</button></form>{% endif %}</span>
+      <span>Used</span><span class="n" id="ccused2">{{ d.card.used|money }}</span>
+      <span class="eq">Free</span><span class="n eq" id="ccfree2">{{ d.card.free|money }}</span>
     </div>
   </div>
   {% endset %}
@@ -457,7 +501,7 @@
     </div>
   </div>
   {% endset %}
-  {% set cards = {"spend": c_spend, "bills": c_bills, "lastmonth": c_last, "where": c_where, "cats": c_cats, "subs": c_subs, "periods": c_periods} %}
+  {% set cards = {"spend": c_spend, "card": c_card, "bills": c_bills, "lastmonth": c_last, "where": c_where, "cats": c_cats, "subs": c_subs, "periods": c_periods} %}
   <!-- Cards and rows in the user's own order, rows renamed (fintrack/layout.py, 3 Oct 2026) -->
   <div id="cards" data-sort="cards">
   {% for id in d.cards %}{{ cards[id] }}{% endfor %}
@@ -943,6 +987,70 @@
       t.appendChild(tr);
     });
     recalc();
+    drawCard();
+  }
+
+  // Credit card (5 Oct 2026): the PC's list, minus removes, plus adds; used/free follow at once
+  function cardRows() {
+    var changes = waiting.map(function (c) { return [c, 'waiting']; }).concat(local.map(function (c) { return [c, 'unsent']; }))
+      .filter(function (p) { return p[0].type === 'card'; });
+    var removed = {}, limit = (PC.card || {}).limit || 0;
+    changes.forEach(function (p) {
+      if (p[0].action === 'remove') removed[p[0].id] = p;
+      if (p[0].action === 'limit') limit = p[0].amount;
+    });
+    var list = ((PC.card || {}).items || []).map(function (i) {
+      var r = removed[i.id];
+      return {id: i.id, date: i.date, name: i.name, amount: i.amount, gone: !!r, state: r ? r[1] : 'pc', change: r ? r[0] : null};
+    });
+    changes.forEach(function (p) {
+      if (p[0].action === 'add') list.push({date: p[0].date, name: p[0].name, amount: p[0].amount, gone: false, state: p[1], change: p[0]});
+    });
+    return {limit: limit, list: list};
+  }
+
+  function drawCard() {
+    var c = cardRows(), t = $('cardlist'), used = 0;
+    c.list.forEach(function (r) { if (!r.gone) used += r.amount; });
+    var free = c.limit - used, el;
+    el = $('ccused'); if (el) el.textContent = money(used);
+    el = $('ccused2'); if (el) el.textContent = money(used);
+    el = $('ccfree2'); if (el) el.textContent = money(free);
+    el = $('ccfree'); if (el) { el.textContent = money(free); el.classList.toggle('bad', free < 0); el.classList.toggle('good', free >= 0); }
+    el = $('cclimit'); if (el) el.textContent = money(c.limit);
+    if (!t) return;
+    t.innerHTML = '';
+    c.list.forEach(function (r) {
+      if (r.gone) return;
+      var tr = document.createElement('tr');
+      tr.innerHTML = '<td></td><td><span class="nm"></span><span class="state"></span></td><td class="n"></td><td class="n"><button class="small" type="button">Remove</button></td>';
+      tr.children[0].textContent = day(r.date);
+      tr.querySelector('.nm').textContent = r.name;
+      tr.querySelector('.state').textContent = r.state === 'pc' ? '' : ' ⏳ syncing';
+      tr.children[2].textContent = money(r.amount);
+      if (r.amount < 0) tr.children[2].classList.add('good');
+      tr.querySelector('button').onclick = function () { removeCard(r); };
+      t.appendChild(tr);
+    });
+  }
+
+  function removeCard(r) {
+    if (r.state === 'pc') {
+      local.push({cid: newId(), type: 'card', action: 'remove', id: r.id});
+    } else if (r.state === 'unsent') {
+      local = local.filter(function (c) { return c.cid !== r.change.cid; });
+    } else if (r.state === 'waiting') {
+      fetch('cancel', {method: 'POST', headers: {'Content-Type': 'application/json'}, credentials: 'same-origin',
+                       body: JSON.stringify({cid: r.change.cid})})
+        .then(function (res) { return res.ok ? res.json() : null; })
+        .then(function (j) { if (j) waiting = j.changes || []; draw(); updateSyncIcon(); })
+        .catch(function () {});
+      waiting = waiting.filter(function (c) { return c.cid !== r.change.cid; });
+    }
+    save();
+    draw();
+    updateSyncIcon();
+    queueSend().then(function () { draw(); updateSyncIcon(); });
   }
 
   function undoOrRemove(r) {
@@ -979,6 +1087,25 @@
       draw();
       updateSyncIcon();
     };
+  }
+
+  // Credit card form: Add = a spend, Paid off = money off the card (name can be empty)
+  function cardSend(paid) {
+    var amount = readMoney($('cardamount').value);
+    var name = $('cardname').value.trim() || (paid ? 'Paid off' : '');
+    if (!(amount > 0) || !name) { $('carderror').hidden = false; return; }
+    $('carderror').hidden = true;
+    amount = Math.round(amount * 100) / 100;
+    phoneSend({cid: newId(), type: 'card', action: 'add', date: todayIso(), amount: paid ? -amount : amount, name: name.slice(0, 60)});
+    $('cardamount').value = '';
+    $('cardname').value = '';
+    draw();
+    updateSyncIcon();
+  }
+  var cardform = $('cardform');
+  if (cardform) {
+    cardform.onsubmit = function (e) { e.preventDefault(); cardSend(false); };
+    $('cardpaid').onclick = function () { cardSend(true); };
   }
 
   // Pay form

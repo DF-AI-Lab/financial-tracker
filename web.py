@@ -33,6 +33,9 @@ def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None, stamp=None)
               "wage": d["pay"]["wage"] if d.get("ready") else 0, "left": d["pay"].get("left", 0) if d.get("ready") else 0,
               "spends": [{"id": s["id"], "date": s["date"].isoformat(), "amount": s["amount"], "name": s["name"],
                           "category": s["category"] or ""} for s in d.get("spends", [])],
+              "card": {"limit": d["card"]["limit"],
+                       "items": [{"id": i["id"], "date": i["date"].isoformat(), "amount": i["amount"], "name": i["name"]}
+                                 for i in d["card"]["items"]]} if d.get("ready") else {"limit": 0, "items": []},
               "stamp": stamp}
     if now is None:
         now = f"{datetime.now():%a} {datetime.now().day} {datetime.now():%b, %H:%M}"
@@ -164,6 +167,8 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
             error = "Sorry, I could not read that as money."
         elif error_code == "spend":
             error = "Sorry, type an amount and a name, e.g. 12.50 and Costa."
+        elif error_code == "card":
+            error = "Sorry, type an amount and a name for the credit card, e.g. 40 and Shell."
 
         vfile = Path(__file__).parent / "version.txt"
         version = vfile.read_text().strip() if vfile.exists() else None
@@ -214,6 +219,47 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
 
+        return redirect(url_for("home"), code=303)
+
+    # Credit card (5 Oct 2026): POST /card/add {amount, name, paid=1 for money paid off}, /card/remove {id},
+    # /card/limit {amount}
+    @app.route("/card/add", methods=["POST"])
+    def card_add():
+        from fintrack.creditcard import add_card
+        amount = parse_money(request.form.get("amount", ""))
+        paid = request.form.get("paid") == "1"
+        name = request.form.get("name", "").strip() or ("Paid off" if paid else "")
+        if amount is None or not name:
+            return redirect(url_for("home", error="card"), code=303)
+        conn = open_db(db_path)
+        add_card(conn, date.today() if today is None else today, -amount if paid else amount, name)
+        conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
+        return redirect(url_for("home"), code=303)
+
+    @app.route("/card/remove", methods=["POST"])
+    def card_remove():
+        from fintrack.creditcard import remove_card
+        try:
+            item_id = int(request.form.get("id", ""))
+        except ValueError:
+            return redirect(url_for("home"), code=303)
+        conn = open_db(db_path)
+        remove_card(conn, item_id)
+        conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
+        return redirect(url_for("home"), code=303)
+
+    @app.route("/card/limit", methods=["POST"])
+    def card_limit():
+        from fintrack.creditcard import set_limit
+        amount = parse_money(request.form.get("amount", ""))
+        if amount is None:
+            return redirect(url_for("home", error="pay"), code=303)
+        conn = open_db(db_path)
+        set_limit(conn, amount)
+        conn.close()
+        push(db_path, wage_payer, today, http=phone_http)
         return redirect(url_for("home"), code=303)
 
     # POST /bill: change a bill for this pay cycle only (empty amount = put it back)

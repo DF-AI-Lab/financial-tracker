@@ -209,7 +209,7 @@ def valid(c):
             return False
         return isinstance(c.get("id"), int) and not isinstance(c.get("id"), bool)
     # New types for PC: just check cid and that the JSON is not too big
-    if ctype in ("pay", "left", "bill", "sort", "ask"):
+    if ctype in ("pay", "left", "bill", "sort", "ask", "card"):
         body_str = json.dumps(c)
         return len(body_str) <= 20000
     return False

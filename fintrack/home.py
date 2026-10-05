@@ -12,6 +12,7 @@ from fintrack.sparehist import spare_history
 from fintrack.picture import six_month_picture
 from fintrack.yearly import yearly_due
 from fintrack.periods import period_totals
+from fintrack.creditcard import get_card
 from fintrack.store import load_txns, get_items, get_rules, get_categories, get_spends, get_value
 
 
@@ -154,7 +155,8 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
         "history": spare_history(cycles, analysis),
         "picture": picture,
         "statements_to": statements_to,
-        "periods": periods
+        "periods": periods,
+        "card": get_card(conn),
     }
 
 

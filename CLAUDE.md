@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 4 Oct 2026._
+_Last updated: 5 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -102,6 +102,11 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    row "items") with → Bill; Subscriptions → Bill (subs "keys"/"bill"; stays in Subscriptions too). → Bill = the
    existing sort save {kind bill} (PC: /sort/save; phone: 'sort' change, no site re-paste). Haiku built it; I fixed the
    phone CSS that hid opened items and the fold button style.
+   5 Oct BUILT (431 tests + browser check): 💳 Credit card (Zopa, limit 500): `fintrack/creditcard.py` (kv credit_card,
+   typed by hand: Add = spend, Paid off = negative; used = sum, free = limit - used; not part of spare cash), card 'card'
+   in CARDS, POST /card/add|remove|limit, phone change {type card, action add/remove/limit} (cloud/flask_app.py
+   accepts 'card': RE-PASTE on PythonAnywhere). Top row: pay box spans 2 rows, 4 half-height tiles (spare last month,
+   avg, credit card used, credit card free). Built by me.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).

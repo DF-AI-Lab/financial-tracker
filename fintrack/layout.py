@@ -10,7 +10,7 @@ from fintrack.store import get_value, set_value
 
 KEY = "layout"
 # The cards that can be moved, in their normal order (the ids the page uses).
-CARDS = ["spend", "bills", "lastmonth", "where", "cats", "subs", "periods"]
+CARDS = ["spend", "card", "bills", "lastmonth", "where", "cats", "subs", "periods"]
 # The lists of rows that can be moved.
 SORTS = ["cards", "bills", "lastmonth", "cats", "subs-active", "subs-stopped"]
 

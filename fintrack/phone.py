@@ -104,7 +104,7 @@ def upload(conn, html, http=http_json, stamp=None) -> bool:
 
 
 def apply_changes(conn, changes, wage_payer) -> int:
-    """Apply phone changes (add, remove, pay, left, bill, sort, ask types).
+    """Apply phone changes (add, remove, pay, left, bill, sort, ask, card types).
     Returns how many were done. Never raises on bad input."""
     from fintrack.home import home_data
     from fintrack.billchange import set_change, clear_change, set_left, clear_left
@@ -185,6 +185,23 @@ def apply_changes(conn, changes, wage_payer) -> int:
                 answers = c.get("answers")
                 if isinstance(answers, list):
                     save_answers(conn, answers)
+                    done += 1
+            elif ctype == "card":
+                from fintrack import creditcard
+                action, amount = c.get("action"), c.get("amount")
+                is_num = isinstance(amount, (int, float)) and not isinstance(amount, bool)
+                if action == "add" and is_num and amount != 0 and str(c.get("name", "")).strip():
+                    try:
+                        d = date.fromisoformat(c.get("date", ""))
+                    except (TypeError, ValueError):
+                        continue
+                    creditcard.add_card(conn, d, float(amount), str(c["name"]))
+                    done += 1
+                elif action == "remove" and isinstance(c.get("id"), int) and not isinstance(c.get("id"), bool):
+                    if creditcard.remove_card(conn, c["id"]):
+                        done += 1
+                elif action == "limit" and is_num and amount > 0:
+                    creditcard.set_limit(conn, float(amount))
                     done += 1
             elif ctype == "ask":
                 d = home_data(conn, wage_payer=wage_payer)
