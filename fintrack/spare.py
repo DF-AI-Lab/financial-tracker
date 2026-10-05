@@ -191,12 +191,18 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
                 continue
 
             if category not in spending_dict:
-                spending_dict[category] = {"last": 0.0, "labels": {}}
+                spending_dict[category] = {"last": 0.0, "labels": {}, "items_map": {}}
 
             spending_dict[category]["last"] += abs(txn.amount)
             if label not in spending_dict[category]["labels"]:
                 spending_dict[category]["labels"][label] = 0.0
             spending_dict[category]["labels"][label] += abs(txn.amount)
+
+            # Track items: item_key -> (label, amount)
+            k = item_key(txn)
+            if k not in spending_dict[category]["items_map"]:
+                spending_dict[category]["items_map"][k] = {"label": label, "amounts": []}
+            spending_dict[category]["items_map"][k]["amounts"].append(abs(txn.amount))
 
         # Calculate averages for all random_txns
         cycles_used = analysis.cycles_used
@@ -209,7 +215,7 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
                 continue
 
             if category not in spending_dict:
-                spending_dict[category] = {"last": 0.0, "labels": {}}
+                spending_dict[category] = {"last": 0.0, "labels": {}, "items_map": {}}
             if "avg" not in spending_dict[category]:
                 spending_dict[category]["avg"] = 0.0
             if label not in spending_dict[category]["labels"]:
@@ -225,11 +231,25 @@ def pay_block(cycles: List[Cycle], analysis: Analysis, wage: float, categories=N
             label_totals.sort(key=lambda x: (-x[1], x[0]))
             top_labels = [label for label, _ in label_totals[:3]]
 
+            # Build items: payees with 4.00+ payments in the last cycle
+            items_list = []
+            for key, item_data in data["items_map"].items():
+                total_4plus = sum(amt for amt in item_data["amounts"] if amt >= 4.0)
+                if total_4plus > 0:
+                    items_list.append({
+                        "key": key,
+                        "name": item_data["label"],
+                        "last": total_4plus
+                    })
+            # Sort by last (biggest first), then by name
+            items_list.sort(key=lambda x: (-x["last"], x["name"]))
+
             row = {
                 "category": category,
                 "last": data.get("last", 0.0),
                 "avg": data.get("avg", 0.0),
-                "labels": top_labels
+                "labels": top_labels,
+                "items": items_list
             }
             spending.append(row)
 

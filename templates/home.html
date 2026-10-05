@@ -77,6 +77,10 @@
   .addsup { display: flex; justify-content: space-between; font-weight: 700; padding-top: 8px; }
   .scroll { overflow-x: auto; }
   @media (max-width: 520px) { table.periods { font-size: 13px; } table.periods th, table.periods td { padding: 6px 3px; } }
+  .card.folded > :not(h2) { display: none; }
+  .card h2 .fold { float: right; background: none; border: 0; color: var(--muted); font-size: 18px; padding: 0 4px; line-height: 1; }
+  [data-card] table tr.item { border: 0; padding: 2px 14px; margin: 0; }
+  [data-card] table tr.item td { border: 0; padding: 2px 0; }
   @media (max-width: 640px) {
     /* Card mode on narrow screens (user, 4 Oct 2026): each row is a card, the name on top, the numbers side by side
        with their column name above them (data-label, copied from the header by the script at the bottom). */
@@ -85,6 +89,12 @@
     [data-card]:not([data-card="spend"]) table tr { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px 14px;
       padding: 10px 14px; margin-bottom: 8px; border: 1px solid var(--border); border-radius: 10px; }
     [data-card]:not([data-card="spend"]) table tr.total { border-width: 2px; }
+    [data-card]:not([data-card="spend"]) table tr.item { display: flex; justify-content: space-between; align-items: center;
+      gap: 10px; border: 0; padding: 3px 14px 3px 26px; margin: 0 0 2px; }
+    [data-card]:not([data-card="spend"]) table tr.item[hidden] { display: none; }
+    [data-card]:not([data-card="spend"]) table tr.item td:first-child { font-weight: 400; }
+    [data-card]:not([data-card="spend"]) table tr.item td.n:empty { display: none; }
+    [data-card]:not([data-card="spend"]) table tr.item td.n::before { content: none; }
     [data-card]:not([data-card="spend"]) table td { display: block; border: 0; padding: 0; min-width: 0; text-align: left; white-space: normal; }
     [data-card]:not([data-card="spend"]) table td:first-child { grid-column: 1 / -1; font-weight: 700; }
     [data-card]:not([data-card="spend"]) table td .x { margin-left: 4px; padding: 2px 7px; }
@@ -275,7 +285,7 @@
   {% set bills_last = d.pay.bills|sum(attribute='last') %}
   {% set c_spend %}
   <div class="card" data-id="spend" data-card="spend">
-    <h2><span class="handle" title="Drag to move">⠿</span> ➕ Add a spend</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> ➕ Add a spend<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if phone %}
     <form class="inline" id="addform">
       <input class="amount" type="text" id="addamount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
@@ -308,7 +318,7 @@
   {% endset %}
   {% set c_bills %}
   <div class="card" data-id="bills" data-card="bills">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🏠 Bills (every month)</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> 🏠 Bills (every month)<button type="button" class="fold" title="Fold">▾</button></h2>
     <table id="bills">
       <thead><tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr></thead>
       <tbody data-sort="bills">
@@ -336,7 +346,7 @@
   {% endset %}
   {% set c_last %}
   <div class="card" data-id="lastmonth" data-card="lastmonth">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🛒 Last month's spending</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> 🛒 Last month's spending<button type="button" class="fold" title="Fold">▾</button></h2>
     <table>
       <thead><tr><th>What</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
       {% set bd = bills_last - d.pay.bills_avg %}
@@ -346,9 +356,13 @@
       <tbody data-sort="lastmonth">
       {% for s in d.pay.spending %}
         {% set sd = s.last - s.avg %}
-        <tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span>{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
+        {% set sitems = s['items'] if 'items' in s else [] %}
+        <tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span>{% if sitems %}<button type="button" class="small openitems">▸ {{ sitems|length }}</button>{% endif %}{% if s.labels %}<span class="labels">{{ s.labels|join(', ') }}</span>{% endif %}</td>
             <td class="n">{{ s.avg|money }}</td><td class="n">{{ s.last|money }}</td>
             <td class="n {{ 'good' if sd < -0.005 else ('bad' if sd > 0.005 else '') }}">{{ sd|diff }}</td></tr>
+        {% for i in sitems %}
+        <tr class="item" data-cat="{{ s.id }}" hidden><td style="padding-left:30px">{{ i.name }} <button type="button" class="small tobill" data-key="{{ i.key }}" data-name="{{ i.name }}">→ Bill</button></td><td class="n"></td><td class="n">{{ i.last|money }}</td><td class="n"></td></tr>
+        {% endfor %}
       {% endfor %}
       </tbody>
       {% set td = bills_last + d.pay.spending_last - d.pay.bills_avg - d.pay.spending_avg %}
@@ -360,7 +374,7 @@
   {% set c_where %}
   {% if d.last %}
   <div class="card" data-id="where" data-card="where">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🔍 Where did last cycle's money go?</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> 🔍 Where did last cycle's money go?<button type="button" class="fold" title="Fold">▾</button></h2>
     <div class="sub">{{ d.last.start|day }} to {{ d.last.end|day }}</div>
     <div class="tiles">
       <div class="tile"><div class="label">Expected spare</div><div class="num">{{ d.last.expected|money }}</div></div>
@@ -386,7 +400,7 @@
   {% endset %}
   {% set c_cats %}
   <div class="card" data-id="cats" data-card="cats">
-    <h2><span class="handle" title="Drag to move">⠿</span> 📊 Spending by category</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> 📊 Spending by category<button type="button" class="fold" title="Fold">▾</button></h2>
     <div class="sub">This cycle so far vs the {{ d.categories.cycles_used }}-cycle average. Tap one to see inside.</div>
     <div data-sort="cats">
     {% for r in d.categories.rows %}
@@ -401,17 +415,17 @@
   {% endset %}
   {% set c_subs %}
   <div class="card" data-id="subs" data-card="subs">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🔁 Subscriptions</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> 🔁 Subscriptions<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if d.subs.active or d.subs.stopped %}
       <table>
         <thead><tr><th>Still paying</th><th class="n">Monthly price</th><th class="n">Last 12 months</th><th class="n">This year</th></tr></thead>
         <tbody data-sort="subs-active">
-        {% for s in d.subs.active %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span><span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+        {% for s in d.subs.active %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span>{% if not s['bill'] %}<button type="button" class="small tobill" data-key="{{ s['keys']|join(',') }}" data-name="{{ s.name }}">→ Bill</button>{% else %}<span class="labels muted">in Bills</span>{% endif %}<span class="labels">since {{ s.since|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
         </tbody>
         {% if d.subs.stopped %}
           <tbody><tr><td colspan="4" class="muted" style="padding-top:14px">Stopped</td></tr></tbody>
           <tbody data-sort="subs-stopped">
-          {% for s in d.subs.stopped %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span><span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
+          {% for s in d.subs.stopped %}<tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span>{% if not s['bill'] %}<button type="button" class="small tobill" data-key="{{ s['keys']|join(',') }}" data-name="{{ s.name }}">→ Bill</button>{% else %}<span class="labels muted">in Bills</span>{% endif %}<span class="labels">{{ s.since|month }} to {{ s.last|month }}</span></td><td class="n">{{ s.usual|money }}</td><td class="n">{{ s.last12|money }}</td><td class="n">{{ s.this_year|money }}</td></tr>{% endfor %}
           </tbody>
         {% endif %}
       </table>
@@ -421,7 +435,7 @@
   {% endset %}
   {% set c_periods %}
   <div class="card" data-id="periods" data-card="periods">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🗓️ 6 months, 12 months and this year</h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> 🗓️ 6 months, 12 months and this year<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if d.periods %}
     <div class="scroll"><table class="periods">
       <tr><th></th>{% for p in d.periods %}<th class="n">{{ p.name }}<span class="labels">{{ p.cycles }} pay cycle{{ 's' if p.cycles != 1 else '' }}</span></th>{% endfor %}</tr>
@@ -458,6 +472,62 @@
 </div>
 
 <script>
+  // Fold cards: toggle folded class and save/load from localStorage (user, 5 Oct 2026)
+  var folded = [];
+  try {
+    var stored = localStorage.getItem('ft_folded');
+    if (stored) folded = JSON.parse(stored);
+  } catch (e) {}
+
+  function saveFolded() {
+    try {
+      var ids = [];
+      document.querySelectorAll('.card.folded').forEach(function (c) {
+        if (c.dataset.id) ids.push(c.dataset.id);
+      });
+      localStorage.setItem('ft_folded', JSON.stringify(ids));
+    } catch (e) {}
+  }
+
+  // Restore folded state
+  folded.forEach(function (id) {
+    var card = document.querySelector('.card[data-id="' + id + '"]');
+    if (card) {
+      card.classList.add('folded');
+      var btn = card.querySelector('h2 .fold');
+      if (btn) btn.textContent = '▸';
+    }
+  });
+
+  // Handle fold button clicks
+  document.querySelectorAll('.card h2 .fold').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var card = btn.closest('.card');
+      if (!card) return;
+      card.classList.toggle('folded');
+      var text = card.classList.contains('folded') ? '▸' : '▾';
+      btn.textContent = text;
+      saveFolded();
+    });
+  });
+
+  // Expand/collapse items in last month's spending
+  document.querySelectorAll('.openitems').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var row = btn.closest('tr');
+      if (!row) return;
+      var catId = row.dataset.id;
+      var items = document.querySelectorAll('tr.item[data-cat="' + catId + '"]');
+      var isHidden = items[0] && items[0].hidden;
+      items.forEach(function (item) { item.hidden = !isHidden; });
+      btn.textContent = isHidden ? '▾ ' + items.length : '▸ ' + items.length;
+    });
+  });
+
   // Set up data-label attributes for responsive tables (runs on all pages before other scripts)
   document.querySelectorAll('table').forEach(function (table) {
     var headers = [];
@@ -676,6 +746,14 @@
     const b = e.target.closest('button'); if (!b) return;
     seg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
   }));
+  // → Bill buttons (last month's spending items and subscriptions)
+  document.querySelectorAll('.tobill').forEach(btn => btn.addEventListener('click', async () => {
+    const keys = btn.dataset.key.split(',');
+    const answers = keys.map(k => ({key: k, kind: 'bill', label: '', category: ''}));
+    await fetch('/sort/save', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({answers})});
+    location.reload();
+  }));
+
   const sortSave = document.getElementById('sortsave');
   if (sortSave) sortSave.addEventListener('click', async () => {
     const answers = [...document.querySelectorAll('tr.sortrow')].map(r => ({
@@ -1080,6 +1158,21 @@
         .catch(function () {});
     });
   }
+
+  // → Bill buttons (last month's spending items and subscriptions)
+  document.querySelectorAll('.tobill').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      e.preventDefault();
+      var keys = (btn.dataset.key || '').split(',');
+      var answers = [];
+      keys.forEach(function (k) {
+        if (k) answers.push({key: k, kind: 'bill', label: '', category: ''});
+      });
+      phoneSend({cid: newId(), type: 'sort', answers: answers});
+      btn.replaceWith(document.createTextNode('⏳ to Bills'));
+      updateSyncIcon();
+    });
+  });
 
   // Sort save
   var sortSave = $('sortsave');

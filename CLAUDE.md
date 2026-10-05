@@ -97,6 +97,11 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    Always-subscriptions (user, 4 Oct): fintrack/subs.py ALWAYS list (Claude/ANTHROPIC, ChatGPT/OPENAI, Google Play,
    Audible), card payments matched on description + detail (overseas payments: shop name is in detail), no regularity
    checks, refunds and cash never count. Add more names to ALWAYS. Real DB: all 4 show (ChatGPT stopped, last Jun 2026).
+   5 Oct BUILT (421 tests + browser check): fold any card (▾ on the h2, localStorage ft_folded, per device); Last month's
+   spending: Bills row stays bundled, each category opens (▸ N) to its payees of 4.00+ last cycle (pay_block spending
+   row "items") with → Bill; Subscriptions → Bill (subs "keys"/"bill"; stays in Subscriptions too). → Bill = the
+   existing sort save {kind bill} (PC: /sort/save; phone: 'sort' change, no site re-paste). Haiku built it; I fixed the
+   phone CSS that hid opened items and the fold button style.
 0. 3 Oct: user changed jobs (from Apr 2026); cycles were stuck at 31 Mar. Added `run.py wage NAME` (fintrack/wages.py).
    Same day: `run.py early` / `early N` (fintrack/early.py): rent sent the day before payday counts in the next cycle
    (moved payments are re-dated to the payday in load_moved; kv key moved_early).

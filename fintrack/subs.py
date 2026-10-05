@@ -90,6 +90,10 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
             months = len(months_set)
             is_active = (end - last).days <= 45
 
+            # Get keys and check if it's a bill
+            keys = sorted(set(item_key(t) for t in matching_txns))
+            is_bill = all(k in items and items[k].get("kind") in ("common", "regular") for k in keys)
+
             subscription = {
                 "name": always_name,
                 "usual": usual,
@@ -98,7 +102,9 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
                 "total": total,
                 "months": months,
                 "last12": sum(abs(t.amount) for t in matching_txns if (end - t.date).days < 365),
-                "this_year": sum(abs(t.amount) for t in matching_txns if t.date.year == end.year)
+                "this_year": sum(abs(t.amount) for t in matching_txns if t.date.year == end.year),
+                "keys": keys,
+                "bill": is_bill
             }
 
             subscriptions.append(("active" if is_active else "stopped", subscription))
@@ -183,6 +189,10 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
         days_since_last = (end - last).days
         is_active = days_since_last <= 45
 
+        # Get keys and check if it's a bill
+        keys = [key]  # For regular subscriptions, there's only one key
+        is_bill = key in items and items[key].get("kind") in ("common", "regular")
+
         subscription = {
             "name": name,
             "usual": usual,
@@ -191,7 +201,9 @@ def find_subscriptions(txns: List[Txn], items: Optional[Dict] = None) -> Dict:
             "total": total,
             "months": months,
             "last12": sum(abs(t.amount) for t in txns_list if (end - t.date).days < 365),
-            "this_year": sum(abs(t.amount) for t in txns_list if t.date.year == end.year)
+            "this_year": sum(abs(t.amount) for t in txns_list if t.date.year == end.year),
+            "keys": keys,
+            "bill": is_bill
         }
 
         subscriptions.append(("active" if is_active else "stopped", subscription))
