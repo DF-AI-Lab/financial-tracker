@@ -45,7 +45,7 @@ def v3_client(v3_app):
     client = v3_app.test_client()
     try:
         from fintrack.v3 import auth
-    except ModuleNotFoundError:
+    except ImportError:                       # sign-in not built yet
         return client
     client.set_cookie(auth.COOKIE, auth.make_device(v3_app))
     return client
