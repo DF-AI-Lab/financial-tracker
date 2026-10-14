@@ -161,7 +161,7 @@
 {% macro emo(e, kind='') %}{% if demo %}<i class="dot {{ kind }}"></i>{% else %}{{ e }}{% endif %}{% endmacro %}
 <div class="wrap">
   {% if demo %}
-  <div class="brand"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday{% if d.ready %} · from {{ d.pay.start|day }} · statements to {{ d.statements_to|day }}{% endif %}</div></div></div>
+  <a class="brand" href="/demo" title="Home: back to the top with the latest numbers"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
   {% else %}
   <h1>💷 Where does my wage go?</h1>
   {% endif %}

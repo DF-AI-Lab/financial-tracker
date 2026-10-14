@@ -64,7 +64,7 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    14 Oct BUILT (445 tests + browser check): DEMO page http://127.0.0.1:5000/demo = the new look, the normal page / is
    unchanged (user: 'only on the demo'). Same template home.html with demo=True: templates/demo_style.html (teal/mint,
    bills blue, spends gold, Manrope, emojis -> coloured dots via the emo() macro), templates/demo_top.html (spare cash
-   as a statement Pay / + Left / - Bills / - Spends = Spare, tap Pay or Left to open the same forms, thin 3-colour ring
+   as a statement (top: icon + name = a home link to /demo, 'Payday to payday', no dates) Pay / + Left / - Bills / - Spends = Spare, tap Pay or Left to open the same forms, thin 3-colour ring
    bills/spends/spare of pay+left, tiles + Zopa bar). Forms post as before; web.home_url sends you back to /demo when the
    Referer is /demo. Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
    swap the demo onto / (and the phone) when they say so.
