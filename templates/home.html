@@ -350,8 +350,13 @@
     {% if d.spends %}
       <table style="margin-top:12px">
         {% for s in d.spends %}
+          {% if demo %}
+          <tr class="drow"><td><b>{{ s.name }}</b><span class="labels">{{ s.date|day }} · {{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
+              <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small xbtn" type="submit" title="Remove" aria-label="Remove {{ s.name }}">×</button></form></td></tr>
+          {% else %}
           <tr><td>{{ s.date|day }}</td><td>{{ s.name }}<span class="labels">{{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
               <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
+          {% endif %}
         {% endfor %}
       </table>
     {% endif %}
@@ -385,9 +390,15 @@
     {% if d.card.rows %}
       <table style="margin-top:12px">
         {% for r in d.card.rows %}
+          {% if demo %}
+          <tr class="drow {{ 'crossed' if r.status == 'paid' else '' }}"><td><b>{{ r.name }}</b><span class="labels">{{ r.date|day }}{% if r.status == 'part' %} · {{ r.left|money }} left{% endif %}</span></td>
+              <td class="n {{ 'good' if r.amount < 0 else '' }}">{{ r.amount|money }}</td>
+              <td class="n">{% if r.removable %}<form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ r.id }}"><button class="small xbtn" type="submit" title="Remove" aria-label="Remove {{ r.name }}">×</button></form>{% endif %}</td></tr>
+          {% else %}
           <tr class="{{ 'crossed' if r.status == 'paid' else '' }}"><td>{{ r.date|day }}</td><td>{{ r.name }}{% if r.status == 'part' %}<span class="labels">{{ r.left|money }} left</span>{% endif %}</td>
               <td class="n {{ 'good' if r.amount < 0 else '' }}">{{ r.amount|money }}</td>
               <td class="n">{% if r.removable %}<form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ r.id }}"><button class="small" type="submit">Remove</button></form>{% endif %}</td></tr>
+          {% endif %}
         {% endfor %}
       </table>
     {% endif %}

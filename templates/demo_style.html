@@ -204,6 +204,50 @@
     body.demo [data-card="lastmonth"] table.dlast tr:not(.item) td.lchev { grid-column: 3; grid-row: 1; }
   }
 
+  /* Spends and Credit card lists: name, date line under it, amount, small × */
+  body.demo [data-card] table tr.drow { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; gap: 12px; align-items: center;
+      padding: 10px 0; margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+  body.demo [data-card] table tr.drow td { display: block; border: 0; padding: 0; min-width: 0; grid-column: auto; font-weight: inherit; text-align: left; }
+  body.demo [data-card] table tr.drow td.n { text-align: right; font-weight: 800; }
+  body.demo [data-card] table tr.drow td.n::before { content: none; }
+  body.demo [data-card] table tr.drow td b { font-weight: 700; }
+  body.demo [data-card] table tr.drow .labels { margin-top: 2px; }
+  body.demo [data-card] table tr.drow.crossed td { text-decoration: none; opacity: .5; }
+  body.demo [data-card] table tr.drow.crossed td b, body.demo [data-card] table tr.drow.crossed td.n { text-decoration: line-through; }
+  .demo .xbtn { width: 30px; height: 30px; padding: 0; font-size: 16px; line-height: 1; color: var(--muted); border-radius: 8px; }
+  .demo .xbtn:hover { color: var(--bad); border-color: var(--bad); }
+  .demo [data-card="spend"] .sum, .demo [data-card="card"] .sum { padding-top: 10px; border-top: 1px solid var(--border); row-gap: 6px; }
+  .demo .sum > span:not(.n):not(.eq) { color: var(--muted); }
+  .demo .sum .eq { border-top: 0; padding-top: 0; }
+
+  /* the other cards: same lines, muted details, pills for differences, thin chevrons */
+  .demo .card .sub { color: var(--muted); font-size: 13px; }
+  .demo .card .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .demo .card .tiles .tile { background: var(--row); border: 1px solid var(--border); padding: 14px 16px; }
+  .demo .card .tiles .tile .num { font-size: 22px; font-weight: 800; }
+  @media (max-width: 520px) { .demo .card .tiles { grid-template-columns: 1fr; } }
+  .demo .card details { border: 0; border-top: 1px solid var(--border); }
+  .demo .card summary { align-items: center; padding: 12px 2px; }
+  .demo .card summary::before { content: ""; flex: none; width: 7px; height: 7px; margin: 0 8px 0 2px; border-right: 1.8px solid var(--muted);
+      border-bottom: 1.8px solid var(--muted); transform: rotate(-45deg); transition: transform .2s; }
+  .demo .card details[open] summary::before { content: ""; transform: rotate(45deg); border-color: var(--accent); }
+  .demo .card summary .what { font-weight: 700; }
+  .demo .card summary .note { font-weight: 500; margin-top: 2px; }
+  .demo .card .inside { padding: 0 2px 12px 20px; }
+  .demo .card .inside div { padding: 5px 0; border-left: 2px solid var(--border); padding-left: 12px; }
+  .demo [data-card="cats"] summary .val { font-size: 12px; font-weight: 700; border-radius: 99px; padding: 3px 9px; }
+  .demo [data-card="cats"] summary .val.good { background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .demo [data-card="cats"] summary .val.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .demo .against { padding: 8px 2px; border-top: 1px solid var(--border); }
+  .demo .addsup { border-top: 2px solid var(--text); margin-top: 4px; padding-top: 10px; }
+  .demo [data-card="subs"] table th, .demo [data-card="periods"] table th { font-size: 11px; font-weight: 700; letter-spacing: .08em; border-bottom: 0; padding-bottom: 8px; }
+  .demo [data-card="subs"] table td, .demo [data-card="periods"] table td { border-bottom: 0; border-top: 1px solid var(--border); padding: 11px 6px; vertical-align: middle; }
+  .demo [data-card="subs"] table td:first-child { font-weight: 700; }
+  .demo [data-card="subs"] table td:first-child .labels { font-weight: 500; margin-top: 2px; }
+  .demo [data-card="periods"] table tr.total td { border-top: 2px solid var(--text); }
+  .demo .tobill { color: var(--bill); font-size: 12px; padding: 3px 8px; margin-left: 8px; }
+  .demo [data-card="periods"] .sum { padding-top: 6px; row-gap: 8px; }
+
   /* credit card: the Zopa ring's colours */
   .demo [data-card="card"] h2, .demo [data-card="card"] td.n { color: var(--zused); }
   .demo [data-card="card"] td.n.good, .demo [data-card="card"] #ccfree2 { color: var(--zfreetext); }
