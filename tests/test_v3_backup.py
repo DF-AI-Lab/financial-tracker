@@ -55,10 +55,10 @@ def test_first_request_makes_todays_backup_only_once(client, v3_data, day):
 
 
 def test_backup_has_the_same_tables_and_rows(client, v3_data, day):
+    original = dump(v3_data / "tracker.db")       # as it was when the backup is made (the page itself saves things)
     client.get("/")
     copy = v3_data / "backups" / "tracker-2026-10-14.db"
     assert sqlite3.connect(str(copy)).execute("PRAGMA integrity_check").fetchone()[0] == "ok"
-    original = dump(v3_data / "tracker.db")
     assert original and any(original.values())
     assert dump(copy) == original
 
