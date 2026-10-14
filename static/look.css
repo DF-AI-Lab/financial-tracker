@@ -74,6 +74,11 @@
   .demo .setmenu .editbar { flex-direction: column; align-items: stretch; margin: 0; }
   .demo .setmenu .editbar button { width: 100%; text-align: left; }
   .demo .setmenu .editbar form button { width: 100%; }
+  /* v3: Fix an item, Download backup, backup codes, Sign out (above Update / Move & rename) */
+  .setmenu .v3links { display: flex; flex-direction: column; gap: 8px; padding-bottom: 8px; margin-bottom: 8px; border-bottom: 1px solid var(--border); }
+  .setmenu .v3links a, .demo .setmenu .v3links button { display: block; width: 100%; text-align: left; text-decoration: none; color: var(--text);
+      background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 600; }
+  .setmenu .v3links a:hover, .setmenu .v3links button:hover { border-color: var(--accent); }
 
   /* dots instead of emojis */
   .demo .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--muted); }
