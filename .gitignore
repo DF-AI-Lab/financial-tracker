@@ -22,3 +22,6 @@ v3data/
 wmm-data/
 v3_settings.json
 backups/
+
+# agent worktrees (temporary)
+.claude/worktrees/
