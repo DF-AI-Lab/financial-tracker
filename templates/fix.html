@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fix an item</title>
+{# v3 Settings -> Fix an item (14 Oct 2026): every saved item, tap one to change how it counts. #}
+{% include "demo_style.html" %}
+<style>
+  body { margin: 0; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5; overflow-x: hidden; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 16px; box-sizing: border-box; }
+  .back { color: var(--accent); font-weight: 700; text-decoration: none; }
+  h1 { font-size: 24px; font-weight: 800; margin: 12px 0 4px; }
+  .hint { color: var(--muted); margin: 0 0 16px; }
+  .demo #list { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 4px 20px; }
+  #q { width: 100%; box-sizing: border-box; padding: 10px 14px; margin-bottom: 14px; font: inherit; color: var(--text);
+       background: var(--card); border: 1px solid var(--border); border-radius: 10px; }
+  .item { border-top: 1px solid var(--border); }
+  .item:first-child { border-top: 0; }
+  .demo .item .head { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 0; text-align: left;
+                      background: none; color: var(--text); border: 0; border-radius: 0; font-weight: 400; cursor: pointer; }
+  .item .txt { flex: 1; min-width: 0; }
+  .item .name { display: block; font-weight: 700; overflow-wrap: anywhere; }
+  .item .sub { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; overflow-wrap: anywhere; }
+  .pill { flex: none; font-size: 12px; font-weight: 700; padding: 2px 10px; border-radius: 99px; background: var(--row); color: var(--muted); }
+  .pill.bill { color: var(--bill); }
+  .pill.random { color: var(--spend); }
+  .pill.oneoff { color: var(--bad); }
+  .pill.yearly { color: var(--good); }
+  .pill.saved { background: var(--accent); color: var(--on-accent); }
+  .edit { padding: 0 0 16px; display: grid; gap: 12px; }
+  .edit[hidden] { display: none; }
+  .kinds { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .demo .kinds button { padding: 8px 4px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font-size: 14px; }
+  .demo .kinds button.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .edit label { display: grid; gap: 4px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .edit input { font: inherit; font-size: 16px; font-weight: 500; text-transform: none; letter-spacing: normal; color: var(--text); background: var(--bg);
+                border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; min-width: 0; }
+  .demo .edit .save { justify-self: start; padding: 10px 24px; border: 0; }
+  .msg { color: var(--bad); font-size: 14px; }
+  .none { color: var(--muted); padding: 16px 0; }
+</style>
+</head>
+<body class="demo">
+<div class="wrap">
+  <a class="back" href="/">← Back</a>
+  <h1>Fix an item</h1>
+  <p class="hint">Tap one to change how it counts.</p>
+  <input id="q" type="search" placeholder="Search…" aria-label="Search items" autocomplete="off">
+  <datalist id="cats">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist>
+  <div class="card" id="list">
+  {% for r in rows %}
+    <div class="item" data-key="{{ r.key }}" data-kind="{{ r.kind }}">
+      <button type="button" class="head" aria-expanded="false">
+        <span class="txt"><span class="name">{{ r.name }}</span><span class="sub">{{ r.detail }}</span></span>
+        <span class="pill {{ r.kind }}">{{ r.kind_word }}</span>
+      </button>
+      <div class="edit" hidden>
+        <div class="kinds">{% for k, w in kinds.items() %}<button type="button" data-kind="{{ k }}" class="{{ 'on' if k == r.kind else '' }}">{{ w }}</button>{% endfor %}</div>
+        <label>Category <input class="cat" type="text" list="cats" value="{{ r.category }}"></label>
+        <label>Name <input class="nm" type="text" maxlength="60" value="{{ r.name }}"></label>
+        <button type="button" class="save">Save</button>
+        <div class="msg" hidden></div>
+      </div>
+    </div>
+  {% else %}
+    <div class="none">Nothing sorted yet.</div>
+  {% endfor %}
+  </div>
+</div>
+<script>
+  // search: hide rows that do not match (name, details or the bank's payee name)
+  const q = document.getElementById('q');
+  q.addEventListener('input', () => {
+    const t = q.value.trim().toLowerCase();
+    document.querySelectorAll('.item').forEach(it => {
+      const text = (it.querySelector('.head').textContent + ' ' + it.dataset.key).toLowerCase();
+      it.hidden = Boolean(t) && !text.includes(t);
+    });
+  });
+  document.querySelectorAll('.item').forEach(it => {
+    const head = it.querySelector('.head'), edit = it.querySelector('.edit'), msg = it.querySelector('.msg');
+    let kind = it.dataset.kind;
+    // tap a row: open / close it
+    head.addEventListener('click', () => { edit.hidden = !edit.hidden; head.setAttribute('aria-expanded', !edit.hidden); });
+    it.querySelectorAll('.kinds button').forEach(b => b.addEventListener('click', () => {
+      kind = b.dataset.kind;
+      it.querySelectorAll('.kinds button').forEach(x => x.classList.toggle('on', x === b));
+    }));
+    it.querySelector('.save').addEventListener('click', async () => {
+      msg.hidden = true;
+      const body = { key: it.dataset.key, kind, label: it.querySelector('.nm').value, category: it.querySelector('.cat').value };
+      let r;
+      try { r = await fetch('/fix/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }); }
+      catch (e) { msg.textContent = 'No connection. Please try again.'; msg.hidden = false; return; }
+      if (!r.ok) { msg.textContent = await r.text(); msg.hidden = false; return; }
+      // show the new values, then "Saved" for a moment
+      const row = await r.json(), pill = it.querySelector('.pill');
+      it.dataset.kind = row.kind;
+      it.querySelector('.name').textContent = row.name;
+      it.querySelector('.sub').textContent = row.detail;
+      it.querySelector('.nm').value = row.name;
+      edit.hidden = true; head.setAttribute('aria-expanded', 'false');
+      pill.className = 'pill saved'; pill.textContent = 'Saved';
+      setTimeout(() => { pill.className = 'pill ' + row.kind; pill.textContent = row.kind_word; }, 1500);
+    });
+  });
+</script>
+</body>
+</html>
