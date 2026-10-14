@@ -1,4 +1,22 @@
 {# The demo page's top (14 Oct 2026): spare cash as a statement with a ring. Same forms and ids as the normal page. #}
+{# New payday panel (14 Oct 2026): opened by the arrow tab on the header line. One Work it out saves Left (POST /left) then Pay. #}
+<div class="card quick" id="quick" hidden>
+  <div class="q-pay">
+    <div class="q-title">New payday?</div>
+    <form method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}"
+          data-left="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}">
+      <input type="hidden" name="clear" value="0">
+      <div class="q-fields">
+        <label>Pay<input class="amount" type="text" name="pay" id="qpay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}"></label>
+        <label>Left from last month<span class="lx"><input class="amount" type="text" id="qleft" inputmode="decimal" placeholder="0.00" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}">
+          <button type="button" class="small" id="qleftx" title="Remove what was left">✖</button></span></label>
+      </div>
+      <button type="submit" class="q-go">Work it out</button>
+    </form>
+    <form method="post" action="/left" hidden><input type="hidden" name="amount" value=""></form>
+  </div>
+  <div class="q-drop" id="qdrop"></div>
+</div>
 <div class="st-grid">
   <div class="card st-sum">
     <div class="st-head">
@@ -16,22 +34,8 @@
       </svg>
     </div>
     <div class="st-rows">
-      <div class="r"><span>Pay</span><button type="button" class="link tap" data-edit="payedit" title="Change this month's pay">{{ d.pay.wage|money }}</button></div>
-      <div class="st-edit" id="payedit" hidden>
-        <form class="inline" method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}">
-          <input type="hidden" name="clear" value="0">
-          <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
-          <button type="submit">Work it out</button>
-        </form>
-      </div>
-      <div class="r"><span>+ Left from last month</span><button type="button" class="link tap" data-edit="leftedit" title="Change what was left from last month">{{ d.pay.left|money if d.pay.left else 'Add' }}</button></div>
-      <div class="st-edit" id="leftedit" hidden>
-        <form class="inline" method="post" action="/left">
-          <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="220" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}" aria-label="Left from last month">
-          <button type="submit">{{ 'Change' if d.pay.left else 'Add' }}</button>
-        </form>
-        {% if d.pay.left %}<form method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
-      </div>
+      <div class="r"><span>Pay</span><button type="button" class="link tap" data-edit="qpay" title="Change this month's pay">{{ d.pay.wage|money }}</button></div>
+      <div class="r"><span>+ Left from last month</span><button type="button" class="link tap" data-edit="qleft" title="Change what was left from last month">{{ d.pay.left|money if d.pay.left else 'Add' }}</button></div>
       <div class="r"><span><i class="dot bill"></i>− Bills</span><span class="k-bill" id="st-bills">{{ d.pay.bills_last|money }}</span></div>
       <div class="r"><span><i class="dot spend"></i>− Spends</span><span class="k-spend" id="st-spends">{{ d.typed_total|money }}</span></div>
       <div class="r tot"><span>Spare</span><span id="st-spare">{{ d.left_now|money }}</span></div>
@@ -83,9 +87,28 @@
   };
   document.addEventListener('DOMContentLoaded', () => {
     demoTop();
+    // The arrow tab on the header line opens / hides the New payday panel (▴ = hidden, ▾ = open). Starts hidden.
+    const quick = document.getElementById('quick'), tab = document.getElementById('quicktab');
+    const drop = document.getElementById('dropbar'); if (drop) document.getElementById('qdrop').appendChild(drop);
+    const openQuick = on => {
+      quick.hidden = !on;
+      if (tab) { tab.textContent = on ? '▾' : '▴'; tab.setAttribute('aria-expanded', on); }
+      if (on) window.scrollTo({top: 0, behavior: 'smooth'});
+    };
+    if (tab) tab.addEventListener('click', () => openQuick(quick.hidden));
     document.querySelectorAll('.tap').forEach(b => b.addEventListener('click', () => {
-      const box = document.getElementById(b.dataset.edit); box.hidden = !box.hidden;
-      if (!box.hidden) { const i = box.querySelector('input.amount'); i.focus(); i.select(); }
+      openQuick(true); const i = document.getElementById(b.dataset.edit); i.focus(); i.select();
     }));
+    document.getElementById('qleftx').addEventListener('click', () => { document.getElementById('qleft').value = ''; });
+    // Work it out: save Left first when it changed (same POST /left as the normal page), then send the pay form
+    const payForm = document.getElementById('payform');
+    payForm.addEventListener('submit', async e => {
+      const left = document.getElementById('qleft').value.trim();
+      if (left === payForm.dataset.left) return;
+      e.preventDefault();
+      await fetch('/left', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: new URLSearchParams({amount: left})});
+      payForm.submit();
+    });
   });
 </script>

@@ -46,3 +46,10 @@ def test_changes_made_on_the_demo_go_back_to_the_demo(client):
     assert "/demo?error=spend" in r.headers["Location"]
     r = client.post("/add", data={"amount": "3.50", "name": "Costa"})
     assert r.headers["Location"].endswith("/")                          # the normal page still goes home
+
+
+def test_new_payday_panel_on_the_demo(client):
+    html = client.get("/demo").get_data(as_text=True)
+    assert 'id="quick" hidden' in html and 'id="quicktab"' in html           # hidden until the arrow tab is pressed
+    panel = html[html.index('id="quick"'):html.index('class="st-grid"')]
+    assert 'action="/pay"' in panel and 'id="qleft"' in panel and "Work it out" in panel
