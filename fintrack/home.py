@@ -49,6 +49,13 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     categories = get_categories(conn)
 
     analysis = analyse(cycles, answers=answers, rules=rules)
+    # v3 bill swaps (fintrack/v3/billswap.py): the bills leave out the old payee from the swap on; no swaps = the same
+    from fintrack.v3.billswap import bill_txns, get_swaps, items_of
+    btxns = bill_txns(conn, txns)
+    bill_cycles, bill_analysis = cycles, analysis
+    if btxns is not txns:
+        bill_cycles = build_cycles(btxns, payer=all_payers(conn, wage_payer))
+        bill_analysis = analyse(bill_cycles, answers=answers, rules=rules)
 
     # Check if we have enough data
     if not cycles or analysis.cycles_used == 0:
@@ -74,9 +81,13 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
 
     # Build the pay block
     from fintrack.billchange import get_changes, get_left, get_stopped
-    pay = pay_block(cycles, analysis, wage, categories=categories, items=answers, yearly=due,
+    pay = pay_block(bill_cycles, bill_analysis, wage, categories=categories, items=answers, yearly=due,
                     changes=get_changes(conn, cycles[-1].start), left=get_left(conn, cycles[-1].start),
                     stopped=get_stopped(conn))
+    swapped = {s["bill"] for s in get_swaps(conn)}
+    for b in pay["bills"]:
+        b["swapped"] = b["key"] in swapped                   # ⋯ menu: Split back out
+        b["joinable"] = bool(items_of(answers, b["key"]))    # ⋯ menu: Replaces…
 
     # Get last cycle check
     last = last_cycle_check(cycles, answers=answers, rules=rules)
@@ -134,6 +145,10 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     cards = apply_order(list(CARDS), order.get("cards", []), lambda c: c)
 
     cat_names = category_names(conn)
+    for q in more:                                           # v3: the bills a new bill can replace
+        if q["type"] == "newbill":
+            q["bills"] = [{"key": b["key"], "name": b["name"]} for b in pay["bills"]
+                          if b["joinable"] and b["key"] != q["bill"]]
 
     return {
         "ready": True,
