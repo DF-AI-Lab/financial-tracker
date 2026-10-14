@@ -66,7 +66,8 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    bills blue, spends gold, Manrope, emojis -> coloured dots via the emo() macro), templates/demo_top.html (spare cash
    as a statement (top: icon + name = a home link to /demo, 'Payday to payday', no dates) Pay / + Left / - Bills / - Spends = Spare, tap Pay or Left to open the same forms, thin 3-colour ring
    bills/spends/spare of pay+left, tiles + Zopa bar). Forms post as before; web.home_url sends you back to /demo when the
-   Referer is /demo. Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
+   Referer is /demo. Demo header is sticky (icon+name = home link, ⚙ Settings menu right; JS moves the .editbar
+   (Update, Move & rename, Put the order back) into it; menu stays open while editing). Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
    swap the demo onto / (and the phone) when they say so.
 00. **4 Oct (grill session): step 10 phone copy BUILT (391 tests)** on PythonAnywhere instead of the AWS v3 design (the user
    chose it in the grill and drew the diagram: PC -> JSON/page -> PythonAnywhere <-> phone; phone changes go back to the PC,

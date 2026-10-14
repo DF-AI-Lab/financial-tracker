@@ -29,14 +29,28 @@
   .demo .dropbar { border-radius: 14px; }
 
   /* name + icon */
-  .demo .brand { display: inline-flex; align-items: flex-start; gap: 12px; margin: 4px 0 14px -6px; padding: 6px 12px 6px 6px;
+  .demo .brand { display: inline-flex; align-items: flex-start; gap: 12px; margin: 4px 0 14px -6px; min-width: 0; padding: 6px 12px 6px 6px;
                  border-radius: 14px; color: inherit; text-decoration: none; }
   .demo .brand:hover { background: var(--card); }
   .demo .brand:focus-visible { outline: 2px solid var(--accent); }
   .demo .brand img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
   .demo .brand h1 { margin: 0; font-size: 26px; font-weight: 800; line-height: 1; }
   .demo .tagline { color: var(--spare); font-weight: 700; font-size: 14px; margin-top: 6px; }
-  .demo .editbar { margin: 0 0 14px; }
+  /* fixed header: home button left, settings right */
+  .demo .wrap { overflow: clip; padding-top: 0; }
+  .demohead { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+              background: var(--bg); padding: 10px 0; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .demohead .brand { margin: 0 0 0 -6px; }
+  .settings { position: relative; }
+  .setmenu { position: absolute; right: 0; top: calc(100% + 8px); background: var(--card); border: 1px solid var(--border);
+             border-radius: 14px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 210px; }
+  .setmenu[hidden] { display: none; }
+  #setbtn { white-space: nowrap; flex: none; }
+  @media (max-width: 440px) { .demo .brand h1 { font-size: 19px; white-space: nowrap; } .demo .brand img { width: 42px; height: 42px; } }
+  body.editing .setmenu { display: block; }
+  .demo .setmenu .editbar { flex-direction: column; align-items: stretch; margin: 0; }
+  .demo .setmenu .editbar button { width: 100%; text-align: left; }
+  .demo .setmenu .editbar form button { width: 100%; }
 
   /* dots instead of emojis */
   .demo .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--muted); }

@@ -17,6 +17,8 @@ def test_demo_page_has_the_new_name_icon_and_ring(client):
     assert "Where's My Money?" in html and "Payday to payday" in html
     assert 'id="ring"' in html                                          # the ring next to spare cash
     assert 'id="st-bills"' in html and 'id="st-spends"' in html         # statement rows
+    assert 'class="demohead"' in html and 'id="setbtn"' in html         # fixed header with Settings
+    assert 'id="editbtn"' in html and 'id="updbtn"' in html             # the buttons Settings opens
 
 
 def test_demo_keeps_every_form_and_card_of_the_normal_page(client):
@@ -32,7 +34,7 @@ def test_demo_keeps_every_form_and_card_of_the_normal_page(client):
 def test_normal_page_does_not_change(client):
     html = client.get("/").get_data(as_text=True)
     assert "Where does my wage go?" in html and "Where's My Money?" not in html
-    assert 'id="ring"' not in html and "💳 Credit card" in html and "➕ Add a spend" in html
+    assert 'id="ring"' not in html and 'id="setbtn"' not in html and "💳 Credit card" in html and "➕ Add a spend" in html
 
 
 def test_changes_made_on_the_demo_go_back_to_the_demo(client):
