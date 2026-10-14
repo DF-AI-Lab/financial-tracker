@@ -67,14 +67,15 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    as a statement (top: icon + name = a home link to /demo, 'Payday to payday', no dates) Pay / + Left / - Bills / - Spends = Spare, tap Pay or Left to open the same forms, thin 3-colour ring
    bills/spends/spare of pay+left, tiles + Zopa ring: used pink-purple / free lilac, % of limit in the middle). Forms post as before; web.home_url sends you back to /demo when the
    Referer is /demo. Demo header is sticky (icon+name = smooth scroll to top + icon spin, no reload; ⚙ Settings menu right; JS moves the .editbar
-   (Update, Move & rename, Put the order back) into it; menu stays open while editing; 'demo.v.X' under it from fintrack/appversion.py VERSION = 2.18 now:
+   (Update, Move & rename, Put the order back) into it; menu stays open while editing; 'demo.v.X' under it from fintrack/appversion.py VERSION = 2.19 now:
    BUMP IT (2.14, 2.15...) with every push to main and tell the user the number). v2.15: arrow tab on the header line (#quicktab, SVG chevron flipped by CSS on aria-expanded, starts hidden) opens the New payday
    panel (#quick in demo_top: payform with Pay + Left + one long Work it out; JS posts /left first if Left changed;
    the #dropbar is moved into it). Tapping Pay/Left in the statement opens it. v2.17: panel slides (Web Animations, reduced-motion = instant); demo top
    has NO spare-last-month/avg tiles (user: no purpose there; they stay on /); both rings 96px, top-aligned, same card
    padding; Credit card card in Zopa colours (--zused/--zfreetext). v2.18: demo Bills card = templates/demo_bills.html (same tr.bill rows/data/forms
    so the page script works; name split by web 'tagsplit' filter into bold name + 'Household · BP · avg' line; diff as
-   a pill; ⋯ menu = Change amount / Put back / Stop or Count it again, all clicking the existing buttons/forms). Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
+   a pill; ⋯ menu = Change amount / Put back / Stop or Count it again, all clicking the existing buttons/forms). v2.19: demo Last month's spending = templates/demo_last.html (same
+   rows/items/→ Bill; round ⌄ N button opens the shops). Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
    swap the demo onto / (and the phone) when they say so.
 00. **4 Oct (grill session): step 10 phone copy BUILT (391 tests)** on PythonAnywhere instead of the AWS v3 design (the user
    chose it in the grill and drew the diagram: PC -> JSON/page -> PythonAnywhere <-> phone; phone changes go back to the PC,

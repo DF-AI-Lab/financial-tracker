@@ -430,6 +430,7 @@
   {% endif %}
   {% endset %}
   {% set c_last %}
+  {% if demo %}{% include "demo_last.html" %}{% else %}
   <div class="card" data-id="lastmonth" data-card="lastmonth">
     <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🛒', '') }} Last month's spending<button type="button" class="fold" title="Fold">▾</button></h2>
     <table>
@@ -455,6 +456,7 @@
         <td class="n {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td></tr></tbody>
     </table>
   </div>
+  {% endif %}
   {% endset %}
   {% set c_where %}
   {% if d.last %}

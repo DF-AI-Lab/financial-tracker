@@ -71,3 +71,12 @@ def test_tags_are_split_off_the_bill_name():
     f = app.jinja_env.filters["tagsplit"]
     assert f("Rent KT (Household) (BP)") == ("Rent KT", ["Household", "BP"])
     assert f("Council Tax") == ("Council Tax", [])
+
+
+def test_demo_last_month_keeps_every_row_and_bill_button(client):
+    demo = client.get("/demo").get_data(as_text=True)
+    normal = client.get("/").get_data(as_text=True)
+    assert 'class="dlast"' in demo and 'class="dlast"' not in normal
+    assert demo.count('class="item"') == normal.count('class="item"')    # the same shops inside each category
+    assert demo.count("small tobill") == normal.count("small tobill")   # → Bill buttons
+    assert 'data-sort="lastmonth"' in demo
