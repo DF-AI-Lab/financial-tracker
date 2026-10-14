@@ -162,13 +162,21 @@
 <div class="wrap">
   {% if demo %}
   <header class="demohead">
-    <a class="brand" href="/demo" title="Home: back to the top with the latest numbers"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
+    <a class="brand" href="/demo" title="Back to the top"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
       <div class="setmenu" id="setmenu" hidden></div></div>{% endif %}
   </header>
   <script>
     // Settings (14 Oct 2026): the Update and Move & rename buttons live in this menu on the demo page
     document.addEventListener('DOMContentLoaded', () => {
+      // Home button: glide back to the top (no reload), with a little spin of the icon
+      const home = document.querySelector('.demohead .brand');
+      if (home) home.addEventListener('click', e => {
+        e.preventDefault();
+        const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({top: 0, behavior: calm ? 'auto' : 'smooth'});
+        if (!calm) { home.classList.remove('spin'); void home.offsetWidth; home.classList.add('spin'); }
+      });
       const btn = document.getElementById('setbtn'), menu = document.getElementById('setmenu');
       if (!btn) return;
       const bar = document.querySelector('.editbar');

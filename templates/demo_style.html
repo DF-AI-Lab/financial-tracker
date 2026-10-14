@@ -32,6 +32,8 @@
   .demo .brand { display: inline-flex; align-items: flex-start; gap: 12px; margin: 4px 0 14px -6px; min-width: 0; padding: 6px 12px 6px 6px;
                  border-radius: 14px; color: inherit; text-decoration: none; }
   .demo .brand:hover { background: var(--card); }
+  .demo .brand img { transition: transform .6s ease; }
+  .demo .brand.spin img { transform: rotate(360deg); }
   .demo .brand:focus-visible { outline: 2px solid var(--accent); }
   .demo .brand img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
   .demo .brand h1 { margin: 0; font-size: 26px; font-weight: 800; line-height: 1; }
