@@ -34,7 +34,12 @@
 <script>
   // ⋯ menu for each bill: Change amount (opens the same box), Put back (the same ✖), Stop / Undo (the same form)
   document.addEventListener('DOMContentLoaded', () => {
-    const close = () => document.querySelectorAll('.bmenu').forEach(m => m.remove());
+    const close = () => document.querySelectorAll('.bmenu, .bswap').forEach(m => m.remove());
+    const SWAP = {{ {'on': cloud|default(false), 'join': d.pay.bills|selectattr('joinable')|map(attribute='key')|list,
+                     'split': d.pay.bills|selectattr('swapped')|map(attribute='key')|list}|tojson }};
+    const post = (url, key) => { const f = document.createElement('form'); f.method = 'post'; f.action = url; f.className = 'bswap';
+      const k = document.createElement('input'); k.type = 'hidden'; k.name = 'key'; k.value = key; f.appendChild(k);
+      document.body.appendChild(f); return f; };
     document.querySelectorAll('.dbills tr.bill .more').forEach(btn => btn.addEventListener('click', e => {
       e.stopPropagation();
       const open = btn.parentElement.querySelector('.bmenu'); close(); if (open) return;
@@ -45,6 +50,16 @@
       if (!stopped) add('✏️ Change amount', '', () => row.querySelector('button.link').click());
       if (row.dataset.changed === '1') add('↩ Put back', '', () => row.querySelector('button.x').click());
       add(stopped ? '▶ Count it again' : '⏸ Stop counting', stopped ? '' : 'stop', () => row.querySelector('form.stopform').submit());
+      // v3 (fintrack/v3/billswap.py): this bill replaces another one (joins it), or undo that
+      const others = [...document.querySelectorAll('.dbills tr.bill')].filter(r => r !== row && SWAP.join.includes(r.dataset.key));
+      if (SWAP.on && SWAP.join.includes(row.dataset.key) && others.length) add('🔁 Replaces…', '', () => {
+        const f = post('/bill/join', row.dataset.key), sel = document.createElement('select'), go = document.createElement('button');
+        sel.name = 'into'; sel.required = true; sel.setAttribute('aria-label', 'Which bill it replaces'); sel.add(new Option('Pick the bill ▾', ''));
+        others.forEach(r => sel.add(new Option(r.querySelector('.bbase').textContent, r.dataset.key)));
+        go.type = 'submit'; go.className = 'small'; go.textContent = 'Replaces it';
+        f.append(sel, go); f.addEventListener('click', ev => ev.stopPropagation());
+        btn.parentElement.appendChild(f); sel.focus(); });
+      if (SWAP.on && SWAP.split.includes(row.dataset.key)) add('↔ Split back out', '', () => post('/bill/split', row.dataset.key).submit());
       btn.parentElement.appendChild(m); m.querySelector('button').focus();
     }));
     document.addEventListener('click', close);

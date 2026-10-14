@@ -4,6 +4,7 @@
 - "Is this your rent?" (fintrack/paydayrule.py): bill payments of about the same amount just after payday.
 - Typed spends (fintrack/typed.py): typed spends found in the statements are removed; one not found (dated on or
   before the last statement day) is asked about: Keep (not asked again) or Remove.
+- New bill (v3, fintrack/v3/billswap.py): a new direct debit / standing order is a New bill or Replaces one you have.
 Same rules and the same saved answers as run.py, so either can be used.
 """
 import json
@@ -35,7 +36,7 @@ def _declined_jobs(conn) -> List[str]:
 
 
 def questions(conn, txns, paydays, payers=None) -> List[dict]:
-    """Every question still to answer, as dicts with a "type" of "job", "same", "rent" or "spend".
+    """Every question still to answer, as dicts with a "type" of "job", "same", "rent", "spend" or "newbill".
     payers = the known wage payers (fintrack.wages.all_payers); None = no new-job question."""
     out = []
     if payers:
@@ -60,6 +61,8 @@ def questions(conn, txns, paydays, payers=None) -> List[dict]:
     for s in unmatched:
         if last is not None and s["date"] <= last and s["id"] not in kept:
             out.append({"type": "spend", "id": s["id"], "name": s["name"], "amount": s["amount"], "date": s["date"]})
+    from fintrack.v3.billswap import new_bill_questions
+    out += new_bill_questions(conn, txns)
     return out
 
 
@@ -104,4 +107,7 @@ def answer(conn, a: dict, txns, paydays, payers=None) -> bool:
         else:
             delete_spend(conn, sid)
         return True
+    if t == "newbill":
+        from fintrack.v3.billswap import answer_new_bill
+        return answer_new_bill(conn, a, txns)
     return False
