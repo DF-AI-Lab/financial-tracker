@@ -53,3 +53,21 @@ def test_new_payday_panel_on_the_demo(client):
     assert 'id="quick" hidden' in html and 'id="quicktab"' in html           # hidden until the arrow tab is pressed
     panel = html[html.index('id="quick"'):html.index('class="st-grid"')]
     assert 'action="/pay"' in panel and 'id="qleft"' in panel and "Work it out" in panel
+
+
+def test_demo_bills_card_keeps_every_bill_button(client):
+    demo = client.get("/demo").get_data(as_text=True)
+    normal = client.get("/").get_data(as_text=True)
+    assert 'class="dbills"' in demo and 'class="dbills"' not in normal
+    for page in (demo, normal):                                          # same rows, Stop forms and change boxes
+        assert page.count('class="bill') == normal.count('class="bill')
+        assert page.count('action="/stopped"') == normal.count('action="/stopped"')
+        assert page.count("billbox") == normal.count("billbox")
+
+
+def test_tags_are_split_off_the_bill_name():
+    import web
+    app = web.create_app(":memory:")
+    f = app.jinja_env.filters["tagsplit"]
+    assert f("Rent KT (Household) (BP)") == ("Rent KT", ["Household", "BP"])
+    assert f("Council Tax") == ("Council Tax", [])

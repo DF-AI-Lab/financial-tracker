@@ -400,6 +400,7 @@
   </div>
   {% endset %}
   {% set c_bills %}
+  {% if demo %}{% include "demo_bills.html" %}{% else %}
   <div class="card" data-id="bills" data-card="bills">
     <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🏠', 'bill') }} Bills (every month)<button type="button" class="fold" title="Fold">▾</button></h2>
     <table id="bills">
@@ -426,6 +427,7 @@
       ✏️ Tap a Last month amount to change it for this pay cycle only. Spare cash updates as you type; ✖ puts it back.
     </div>
   </div>
+  {% endif %}
   {% endset %}
   {% set c_last %}
   <div class="card" data-id="lastmonth" data-card="lastmonth">
@@ -646,7 +648,7 @@
   function showRow(row) {
     const used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1', est = row.dataset.estimated === '1' && !changed;
     const link = row.querySelector('button.link');
-    link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : ''));
+    link.textContent = money(used) + (est ? '*' : (changed && !document.body.classList.contains('demo') ? ' ✏️' : ''));
     link.classList.toggle('muted', est);
     row.querySelector('button.x').hidden = !changed;
     const d = est ? null : used - parseFloat(row.dataset.avg);
@@ -1222,7 +1224,7 @@
     var used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1';
     var est = row.dataset.estimated === '1' && !changed;
     var link = row.querySelector('button.link'), x = row.querySelector('button.x'), cell = row.querySelector('td.diff');
-    if (link) { link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : '')); link.classList.toggle('muted', est); }
+    if (link) { link.textContent = money(used) + (est ? '*' : (changed && !document.body.classList.contains('demo') ? ' ✏️' : '')); link.classList.toggle('muted', est); }
     if (x) x.hidden = !changed;
     if (cell) { var d = est ? null : used - parseFloat(row.dataset.avg); cell.textContent = d === null ? '' : diffText(d); tone(cell, d); }
     var bills = 0, avg = 0;

@@ -156,6 +156,16 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         else:
             return f"-£{-x:,.2f}"
 
+    @app.template_filter('tagsplit')
+    def filter_tagsplit(name):
+        """'Rent KT (Household) (BP)' -> ('Rent KT', ['Household', 'BP']): the demo page shows the tags under the name."""
+        tags = []
+        name = str(name)
+        while name.endswith(")") and " (" in name:
+            name, tag = name[:-1].rsplit(" (", 1)
+            tags.insert(0, tag)
+        return name, tags
+
     @app.template_filter('diff')
     def filter_diff(x):
         """Format a difference as +£12.00 / -£20.83 / £0.00."""
