@@ -89,7 +89,7 @@
   .st-head .big { font-size: 52px; font-weight: 800; line-height: 1.05; color: var(--spare); }
   .st-key { color: var(--muted); font-size: 13px; margin-top: 6px; }
   .st-key .dot { width: 8px; height: 8px; margin: 0 5px 0 0; }
-  #ring { width: 92px; height: 92px; flex: none; }
+  #ring, #zring { width: 96px; height: 96px; flex: none; align-self: flex-start; }   /* same size, same height in their cards */
   #ring circle { fill: none; stroke-width: 6; }
   #ring .ring-bg { stroke: var(--ring-bg); }
   #ring .seg-bill { stroke: var(--bill); } #ring .seg-spend { stroke: var(--spend); } #ring .seg-spare { stroke: var(--spare); }
@@ -108,6 +108,7 @@
   .st-side .tile { padding: 16px; }
   .st-side .tile .num { font-size: 24px; font-weight: 800; }
   .st-side .wide { grid-column: 1 / -1; }
+  .st-side .zcard { padding: 20px; border-radius: 16px; }           /* same edges as the spare cash card, so the rings line up */
   /* Zopa: ring of the limit, used pink-purple, free lilac */
   .zcard { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
   .zl { display: grid; gap: 6px; min-width: 0; }
@@ -116,19 +117,23 @@
   .demo .dot.zused { background: var(--zused); } .demo .dot.zfree { background: var(--zfree); }
   .zfreeval { color: var(--zfreetext); }
   .zlimit { font-size: 12px; color: var(--muted); }
-  #zring { width: 96px; height: 96px; flex: none; }
   #zring circle { fill: none; stroke-width: 6; }
   #zring .z-free { stroke: var(--zfree); } #zring .z-used { stroke: var(--zused); }
   #zring .z-pc { fill: var(--text); font: 800 20px "Manrope", system-ui, sans-serif; }
   #zring .z-sub { fill: var(--muted); font: 600 10px "Manrope", system-ui, sans-serif; }
   @media (max-width: 760px) { .st-grid { grid-template-columns: 1fr; } }
-  @media (max-width: 420px) { .st-head .big { font-size: 42px; } #ring { width: 76px; height: 76px; } }
+  @media (max-width: 420px) { .st-head .big { font-size: 42px; } #ring, #zring { width: 80px; height: 80px; } }
 
   /* spends gold, bills blue */
   .demo [data-card="spend"] h2, .demo [data-card="spend"] td.n { color: var(--spend); }
   .demo [data-card="spend"] td.n button { color: var(--text); }
   .demo [data-card="spend"] form.inline button[type=submit]:not(.small) { background: var(--spend); color: #1d1500; }
   .demo [data-card="bills"] h2 { color: var(--bill); }
+  /* credit card: the Zopa ring's colours */
+  .demo [data-card="card"] h2, .demo [data-card="card"] td.n { color: var(--zused); }
+  .demo [data-card="card"] td.n.good, .demo [data-card="card"] #ccfree2 { color: var(--zfreetext); }
+  .demo [data-card="card"] td.n button { color: var(--text); }
+  .demo [data-card="card"] form.inline button[type=submit]:not(.small) { background: var(--zused); color: #fff; }
   .demo [data-card="bills"] tr.bill button.link:not(.muted) { color: var(--bill); font-weight: 700; }
   .demo [data-card="bills"] #btotal { color: var(--bill); }
 </style>

@@ -43,10 +43,6 @@
     <div id="spare-how" hidden></div>
   </div>
   <div class="st-side">
-    {% if d.history %}
-    <div class="tile"><div class="label">Spare last month</div><div class="num">{{ d.history.last|money }}</div></div>
-    <div class="tile"><div class="label">{{ d.history.months }}-month average</div><div class="num">{{ d.history.avg|money }}</div></div>
-    {% endif %}
     {% set pc = (100 * d.card.used / d.card.limit) if d.card.limit else 0 %}
     {% set pcr = [[pc, 0]|max, 100]|min %}
     <div class="tile wide zcard"><div class="zl">
@@ -90,10 +86,22 @@
     // The arrow tab on the header line opens / hides the New payday panel (up = hidden, down = open). Starts hidden.
     const quick = document.getElementById('quick'), tab = document.getElementById('quicktab');
     const drop = document.getElementById('dropbar'); if (drop) document.getElementById('qdrop').appendChild(drop);
+    // Slides open / shut: height, padding and fade animate together (none if the computer asks for less motion)
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let anim = null;
     const openQuick = on => {
-      quick.hidden = !on;
+      if (on === !quick.hidden && !anim) return;
       if (tab) tab.setAttribute('aria-expanded', on);                  // the chevron flips by CSS
-      if (on) window.scrollTo({top: 0, behavior: 'smooth'});
+      if (anim) anim.cancel();
+      quick.hidden = false;
+      const cs = getComputedStyle(quick);
+      const full = {height: quick.offsetHeight + 'px', paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 1, transform: 'none'};
+      const shut = {height: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0, transform: 'translateY(-8px)'};
+      if (on) window.scrollTo({top: 0, behavior: calm ? 'auto' : 'smooth'});
+      if (calm) { quick.hidden = !on; return; }
+      quick.style.overflow = 'hidden';
+      anim = quick.animate(on ? [shut, full] : [full, shut], {duration: on ? 320 : 240, easing: 'cubic-bezier(.22,.8,.24,1)'});
+      anim.onfinish = () => { quick.style.overflow = ''; quick.hidden = !on; anim = null; };
     };
     if (tab) tab.addEventListener('click', () => openQuick(quick.hidden));
     document.querySelectorAll('.tap').forEach(b => b.addEventListener('click', () => {
