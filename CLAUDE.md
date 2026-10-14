@@ -58,6 +58,14 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**
+   v3app.py (make_app(data_dir): create_app(cloud=True, phone_http=None) + fintrack/v3/setup), v3.bat = PC test at
+   :5001 on a copy of the data in <project>/v3data (v3_settings.json there: email, smtp, update zip|git, branch v3).
+   fintrack/v3/: auth.py (email code, 30-day device cookie wmm_device, 5 tries/15 min lock, backup codes, sign out),
+   backup.py (daily copy on first request, keep 7, /backup/download), fixitem.py (/fix), billswap.py (new-bill
+   question New/Replaces, kv bill_swaps, old payee not counted from the swap's pay cycle, ⋯ Replaces…/Split back
+   out). tools/privacy_check.py for move-in. V3_SETUP.md = Darren's steps. Map: GitHub issue 15. Agents built
+   auth/backup/fixitem/billswap in worktrees; merged and reviewed. Next: Darren tests on the PC (V3_SETUP Part 1).
 0000. **14 Oct v2.21: THE NEW LOOK IS LIVE on the PC main page / (user: 'move all this to live'). /demo redirects to /.
    web.home(demo=True) -> template flag `demo` = new look; CSS in static/look.css (linked by templates/demo_style.html).
    Version shows as 'v2.21' (fintrack/appversion.py, bump every push). Manifest name 'Where's My Money?'.
