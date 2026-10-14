@@ -192,11 +192,11 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
 
     @app.route("/demo")
     def demo():
-        return home(demo=True)
+        return redirect(url_for("home"), code=302)               # the demo look is the main page now (14 Oct 2026)
 
     # GET /
     @app.route("/")
-    def home(demo=False):
+    def home(demo=True):
         if not db_path.exists():
             open_db(db_path).close()                    # an empty database, so PDFs can be dropped on the page
 
@@ -409,8 +409,8 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
     # The app icon (3 Oct 2026): Chrome / Edge can install the page as an app ('Install Wage Tracker')
     @app.route("/manifest.json")
     def manifest():
-        return {"name": "Wage Tracker", "short_name": "Wage Tracker", "start_url": "/", "display": "standalone",
-                "background_color": "#15171a", "theme_color": "#1d4f8f",
+        return {"name": "Where's My Money?", "short_name": "My Money", "start_url": "/", "display": "standalone",
+                "background_color": "#0f1513", "theme_color": "#0f6e5c",
                 "icons": [{"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
                           {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"}]}
 

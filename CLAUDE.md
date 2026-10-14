@@ -58,6 +58,10 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+0000. **14 Oct v2.21: THE NEW LOOK IS LIVE on the PC main page / (user: 'move all this to live'). /demo redirects to /.
+   web.home(demo=True) -> template flag `demo` = new look; CSS in static/look.css (linked by templates/demo_style.html).
+   Version shows as 'v2.21' (fintrack/appversion.py, bump every push). Manifest name 'Where's My Money?'.
+   The PHONE page (web.phone_page) still has the OLD look: next job = phone (its script uses old ids/markup; test it).**
 000. **14 Oct: new name idea 'Where's My Money?' (tagline 'Payday to payday'), not applied yet (page still says Wage Tracker).
    New app icon BUILT: the Lens (teal, white magnifier, mint £), `tools/make_icon.py` writes static/icon-*.png + app.ico.
    User wants a cleaner, more professional look next: mock it up first (fewer emojis, one accent colour, more space).**
