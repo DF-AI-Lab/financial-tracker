@@ -43,11 +43,21 @@
     <div class="tile"><div class="label">Spare last month</div><div class="num">{{ d.history.last|money }}</div></div>
     <div class="tile"><div class="label">{{ d.history.months }}-month average</div><div class="num">{{ d.history.avg|money }}</div></div>
     {% endif %}
-    <div class="tile wide"><div class="label">Zopa credit card</div>
-      <div class="zopa"><b><span id="ccused">{{ d.card.used|money }}</span> used</b>
-        <b class="{{ 'bad' if d.card.free < 0 else 'good' }}"><span id="ccfree">{{ d.card.free|money }}</span> free</b></div>
-      {% set pc = (100 * d.card.used / d.card.limit) if d.card.limit else 0 %}
-      <div class="bar"><i style="width:{{ [[pc, 0]|max, 100]|min }}%"></i></div></div>
+    {% set pc = (100 * d.card.used / d.card.limit) if d.card.limit else 0 %}
+    {% set pcr = [[pc, 0]|max, 100]|min %}
+    <div class="tile wide zcard"><div class="zl">
+        <div class="label">Zopa credit card</div>
+        <div class="zrow"><i class="dot zused"></i><span>Used</span><b id="ccused">{{ d.card.used|money }}</b></div>
+        <div class="zrow"><i class="dot zfree"></i><span>Free</span><b class="{{ 'bad' if d.card.free < 0 else 'zfreeval' }}" id="ccfree">{{ d.card.free|money }}</b></div>
+        <div class="zlimit">Limit {{ d.card.limit|money }}</div></div>
+      <svg id="zring" viewBox="0 0 100 100" role="img" aria-label="{{ pc|round|int }}% of the limit used">
+        <circle cx="50" cy="50" r="40" class="z-free"/>
+        <circle cx="50" cy="50" r="40" class="z-used" transform="rotate(-90 50 50)"
+          stroke-dasharray="{{ '%.1f'|format([pcr * 2.5133 - 1.5, 0]|max) }} 251.3"/>
+        <text x="50" y="52" text-anchor="middle" class="z-pc">{{ pc|round|int }}%</text>
+        <text x="50" y="67" text-anchor="middle" class="z-sub">used</text>
+      </svg>
+    </div>
   </div>
 </div>
 <script>

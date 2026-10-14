@@ -15,7 +15,7 @@ def forms(html):
 def test_demo_page_has_the_new_name_icon_and_ring(client):
     html = client.get("/demo").get_data(as_text=True)
     assert "Where's My Money?" in html and "Payday to payday" in html
-    assert 'id="ring"' in html                                          # the ring next to spare cash
+    assert 'id="ring"' in html and 'id="zring"' in html                  # the spare cash ring and the Zopa ring
     assert 'id="st-bills"' in html and 'id="st-spends"' in html         # statement rows
     assert 'class="demohead"' in html and 'id="setbtn"' in html         # fixed header with Settings
     assert 'id="editbtn"' in html and 'id="updbtn"' in html             # the buttons Settings opens

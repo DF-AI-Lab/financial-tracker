@@ -5,12 +5,14 @@
     --bg: #f3f5f4; --card: #ffffff; --text: #14201c; --muted: #5d6b66; --border: #dde3e0; --row: #eef2f0;
     --accent: #0f6e5c; --on-accent: #ffffff; --good: #138a5e; --bad: #c8463a;
     --bill: #2f6fd0; --spend: #b07d00; --spare: #13a07a; --ring-bg: #dde3e0;
+    --zused: #b53aab; --zfree: #c3b6ea; --zfreetext: #6b5a9e;
   }
   @media (prefers-color-scheme: dark) {
     :root {
       --bg: #0f1513; --card: #171f1c; --text: #e9f0ed; --muted: #93a39d; --border: #26332f; --row: #1d2724;
       --accent: #3fd0a4; --on-accent: #06221b; --good: #3fd0a4; --bad: #f07a6a;
       --bill: #7fb0ff; --spend: #f2b632; --spare: #3fd0a4; --ring-bg: #26332f;
+      --zused: #e06cd8; --zfree: #6b5a9e; --zfreetext: #a99ad6;
     }
   }
   body.demo { font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
@@ -86,9 +88,19 @@
   .st-side .tile { padding: 16px; }
   .st-side .tile .num { font-size: 24px; font-weight: 800; }
   .st-side .wide { grid-column: 1 / -1; }
-  .st-side .zopa { display: flex; justify-content: space-between; gap: 10px; margin-top: 8px; }
-  .st-side .bar { height: 8px; border-radius: 99px; background: var(--ring-bg); margin-top: 10px; overflow: hidden; }
-  .st-side .bar i { display: block; height: 100%; background: var(--spend); }
+  /* Zopa: ring of the limit, used pink-purple, free lilac */
+  .zcard { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+  .zl { display: grid; gap: 6px; min-width: 0; }
+  .zrow { display: flex; align-items: center; font-size: 15px; }
+  .zrow span { color: var(--muted); min-width: 46px; } .zrow b { margin-left: 6px; }
+  .demo .dot.zused { background: var(--zused); } .demo .dot.zfree { background: var(--zfree); }
+  .zfreeval { color: var(--zfreetext); }
+  .zlimit { font-size: 12px; color: var(--muted); }
+  #zring { width: 96px; height: 96px; flex: none; }
+  #zring circle { fill: none; stroke-width: 6; }
+  #zring .z-free { stroke: var(--zfree); } #zring .z-used { stroke: var(--zused); }
+  #zring .z-pc { fill: var(--text); font: 800 20px "Manrope", system-ui, sans-serif; }
+  #zring .z-sub { fill: var(--muted); font: 600 10px "Manrope", system-ui, sans-serif; }
   @media (max-width: 760px) { .st-grid { grid-template-columns: 1fr; } }
   @media (max-width: 420px) { .st-head .big { font-size: 42px; } #ring { width: 76px; height: 76px; } }
 
