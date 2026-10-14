@@ -143,7 +143,7 @@ def test_backup_codes_work_once(app, clock):
     c = app.test_client()
     sign_in(app, c)
     page = c.post("/settings/codes").get_data(as_text=True)
-    codes = re.findall(r"\b[a-z2-9]{4}-[a-z2-9]{4}\b", page)
+    codes = re.findall(r"<li>([a-z2-9]{4}-[a-z2-9]{4})</li>", page)
     assert len(set(codes)) == 8
     assert "Each works once" in page
     assert codes[0] not in kv_text(app)
