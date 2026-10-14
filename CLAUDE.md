@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 5 Oct 2026._
+_Last updated: 14 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -58,6 +58,9 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+000. **14 Oct: new name idea 'Where's My Money?' (tagline 'Payday to payday'), not applied yet (page still says Wage Tracker).
+   New app icon BUILT: the Lens (teal, white magnifier, mint £), `tools/make_icon.py` writes static/icon-*.png + app.ico.
+   User wants a cleaner, more professional look next: mock it up first (fewer emojis, one accent colour, more space).**
 00. **4 Oct (grill session): step 10 phone copy BUILT (391 tests)** on PythonAnywhere instead of the AWS v3 design (the user
    chose it in the grill and drew the diagram: PC -> JSON/page -> PythonAnywhere <-> phone; phone changes go back to the PC,
    which asks y/n). See SPEC.md step 10 + DECISIONS.md 4 Oct. Code: `cloud/flask_app.py` (the site: page.html,
