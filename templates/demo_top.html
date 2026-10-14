@@ -1,0 +1,81 @@
+{# The demo page's top (14 Oct 2026): spare cash as a statement with a ring. Same forms and ids as the normal page. #}
+<div class="st-grid">
+  <div class="card st-sum">
+    <div class="st-head">
+      <div>
+        <div class="label">Spare cash left</div>
+        <div class="big" id="spare-big">{{ d.left_now|money }}</div>
+        <div class="st-key" id="st-key"></div>
+      </div>
+      <svg id="ring" viewBox="0 0 100 100" role="img" aria-label="Where the money went">
+        <circle cx="50" cy="50" r="40" class="ring-bg"/>
+        <circle cx="50" cy="50" r="40" class="seg-bill" transform="rotate(-90 50 50)"/>
+        <circle cx="50" cy="50" r="40" class="seg-spend" transform="rotate(-90 50 50)"/>
+        <circle cx="50" cy="50" r="40" class="seg-spare" transform="rotate(-90 50 50)"/>
+        <text x="50" y="57" text-anchor="middle" id="ring-pc"></text>
+      </svg>
+    </div>
+    <div class="st-rows">
+      <div class="r"><span>Pay</span><button type="button" class="link tap" data-edit="payedit" title="Change this month's pay">{{ d.pay.wage|money }}</button></div>
+      <div class="st-edit" id="payedit" hidden>
+        <form class="inline" method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}">
+          <input type="hidden" name="clear" value="0">
+          <input class="amount" type="text" name="pay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}" aria-label="Pay">
+          <button type="submit">Work it out</button>
+        </form>
+      </div>
+      <div class="r"><span>+ Left from last month</span><button type="button" class="link tap" data-edit="leftedit" title="Change what was left from last month">{{ d.pay.left|money if d.pay.left else 'Add' }}</button></div>
+      <div class="st-edit" id="leftedit" hidden>
+        <form class="inline" method="post" action="/left">
+          <input class="amount" type="text" name="amount" inputmode="decimal" placeholder="220" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}" aria-label="Left from last month">
+          <button type="submit">{{ 'Change' if d.pay.left else 'Add' }}</button>
+        </form>
+        {% if d.pay.left %}<form method="post" action="/left"><input type="hidden" name="amount" value=""><button class="small" type="submit" title="Remove">✖</button></form>{% endif %}
+      </div>
+      <div class="r"><span><i class="dot bill"></i>− Bills</span><span class="k-bill" id="st-bills">{{ d.pay.bills_last|money }}</span></div>
+      <div class="r"><span><i class="dot spend"></i>− Spends</span><span class="k-spend" id="st-spends">{{ d.typed_total|money }}</span></div>
+      <div class="r tot"><span>Spare</span><span id="st-spare">{{ d.left_now|money }}</span></div>
+    </div>
+    <div id="spare-how" hidden></div>
+  </div>
+  <div class="st-side">
+    {% if d.history %}
+    <div class="tile"><div class="label">Spare last month</div><div class="num">{{ d.history.last|money }}</div></div>
+    <div class="tile"><div class="label">{{ d.history.months }}-month average</div><div class="num">{{ d.history.avg|money }}</div></div>
+    {% endif %}
+    <div class="tile wide"><div class="label">Zopa credit card</div>
+      <div class="zopa"><b><span id="ccused">{{ d.card.used|money }}</span> used</b>
+        <b class="{{ 'bad' if d.card.free < 0 else 'good' }}"><span id="ccfree">{{ d.card.free|money }}</span> free</b></div>
+      {% set pc = (100 * d.card.used / d.card.limit) if d.card.limit else 0 %}
+      <div class="bar"><i style="width:{{ [[pc, 0]|max, 100]|min }}%"></i></div></div>
+  </div>
+</div>
+<script>
+  // Ring: all money in (pay + left) split into bills, spends and spare. Tap Pay or Left to change them.
+  window.demoTop = function (bills) {
+    if (typeof PAGE === 'undefined' || PAGE.wage === undefined) return;
+    if (bills === undefined) bills = PAGE.bills;
+    const total = PAGE.wage + PAGE.left, spends = PAGE.typed, spare = Math.max(total - bills - spends, 0);
+    const C = 2 * Math.PI * 40, f = x => total > 0 ? Math.max(x, 0) / total : 0;
+    let start = 0;
+    [['seg-bill', f(bills)], ['seg-spend', f(spends)], ['seg-spare', f(spare)]].forEach(([cls, part]) => {
+      const el = document.querySelector('#ring .' + cls), len = Math.min(part, 1 - start) * C;
+      el.setAttribute('stroke-dasharray', (len > 2 ? len - 1.5 : len) + ' ' + C);
+      el.setAttribute('stroke-dashoffset', -start * C);
+      start += part;
+    });
+    const pc = x => Math.round(100 * f(x)) + '%';
+    document.getElementById('ring-pc').textContent = pc(spare);
+    document.getElementById('st-key').innerHTML = '<i class="dot bill"></i>Bills ' + pc(bills) + ' · <i class="dot spend"></i>Spends ' +
+      pc(spends) + ' · <i class="dot spare"></i>Spare ' + pc(spare);
+    const set = (id, x) => { const el = document.getElementById(id); if (el) el.textContent = money(x); };
+    set('st-bills', bills); set('st-spare', total - bills - spends);
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    demoTop();
+    document.querySelectorAll('.tap').forEach(b => b.addEventListener('click', () => {
+      const box = document.getElementById(b.dataset.edit); box.hidden = !box.hidden;
+      if (!box.hidden) { const i = box.querySelector('input.amount'); i.focus(); i.select(); }
+    }));
+  });
+</script>

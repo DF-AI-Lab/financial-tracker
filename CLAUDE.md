@@ -61,6 +61,13 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
 000. **14 Oct: new name idea 'Where's My Money?' (tagline 'Payday to payday'), not applied yet (page still says Wage Tracker).
    New app icon BUILT: the Lens (teal, white magnifier, mint £), `tools/make_icon.py` writes static/icon-*.png + app.ico.
    User wants a cleaner, more professional look next: mock it up first (fewer emojis, one accent colour, more space).**
+   14 Oct BUILT (445 tests + browser check): DEMO page http://127.0.0.1:5000/demo = the new look, the normal page / is
+   unchanged (user: 'only on the demo'). Same template home.html with demo=True: templates/demo_style.html (teal/mint,
+   bills blue, spends gold, Manrope, emojis -> coloured dots via the emo() macro), templates/demo_top.html (spare cash
+   as a statement Pay / + Left / - Bills / - Spends = Spare, tap Pay or Left to open the same forms, thin 3-colour ring
+   bills/spends/spare of pay+left, tiles + Zopa bar). Forms post as before; web.home_url sends you back to /demo when the
+   Referer is /demo. Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
+   swap the demo onto / (and the phone) when they say so.
 00. **4 Oct (grill session): step 10 phone copy BUILT (391 tests)** on PythonAnywhere instead of the AWS v3 design (the user
    chose it in the grill and drew the diagram: PC -> JSON/page -> PythonAnywhere <-> phone; phone changes go back to the PC,
    which asks y/n). See SPEC.md step 10 + DECISIONS.md 4 Oct. Code: `cloud/flask_app.py` (the site: page.html,
