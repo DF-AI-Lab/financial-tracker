@@ -45,9 +45,9 @@ def test_fix_page_lists_every_saved_item(client, v3_data):
 def test_fix_page_shows_kind_words(client, v3_data):
     html = client.get("/fix").get_data(as_text=True)
     rent = html.split('data-key="SO|SAM PARKER|RENT"')[1].split("data-key=")[0]
-    assert 'data-kind="bill"' in rent and ">Bill<" in rent
+    assert 'class="pill bill">Bill<' in rent
     shop = html.split('data-key="CARD|FURNITURE STORE|"')[1].split("data-key=")[0]
-    assert 'data-kind="random"' in shop and ">Random<" in shop
+    assert 'class="pill random">Random<' in shop
 
 
 def test_fix_page_newest_paid_first(client, v3_data):
@@ -88,7 +88,7 @@ def test_save_bill_and_yearly(client, v3_data):
     assert items["DD|TV LICENCE|"]["kind"] == "yearly"
     html = client.get("/fix").get_data(as_text=True)
     tv = html.split('data-key="DD|TV LICENCE|"')[1].split("data-key=")[0]
-    assert ">Yearly<" in tv
+    assert 'class="pill yearly">Yearly<' in tv
 
 
 def test_save_bad_kind_is_refused(client, v3_data):
