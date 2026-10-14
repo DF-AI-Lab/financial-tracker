@@ -51,7 +51,7 @@ def home_data(conn, wage_payer, wage=None, today=None) -> dict:
     analysis = analyse(cycles, answers=answers, rules=rules)
     # v3 bill swaps (fintrack/v3/billswap.py): the bills leave out the old payee from the swap on; no swaps = the same
     from fintrack.v3.billswap import bill_txns, get_swaps, items_of
-    btxns = bill_txns(conn, txns)
+    btxns = bill_txns(conn, txns, [c.start for c in cycles])
     bill_cycles, bill_analysis = cycles, analysis
     if btxns is not txns:
         bill_cycles = build_cycles(btxns, payer=all_payers(conn, wage_payer))

@@ -132,13 +132,20 @@ def split(conn, bill) -> bool:
 
 # ---- the rule for the bills -----------------------------------------------------------------------
 
-def bill_txns(conn, txns) -> list:
-    """The payments the bills are worked out from: the old payee's payments on or after a swap are left out.
-    No swaps: the same list, untouched."""
+def cut_day(day: date, paydays) -> date:
+    """From the start of the pay cycle the swap happens in, so the swap month never counts the bill twice
+    (even when the old payee took its last payment earlier in that cycle)."""
+    starts = [p for p in (paydays or []) if p <= day]
+    return max(starts) if starts else day
+
+
+def bill_txns(conn, txns, paydays=None) -> list:
+    """The payments the bills are worked out from: the old payee's payments from the swap's pay cycle on are left
+    out. No swaps: the same list, untouched."""
     swaps = get_swaps(conn)
     if not swaps:
         return txns
-    cuts = [(set(s["old"]), date.fromisoformat(s["from"])) for s in swaps]
+    cuts = [(set(s["old"]), cut_day(date.fromisoformat(s["from"]), paydays)) for s in swaps]
 
     def dropped(t):
         return t.amount < 0 and any(t.date >= day and item_key(t) in old for old, day in cuts)

@@ -220,3 +220,19 @@ def test_join_refuses_nonsense(client):
     assert client.post("/bill/join", data={"key": "Nope", "into": OLD_BILL}).status_code == 303
     assert client.post("/bill/split", data={"key": OLD_BILL}).status_code == 303     # nothing to split
     assert get_items(c)[AVIVA]["label"] == NEW_BILL and get_value(c, "bill_swaps") in (None, "[]")
+
+
+def test_old_payment_earlier_in_the_swap_cycle_is_not_counted(tmp_path):
+    from fintrack.store import set_value
+    from fintrack.v3.billswap import bill_txns, cut_day
+    c = open_db(tmp_path / "t.db")
+    set_value(c, "bill_swaps", json.dumps([{"bill": OLD_BILL, "new": [AVIVA], "old": [OLD], "from": "2024-04-05",
+                                             "labels": {}, "cats": {}}]))
+    tx = [Txn(date(2024, 3, 10), "DD", "OLD INSURER", "", -40.0),
+          Txn(date(2024, 4, 1), "DD", "OLD INSURER", "", -40.0),        # same pay cycle as the swap, but before it
+          Txn(date(2024, 4, 5), "DD", "AVIVA", "", -27.10)]
+    paydays = [date(2024, 2, 28), date(2024, 3, 28), date(2024, 4, 28)]
+    assert cut_day(date(2024, 4, 5), paydays) == date(2024, 3, 28)
+    kept = bill_txns(c, tx, paydays)
+    assert [(t.date, t.description) for t in kept] == [(date(2024, 3, 10), "OLD INSURER"), (date(2024, 4, 5), "AVIVA")]
+    assert cut_day(date(2024, 4, 5), []) == date(2024, 4, 5)                  # no paydays: from the day itself
