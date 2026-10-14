@@ -1,8 +1,22 @@
 """v3 Settings -> Fix an item (14 Oct 2026): /fix lists every saved item, /fix/save changes one. Fake data only."""
 import re
 
+import pytest
+
 from fintrack.store import get_categories, get_items, open_db, set_item
-from tests.v3_helpers import v3_data, v3_app, v3_client, ACME  # noqa: F401
+from tests.v3_helpers import v3_data, v3_app, ACME  # noqa: F401
+
+
+@pytest.fixture
+def client(v3_app):
+    """Like client, but also works before fintrack/v3/auth.py exists (that import raises ImportError)."""
+    c = v3_app.test_client()
+    try:
+        from fintrack.v3 import auth
+    except ImportError:
+        return c
+    c.set_cookie(auth.COOKIE, auth.make_device(v3_app))
+    return c
 
 
 def db(v3_data):
@@ -13,8 +27,8 @@ def keys_in_order(html):
     return re.findall(r'data-key="([^"]+)"', html)
 
 
-def test_fix_page_lists_every_saved_item(v3_client, v3_data):
-    r = v3_client.get("/fix")
+def test_fix_page_lists_every_saved_item(client, v3_data):
+    r = client.get("/fix")
     assert r.status_code == 200
     html = r.get_data(as_text=True)
     items = get_items(db(v3_data))
@@ -28,32 +42,32 @@ def test_fix_page_lists_every_saved_item(v3_client, v3_data):
     assert 'href="/"' in html                        # Back
 
 
-def test_fix_page_shows_kind_words(v3_client, v3_data):
-    html = v3_client.get("/fix").get_data(as_text=True)
+def test_fix_page_shows_kind_words(client, v3_data):
+    html = client.get("/fix").get_data(as_text=True)
     rent = html.split('data-key="SO|SAM PARKER|RENT"')[1].split("data-key=")[0]
     assert 'data-kind="bill"' in rent and ">Bill<" in rent
     shop = html.split('data-key="CARD|FURNITURE STORE|"')[1].split("data-key=")[0]
     assert 'data-kind="random"' in shop and ">Random<" in shop
 
 
-def test_fix_page_newest_paid_first(v3_client, v3_data):
+def test_fix_page_newest_paid_first(client, v3_data):
     conn = db(v3_data)
     set_item(conn, "DD|OLD GYM|", "common", "Old Gym", "user")      # saved, never paid: last
     conn.close()
-    keys = keys_in_order(v3_client.get("/fix").get_data(as_text=True))
+    keys = keys_in_order(client.get("/fix").get_data(as_text=True))
     assert keys[0] == "CARD|STREAM VIDEO|"                           # 15 Oct
     assert keys.index("CARD|PETROL STATION|") < keys.index("CARD|TACO PLACE|") < keys.index("DD|ENERGY CO|")
     assert keys.index("DD|ENERGY CO|") < keys.index("CASH|CASH MACHINE|") < keys.index("CARD|CHIROPRACTOR|")
     assert keys[-1] == "DD|OLD GYM|"
 
 
-def test_fix_page_has_categories_for_the_box(v3_client):
-    html = v3_client.get("/fix").get_data(as_text=True)
+def test_fix_page_has_categories_for_the_box(client):
+    html = client.get("/fix").get_data(as_text=True)
     assert "<datalist" in html and 'value="Food shopping"' in html
 
 
-def test_save_changes_kind_category_and_name(v3_client, v3_data):
-    r = v3_client.post("/fix/save", json={"key": "CARD|FURNITURE STORE|", "kind": "oneoff",
+def test_save_changes_kind_category_and_name(client, v3_data):
+    r = client.post("/fix/save", json={"key": "CARD|FURNITURE STORE|", "kind": "oneoff",
                                           "label": "New sofa", "category": "Home"})
     assert r.status_code == 200
     out = r.get_json()
@@ -64,32 +78,32 @@ def test_save_changes_kind_category_and_name(v3_client, v3_data):
     assert get_categories(conn)["CARD|FURNITURE STORE|"] == "Home"
 
 
-def test_save_bill_and_yearly(v3_client, v3_data):
-    assert v3_client.post("/fix/save", json={"key": "CARD|TACO PLACE|", "kind": "bill", "label": "Tacos",
+def test_save_bill_and_yearly(client, v3_data):
+    assert client.post("/fix/save", json={"key": "CARD|TACO PLACE|", "kind": "bill", "label": "Tacos",
                                              "category": ""}).status_code == 200
-    assert v3_client.post("/fix/save", json={"key": "DD|TV LICENCE|", "kind": "yearly", "label": "TV Licence",
+    assert client.post("/fix/save", json={"key": "DD|TV LICENCE|", "kind": "yearly", "label": "TV Licence",
                                              "category": "Household"}).status_code == 200
     items = get_items(db(v3_data))
     assert items["CARD|TACO PLACE|"]["kind"] == "common"
     assert items["DD|TV LICENCE|"]["kind"] == "yearly"
-    html = v3_client.get("/fix").get_data(as_text=True)
+    html = client.get("/fix").get_data(as_text=True)
     tv = html.split('data-key="DD|TV LICENCE|"')[1].split("data-key=")[0]
     assert ">Yearly<" in tv
 
 
-def test_save_bad_kind_is_refused(v3_client, v3_data):
+def test_save_bad_kind_is_refused(client, v3_data):
     before = get_items(db(v3_data))
-    r = v3_client.post("/fix/save", json={"key": "DD|GYM CLUB|", "kind": "weekly", "label": "X", "category": "Y"})
+    r = client.post("/fix/save", json={"key": "DD|GYM CLUB|", "kind": "weekly", "label": "X", "category": "Y"})
     assert r.status_code == 400
     assert r.get_data(as_text=True).strip()
     assert get_items(db(v3_data)) == before
     assert get_categories(db(v3_data))["DD|GYM CLUB|"] == "Unsorted"
 
 
-def test_save_unknown_or_bad_key_is_refused(v3_client, v3_data):
+def test_save_unknown_or_bad_key_is_refused(client, v3_data):
     before = get_items(db(v3_data))
     for key in ("DD|NOT SAVED|", "nonsense", ""):
-        r = v3_client.post("/fix/save", json={"key": key, "kind": "bill", "label": "X", "category": "Y"})
+        r = client.post("/fix/save", json={"key": key, "kind": "bill", "label": "X", "category": "Y"})
         assert r.status_code == 400
-    assert v3_client.post("/fix/save", data="not json").status_code == 400
+    assert client.post("/fix/save", data="not json").status_code == 400
     assert get_items(db(v3_data)) == before
