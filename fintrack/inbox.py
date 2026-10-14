@@ -13,8 +13,9 @@ from fintrack.parse import parse_statement
 from fintrack.store import import_statement
 
 
-def import_pdf(conn, folder, filename: str, data: bytes) -> dict:
-    """{"file", "new", "payments", "start", "end", "problems"} or {"file", "error"}."""
+def import_pdf(conn, folder, filename: str, data: bytes, keep: bool = True) -> dict:
+    """{"file", "new", "payments", "start", "end", "problems"} or {"file", "error"}.
+    keep=False (v3, the website): the PDF is read from the temporary copy and never kept anywhere."""
     name = Path(filename.replace("\\", "/")).name or "statement.pdf"        # only the file name, never a path
     if not name.lower().endswith(".pdf") or not data.startswith(b"%PDF"):
         return {"file": name, "error": "That is not a PDF."}
@@ -31,7 +32,7 @@ def import_pdf(conn, folder, filename: str, data: bytes) -> dict:
         st.file = name
         problems = check_statement(st)
         new = import_statement(conn, st, problems)
-        if new:
+        if new and keep:
             folder = Path(folder)
             folder.mkdir(parents=True, exist_ok=True)
             target, n = folder / name, 1

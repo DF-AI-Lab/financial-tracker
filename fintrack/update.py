@@ -11,13 +11,13 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
-URL = "https://github.com/DF-AI-Lab/financial-tracker/archive/refs/heads/main.zip"
+URL = "https://github.com/DF-AI-Lab/financial-tracker/archive/refs/heads/{branch}.zip"
 CODE_DIR = Path(__file__).resolve().parent.parent
 SKIP_DIRS = {"statements", "real_statements", "output", ".venv", ".git", "__pycache__"}
 
 
-def download() -> bytes:
-    with urllib.request.urlopen(URL, timeout=60) as r:
+def download(branch: str = "main") -> bytes:
+    with urllib.request.urlopen(URL.format(branch=branch), timeout=60) as r:
         return r.read()
 
 
@@ -77,7 +77,7 @@ def main():
         r = update_code()
     except (OSError, ValueError) as e:
         print(f"Sorry, the update did not work: {e}")
-        print("Check the internet, or download the ZIP by hand:", URL)
+        print("Check the internet, or download the ZIP by hand:", URL.format(branch="main"))
         return 1
     if r["changed"]:
         print(f"Updated {len(r['changed'])} file(s). Version {r['version']}.")

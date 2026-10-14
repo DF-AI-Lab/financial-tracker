@@ -51,7 +51,9 @@ def phone_page(db_path, wage_payer=WAGE_PAYER, today=None, now=None, stamp=None)
 
 
 def push(db_path, wage_payer=WAGE_PAYER, today=None, http=phone.http_json) -> bool:
-    """Send a fresh copy up if the phone copy is set up. Never raises."""
+    """Send a fresh copy up if the phone copy is set up. Never raises. http=None (v3, the website itself): nothing."""
+    if http is None:
+        return False
     try:
         import time
         stamp = str(time.time())
@@ -73,6 +75,8 @@ def push_soon(db_path, wage_payer=WAGE_PAYER, today=None, http=phone.http_json, 
     """Send a fresh copy up a moment later, once (moving cards, renaming, typing in a bill box send many quick
     changes; the page answers at once and the phone gets the last one)."""
     global _push_timer
+    if http is None:                                      # v3: the website is the only copy, nothing to send
+        return
     if _push_timer is not None:
         _push_timer.cancel()
     _push_timer = threading.Timer(delay, push, args=(db_path, wage_payer, today), kwargs={"http": http})
@@ -119,13 +123,15 @@ def engine_tick(db_path, wage_payer=WAGE_PAYER, statements_dir=None, downloads_d
 
 
 def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart=None, statements_dir=None,
-               phone_http=phone.http_json):
+               phone_http=phone.http_json, cloud=False, setup=None):
     """Create and configure the Flask app.
 
     Args:
         db_path: path to the database file
         wage_payer: the wage payer name
         today: optional reference date for home_data
+        cloud: v3 (the website on PythonAnywhere): no phone copy (pass phone_http=None), PDFs are read and not kept
+        setup: optional setup(app) called last (v3 adds sign-in, backups, Fix an item: v3app.py)
 
     Returns:
         Flask app with all routes configured
@@ -146,6 +152,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
     # Create app with templates folder at repo root
     template_folder = Path(__file__).parent / "templates"
     app = Flask(__name__, template_folder=str(template_folder))
+    app.config["CLOUD"] = cloud
 
     # Register Jinja filters
     @app.template_filter('money')
@@ -202,7 +209,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
 
         conn = open_db(db_path)
         # Sync phone changes first
-        n = phone.sync_once(conn, wage_payer, http=phone_http) or 0
+        n = (phone.sync_once(conn, wage_payer, http=phone_http) or 0) if phone_http else 0
         d = home_data(conn, wage_payer=wage_payer, today=today)
 
         # Get error message from query string
@@ -223,7 +230,8 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         if n and n > 0:
             push(db_path, wage_payer, today, http=phone_http)
 
-        return render_template("home.html", d=d, error=error, version=version, demo=demo, app_version=APP_VERSION)
+        return render_template("home.html", d=d, error=error, version=version, demo=demo, app_version=APP_VERSION,
+                               cloud=cloud)
 
     # POST /pay
     @app.route("/pay", methods=["POST"])
@@ -432,7 +440,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn = open_db(db_path)
         results = []
         for f in request.files.getlist("files"):
-            r = import_pdf(conn, statements_dir, f.filename or "", f.read())
+            r = import_pdf(conn, statements_dir, f.filename or "", f.read(), keep=not cloud)
             for k in ("start", "end"):
                 if r.get(k):
                     r[k] = f"{r[k].day} {r[k]:%b %Y}"
@@ -508,6 +516,8 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         push(db_path, wage_payer, today, http=phone_http)
         return redirect(home_url(), code=303)
 
+    if setup is not None:
+        setup(app)
     return app
 
 

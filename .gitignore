@@ -12,10 +12,13 @@ output/
 
 # your real data stays on your PC
 *.db
-<<<<<<< HEAD
 
 # the online copy keeps its data here (on PythonAnywhere only)
 cloud/data/
-=======
 version.txt
->>>>>>> origin/main
+
+# v3: the website data folder (database, settings with passwords, backups) never goes in git
+v3data/
+wmm-data/
+v3_settings.json
+backups/
