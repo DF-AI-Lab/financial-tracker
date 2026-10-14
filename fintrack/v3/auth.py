@@ -37,6 +37,15 @@ BACKUP_LETTERS = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0/o, 1/l/i look-ali
 OPEN_PATHS = ("/signin", "/signin/code", "/signin/backup", "/manifest.json")
 
 
+def clock(t: datetime) -> str:
+    """HH:MM in UK time for messages (PythonAnywhere runs on UTC; the PC may lack time zone data: then as is)."""
+    try:
+        from zoneinfo import ZoneInfo
+        return f"{t.astimezone().astimezone(ZoneInfo('Europe/London')):%H:%M}"
+    except Exception:
+        return f"{t:%H:%M}"
+
+
 def now() -> datetime:
     """The time now (tests replace this)."""
     return datetime.now()
@@ -133,7 +142,7 @@ def _add_fail(app) -> None:
 
 
 def _lock_text(until) -> str:
-    return f"Too many tries. Try again at {until:%H:%M}."
+    return f"Too many tries. Try again at {clock(until)}."
 
 
 # --- codes ---------------------------------------------------------------------------------------------------------
@@ -227,7 +236,7 @@ def register(app) -> None:
             if len(_sent_last_hour(app)) >= CODES_PER_HOUR:
                 first = min(datetime.fromisoformat(t) for t in _sent_last_hour(app))
                 return _page(app, "code", error=f"That's a lot of codes. Use the last one, or ask again at "
-                                                f"{first + timedelta(hours=1):%H:%M}.")
+                                                f"{clock(first + timedelta(hours=1))}.")
             try:
                 send_code(app, allowed, new_code(app))
             except (OSError, smtplib.SMTPException):

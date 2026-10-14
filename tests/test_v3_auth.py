@@ -110,7 +110,7 @@ def test_five_wrong_tries_lock(app, clock):
         c.post("/signin/code", data={"code": bad})
     r = c.post("/signin/code", data={"code": code})
     page = r.get_data(as_text=True)
-    assert "Too many tries. Try again at 09:15." in page
+    assert f"Too many tries. Try again at {auth.clock(datetime(2026, 10, 14, 9, 15))}." in page
     assert c.get("/").status_code in (302, 303)
     clock["t"] += timedelta(minutes=16)
     ask_code(c)
