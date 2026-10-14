@@ -1,0 +1,86 @@
+<!doctype html>
+{# v3 sign-in (14 Oct 2026): email -> code, or a backup code. step: email | code | backup | codes | noemail #}
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sign in · Where's My Money?</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/static/icon-192.png">
+{% include "demo_style.html" %}
+<style>
+  body.demo { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex;
+              align-items: center; justify-content: center; padding: 24px 16px; box-sizing: border-box; }
+  .box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px;
+         width: 100%; max-width: 380px; box-sizing: border-box; text-align: center; }
+  .box img { width: 64px; height: 64px; border-radius: 16px; }
+  .box h1 { font-size: 22px; margin: 12px 0 4px; }
+  .box .tag { color: var(--muted); margin: 0 0 20px; }
+  .box form { display: flex; flex-direction: column; gap: 10px; text-align: left; margin: 0; }
+  .box label { font-weight: 600; }
+  .box input { font: inherit; font-size: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+               background: var(--bg); color: var(--text); width: 100%; box-sizing: border-box; }
+  .box input.code { letter-spacing: 6px; text-align: center; font-size: 24px; }
+  .box button { font: inherit; font-weight: 700; font-size: 17px; padding: 12px; border: 0; border-radius: 10px;
+                background: var(--accent); color: var(--on-accent); cursor: pointer; }
+  .box .note { color: var(--accent); font-weight: 600; margin: 0 0 14px; }
+  .box .err { color: var(--bad); font-weight: 600; margin: 0 0 14px; }
+  .box .links { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .box .links a { color: var(--muted); }
+  .box ul.codes { list-style: none; padding: 0; margin: 16px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+                  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; }
+  .box ul.codes li { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 4px; }
+</style>
+</head>
+<body class="demo">
+<main class="box">
+  <img src="/static/icon-192.png" alt="">
+  <h1>Where's My Money?</h1>
+  <p class="tag">Payday to payday</p>
+
+  {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
+  {% if sent %}<p class="note">If that's your address, a code is on its way.</p>{% endif %}
+
+  {% if step == "noemail" %}
+    <p>Put your email in <b>v3_settings.json</b> first (in the data folder), then open this page again.</p>
+
+  {% elif step == "codes" %}
+    <p><b>Your backup codes</b></p>
+    <p>Keep these in your phone's notes. Each works once.</p>
+    <ul class="codes">{% for c in codes %}<li>{{ c }}</li>{% endfor %}</ul>
+    <p class="tag">You won't see them again. Old backup codes no longer work.</p>
+    <div class="links"><a href="/">Back to the home page</a></div>
+
+  {% elif step == "code" %}
+    <form method="post" action="/signin/code">
+      <label for="code">Type the 6-digit code from your email</label>
+      <input class="code" id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
+             pattern="[0-9 ]*" maxlength="7" required autofocus>
+      <button type="submit">Sign in</button>
+    </form>
+    <div class="links">
+      <a href="/signin">Send a new code</a>
+      <a href="/signin?backup=1">Use a backup code</a>
+    </div>
+
+  {% elif step == "backup" %}
+    <form method="post" action="/signin/backup">
+      <label for="bcode">Type a backup code</label>
+      <input class="code" id="bcode" name="code" autocomplete="off" autocapitalize="off" spellcheck="false"
+             placeholder="abcd-1234" required autofocus>
+      <button type="submit">Sign in</button>
+    </form>
+    <div class="links"><a href="/signin">Use an email code instead</a></div>
+
+  {% else %}
+    <form method="post" action="/signin">
+      <label for="email">Your email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required autofocus>
+      <button type="submit">Send me a code</button>
+    </form>
+    <div class="links"><a href="/signin?backup=1">Use a backup code</a></div>
+  {% endif %}
+</main>
+</body>
+</html>
