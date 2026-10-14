@@ -62,6 +62,8 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    web.home(demo=True) -> template flag `demo` = new look; CSS in static/look.css (linked by templates/demo_style.html).
    Version shows as 'v2.21' (fintrack/appversion.py, bump every push). Manifest name 'Where's My Money?'.
    The PHONE page (web.phone_page) still has the OLD look: next job = phone (its script uses old ids/markup; test it).**
+   v3 PLAN (14 Oct): GitHub wayfinder map 'Map: v3, the whole app on PythonAnywhere' (issue 15, tickets 16-21; type in each
+   ticket's first line, labels missing). V3_PLAN.md points at it. Work one ticket per session.
 000. **14 Oct: new name idea 'Where's My Money?' (tagline 'Payday to payday'), not applied yet (page still says Wage Tracker).
    New app icon BUILT: the Lens (teal, white magnifier, mint £), `tools/make_icon.py` writes static/icon-*.png + app.ico.
    User wants a cleaner, more professional look next: mock it up first (fewer emojis, one accent colour, more space).**

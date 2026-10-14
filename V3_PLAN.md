@@ -3,9 +3,10 @@
 Master file for v3. Links back to: `CLAUDE.md` (v2 front page), `FUTURE_FEATURES.md` ('v3 AGREED DESIGN (4 Oct)', the old AWS idea).
 
 ## Where we are
-- Current step: Brain dump played back, waiting for "Have I got that right?", then Step 1 (Idea)
-- Last session: 14 Oct 2026, file created from the chat
-- Next action: Darren confirms the summary, then we grill Step 1
+- The plan now lives on GitHub as a wayfinder map: **Map: v3, the whole app on PythonAnywhere** (issue 15), with one
+  ticket per open decision (issues 16-21). This file is a pointer; the map and its tickets are the truth.
+- Last session: 14 Oct 2026, map charted (destination + 8 decisions agreed while charting, 6 tickets).
+- Next action: work the first ticket on the map (two research tickets can run by themselves).
 
 ## Principles / constraints
 - Darren is not a developer: exact copy-paste steps, short messages.
@@ -62,3 +63,4 @@ Master file for v3. Links back to: `CLAUDE.md` (v2 front page), `FUTURE_FEATURES
 
 ## Change log
 - 14 Oct 2026: Project file created from the chat (brain dump: move everything to PythonAnywhere, build on v3 branch).
+- 14 Oct 2026: Charted as a GitHub wayfinder map (issue 15); agreed: website only, email-code sign-in, PDFs not kept, database copied up once, one-tap Update, daily backups + download, extras into Settings.
