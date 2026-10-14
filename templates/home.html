@@ -164,7 +164,8 @@
   <header class="demohead">
     <a class="brand" href="/demo" title="Back to the top"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
-      <div class="setmenu" id="setmenu" hidden></div></div>{% endif %}
+      <div class="setmenu" id="setmenu" hidden></div>
+      <div class="appver">demo.v.{{ app_version }}</div></div>{% endif %}
   </header>
   <script>
     // Settings (14 Oct 2026): the Update and Move & rename buttons live in this menu on the demo page

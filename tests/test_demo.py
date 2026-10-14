@@ -19,6 +19,8 @@ def test_demo_page_has_the_new_name_icon_and_ring(client):
     assert 'id="st-bills"' in html and 'id="st-spends"' in html         # statement rows
     assert 'class="demohead"' in html and 'id="setbtn"' in html         # fixed header with Settings
     assert 'id="editbtn"' in html and 'id="updbtn"' in html             # the buttons Settings opens
+    from fintrack.appversion import VERSION
+    assert f"demo.v.{VERSION}" in html                                  # which version is running
 
 
 def test_demo_keeps_every_form_and_card_of_the_normal_page(client):
