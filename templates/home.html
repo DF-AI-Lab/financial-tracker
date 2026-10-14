@@ -166,7 +166,7 @@
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
       <div class="setmenu" id="setmenu" hidden></div>
       <div class="appver">demo.v.{{ app_version }}</div></div>{% endif %}
-    {% if d.ready and not phone %}<button type="button" class="tab" id="quicktab" aria-expanded="false" aria-controls="quick" title="New payday / add statements">▴</button>{% endif %}
+    {% if d.ready and not phone %}<button type="button" class="tab" id="quicktab" aria-expanded="false" aria-controls="quick" title="New payday / add statements"><svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 6.5 6 2l4.5 4.5"/></svg></button>{% endif %}
   </header>
   <script>
     // Settings (14 Oct 2026): the Update and Move & rename buttons live in this menu on the demo page

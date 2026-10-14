@@ -87,12 +87,12 @@
   };
   document.addEventListener('DOMContentLoaded', () => {
     demoTop();
-    // The arrow tab on the header line opens / hides the New payday panel (▴ = hidden, ▾ = open). Starts hidden.
+    // The arrow tab on the header line opens / hides the New payday panel (up = hidden, down = open). Starts hidden.
     const quick = document.getElementById('quick'), tab = document.getElementById('quicktab');
     const drop = document.getElementById('dropbar'); if (drop) document.getElementById('qdrop').appendChild(drop);
     const openQuick = on => {
       quick.hidden = !on;
-      if (tab) { tab.textContent = on ? '▾' : '▴'; tab.setAttribute('aria-expanded', on); }
+      if (tab) tab.setAttribute('aria-expanded', on);                  // the chevron flips by CSS
       if (on) window.scrollTo({top: 0, behavior: 'smooth'});
     };
     if (tab) tab.addEventListener('click', () => openQuick(quick.hidden));
