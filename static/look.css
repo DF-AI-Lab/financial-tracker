@@ -20,14 +20,15 @@
   .demo button.link, .demo .card h2 .fold { background: none; color: inherit; font-weight: inherit; }
   .demo .card h2 .fold { color: var(--muted); }
   /* fold arrow (15 Oct 2026, from the mock): a thin chevron, down = open, turns to point right when folded */
-  .demo .card h2 .fold { font-size: 0; width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; border-radius: 8px; cursor: pointer; }
+  .demo .card h2 .fold { font-size: 0; width: 32px; height: 32px; padding: 0; display: inline-block; position: relative; border-radius: 8px; cursor: pointer; }
   @media (hover: hover) { .demo .card h2 .fold:hover { background: var(--row); color: var(--text); } }
   .demo .card h2:has(.fold) { display: flex; align-items: center; }            /* arrow centred on the right, even when the name wraps */
   .demo .card h2 .fold { float: none; flex: none; margin: -6px -6px -6px auto; }
   .demo .card.folded h2 { margin-bottom: 0; }
   .demo .card h2 .fold::before { content: ""; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
-      border-radius: 1px; transform: translateY(-2px) rotate(45deg); transition: transform .25s ease; }
-  .demo .card.folded h2 .fold::before { transform: translateX(-2px) rotate(-45deg); }
+      border-radius: 1px; position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -70%) rotate(45deg); transition: transform .25s ease; }   /* exact middle of the button */
+  .demo .card.folded h2 .fold::before { transform: translate(-70%, -50%) rotate(-45deg); }
   @media (prefers-reduced-motion: reduce) { .demo .card h2 .fold::before { transition: none; } }
   .st-key span { white-space: nowrap; }
   .demo .seg button { background: var(--bg); color: var(--text); }
