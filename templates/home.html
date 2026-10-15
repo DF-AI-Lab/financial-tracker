@@ -161,6 +161,7 @@
 {% macro emo(e, kind='') %}{% if demo %}<i class="dot {{ kind }}"></i>{% else %}{{ e }}{% endif %}{% endmacro %}
 <div class="wrap">
   {% if demo %}
+  {% if config.get("V3_TEST") %}<div class="testcopy">🧪 TEST COPY on this PC · not your real data</div>{% endif %}
   <header class="demohead">
     <a class="brand" href="/" title="Back to the top"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>

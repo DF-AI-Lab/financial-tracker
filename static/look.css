@@ -258,3 +258,7 @@
   .demo [data-card="card"] form.inline button[type=submit]:not(.small) { background: var(--zused); color: #fff; }
   .demo [data-card="bills"] tr.bill button.link:not(.muted) { color: var(--bill); font-weight: 700; }
   .demo [data-card="bills"] #btotal { color: var(--bill); }
+
+/* v3 PC test (15 Oct 2026): never mix it up with the real site */
+.testcopy { background: #f29b38; color: #2a1500; font-weight: 800; text-align: center; padding: 6px 10px; border-radius: 0 0 12px 12px;
+            font-size: 14px; letter-spacing: .02em; }

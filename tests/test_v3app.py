@@ -64,3 +64,30 @@ def test_git_update_reports_changes():
     assert r["changed"] == []
     with pytest.raises(RuntimeError):
         v3app.git_update("/code", run=lambda cmd, **k: R("", 1))
+
+
+def test_pc_test_offers_a_fresh_copy_from_a_downloaded_backup(tmp_path):
+    import os
+    data, downloads = tmp_path / "v3data", tmp_path / "Downloads"
+    data.mkdir(), downloads.mkdir()
+    (data / "tracker.db").write_bytes(b"old test data")
+    assert v3app.offer_fresh_copy(data, downloads, ask=lambda q: "y") is False          # nothing downloaded
+    b = downloads / "wheres-my-money-backup-2026-10-15.db"
+    b.write_bytes(b"real data copy")
+    os.utime(b, (2_000_000_000, 2_000_000_000))                                          # newer than the test data
+    assert v3app.offer_fresh_copy(data, downloads, ask=lambda q: "n") is False           # said no: kept
+    assert (data / "tracker.db").read_bytes() == b"old test data"
+    assert v3app.offer_fresh_copy(data, downloads, ask=lambda q: "y") is True
+    assert (data / "tracker.db").read_bytes() == b"real data copy"
+    assert v3app.offer_fresh_copy(data, downloads, ask=lambda q: "y") is False           # already used: not asked
+
+
+def test_test_copy_label_only_on_the_pc_test(data_dir):
+    app = v3app.make_app(data_dir, wage_payer=ACME)
+    app.testing = True
+    from fintrack.v3 import auth
+    c = app.test_client()
+    auth.sign_in_for_tests(app, c)
+    assert "TEST COPY" not in c.get("/").get_data(as_text=True)                         # the real site
+    app.config["V3_TEST"] = True
+    assert "TEST COPY" in c.get("/").get_data(as_text=True)

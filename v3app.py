@@ -118,9 +118,32 @@ def pc_data_dir(argv=()) -> Path:
     return data_dir
 
 
+def newest_backup(downloads) -> Path:
+    """The newest backup downloaded from the real site (Settings → Download backup), or None."""
+    found = sorted(Path(downloads).glob("wheres-my-money-backup-*.db"), key=lambda p: p.stat().st_mtime)
+    return found[-1] if found else None
+
+
+def offer_fresh_copy(data_dir, downloads=None, ask=input) -> bool:
+    """PC test: a backup from the real site that is newer than the test data can become the test data (asked first).
+    The real site is never touched: this only copies a file on the PC."""
+    data_dir = Path(data_dir)
+    backup = newest_backup(downloads or Path.home() / "Downloads")
+    test_db = data_dir / "tracker.db"
+    if backup is None or (test_db.exists() and backup.stat().st_mtime <= test_db.stat().st_mtime):
+        return False
+    if ask(f"Use {backup.name} from Downloads as the test data? (y/N) ").strip().lower() not in ("y", "yes"):
+        return False
+    shutil.copy2(backup, test_db)
+    print("Test data replaced with that backup. Your real site is not touched.")
+    return True
+
+
 def main():
     data_dir = pc_data_dir(sys.argv[1:])
+    offer_fresh_copy(data_dir)
     app = make_app(data_dir)
+    app.config["V3_TEST"] = True                      # the orange TEST COPY label
     print(f"v3 test site: http://127.0.0.1:{PORT}   (data: {data_dir})   close this window to stop it")
     if not os.environ.get("FT_RESTART"):
         import webbrowser
