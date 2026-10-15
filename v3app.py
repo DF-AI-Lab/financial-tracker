@@ -60,15 +60,22 @@ def save_settings(data_dir, settings) -> None:
     (Path(data_dir) / "v3_settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
 
-def git_update(code_dir=CODE_DIR, run=subprocess.run) -> dict:
-    """PythonAnywhere: git pull. {"changed": [...lines], "version": short commit} like fintrack.update.update_code."""
-    r = run(["git", "-C", str(code_dir), "pull", "--ff-only"], capture_output=True, text=True, timeout=120)
-    if r.returncode != 0:
-        raise RuntimeError((r.stderr or r.stdout or "git pull failed").strip()[:200])
-    out = (r.stdout or "").strip()
-    changed = [] if "Already up to date" in out else [line for line in out.splitlines() if "|" in line] or [out]
-    v = run(["git", "-C", str(code_dir), "rev-parse", "--short", "HEAD"], capture_output=True, text=True, timeout=30)
-    return {"changed": changed, "version": (v.stdout or "").strip()}
+LIVE_BRANCH = "live"     # the real site follows this; Claude moves it only when Darren has agreed the test copy (15 Oct 2026)
+
+
+def git_update(code_dir=CODE_DIR, run=subprocess.run, branch=LIVE_BRANCH) -> dict:
+    """PythonAnywhere: get the agreed code (branch 'live'). {"changed": [...lines], "version": short commit}."""
+    def git(*args, timeout=120):
+        r = run(["git", "-C", str(code_dir), *args], capture_output=True, text=True, timeout=timeout)
+        if r.returncode != 0:
+            raise RuntimeError((r.stderr or r.stdout or "git failed").strip()[:200])
+        return (r.stdout or "").strip()
+    old = git("rev-parse", "--short", "HEAD", timeout=30)
+    git("fetch", "origin", branch)
+    git("checkout", "-B", branch, f"origin/{branch}")       # fails (changes nothing) if a file was edited by hand
+    new = git("rev-parse", "--short", "HEAD", timeout=30)
+    changed = [] if new == old else [line.strip() for line in git("diff", "--stat", old, new).splitlines() if "|" in line]
+    return {"changed": changed, "version": new}
 
 
 def make_app(data_dir, wage_payer=None, today=None, updater=None, restart=None):

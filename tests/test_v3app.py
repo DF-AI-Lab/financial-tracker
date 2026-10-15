@@ -49,19 +49,28 @@ def test_v3_app_has_no_phone_copy_and_keeps_no_pdfs(data_dir, monkeypatch):
     assert "error" not in r and not (data_dir / "statements").exists()
 
 
-def test_git_update_reports_changes():
+def test_git_update_follows_the_live_branch():
+    """15 Oct 2026 (Darren): the real site only gets what he agreed on the test copy. Claude moves branch 'live' when he
+    says so; Update on PythonAnywhere follows 'live' (the PC test copy follows 'v3')."""
     class R:
         def __init__(self, out, code=0):
             self.stdout, self.stderr, self.returncode = out, "", code
     calls = []
+    heads = iter(["old1234\n", "abc1234\n"])
 
     def fake(cmd, **k):
-        calls.append(cmd)
-        return R(" web.py | 2 +-\n 1 file changed") if "pull" in cmd else R("abc1234\n")
+        calls.append(cmd[3:])
+        if cmd[3:5] == ["rev-parse", "--short"]:
+            return R(next(heads))
+        if "diff" in cmd:
+            return R(" web.py | 2 +-\n 1 file changed\n")
+        return R("")
     r = v3app.git_update("/code", run=fake)
     assert r == {"changed": ["web.py | 2 +-"], "version": "abc1234"}
-    r = v3app.git_update("/code", run=lambda cmd, **k: R("Already up to date.") if "pull" in cmd else R("abc1234"))
-    assert r["changed"] == []
+    assert ["fetch", "origin", "live"] in calls
+    assert ["checkout", "-B", "live", "origin/live"] in calls
+    same = lambda cmd, **k: R("abc1234") if "rev-parse" in cmd else R("")                     # noqa: E731
+    assert v3app.git_update("/code", run=same)["changed"] == []
     with pytest.raises(RuntimeError):
         v3app.git_update("/code", run=lambda cmd, **k: R("", 1))
 
