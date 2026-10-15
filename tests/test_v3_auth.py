@@ -249,3 +249,15 @@ def test_a_broken_settings_file_is_never_written_over(v3_data):
     (v3_data / "v3_settings.json").write_text('{"email": "me@example.com",,}', encoding="utf-8")
     v3app.load_settings(v3_data)
     assert (v3_data / "v3_settings.json").read_text() == '{"email": "me@example.com",,}'
+
+
+def test_pc_test_page_says_the_code_is_in_the_black_window(v3_data, capsys):
+    import v3app
+    s = json.loads((v3_data / "v3_settings.json").read_text()) if (v3_data / "v3_settings.json").exists() else {}
+    v3app.load_settings(v3_data)
+    s = json.loads((v3_data / "v3_settings.json").read_text())
+    s["email"] = "me@example.com"
+    (v3_data / "v3_settings.json").write_text(json.dumps(s))
+    app = v3app.make_app(v3_data, wage_payer=ACME)
+    page = app.test_client().post("/signin", data={"email": "me@example.com"}).get_data(as_text=True)
+    assert "the code is in the black window" in page and "Sign-in code:" in capsys.readouterr().out

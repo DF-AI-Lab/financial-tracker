@@ -40,7 +40,7 @@
   <p class="tag">Payday to payday</p>
 
   {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
-  {% if sent %}<p class="note">If that's your address, a code is on its way.</p>{% endif %}
+  {% if sent %}<p class="note">{% if console %}Testing on your PC: the code is in the black window.{% else %}If that's your address, a code is on its way.{% endif %}</p>{% endif %}
 
   {% if step == "noemail" %}
     {% if local %}
@@ -64,7 +64,7 @@
 
   {% elif step == "code" %}
     <form method="post" action="/signin/code">
-      <label for="code">Type the 6-digit code from your email</label>
+      <label for="code">Type the 6-digit code from {{ 'the black window' if console else 'your email' }}</label>
       <input class="code" id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
              pattern="[0-9 ]*" maxlength="7" required autofocus>
       <button type="submit">Sign in</button>

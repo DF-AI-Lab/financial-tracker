@@ -93,6 +93,12 @@ def _allowed_email(app) -> str:
     return email
 
 
+def _console(app) -> bool:
+    """No Gmail set up (the PC test): codes are printed in the black window, not emailed."""
+    s = app.config["V3_SETTINGS"]
+    return not app.config.get("V3_SEND") and not (s.get("smtp_user") and s.get("smtp_password"))
+
+
 def _local() -> bool:
     """The page is opened on this computer itself (the PC test), never from the internet."""
     return request.remote_addr in ("127.0.0.1", "::1") and not request.headers.get("X-Forwarded-For")
@@ -214,7 +220,7 @@ def _page(app, step="email", error="", sent=False, codes=None, status=200):
     if not _allowed_email(app):
         step = "noemail"
     html = render_template("signin.html", step=step, error=error, sent=sent, codes=codes or [],
-                           app_version=VERSION, local=_local(),
+                           app_version=VERSION, local=_local(), console=_console(app),
                            settings_file=str(app.config.get("V3_DATA_DIR", "")) + "/v3_settings.json")
     return make_response(html, status)
 
