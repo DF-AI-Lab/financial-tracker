@@ -8,8 +8,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ "My Money" if demo else "Wage Tracker" }}">
-{% if phone %}<link rel="icon" href="{{ icon }}"><link rel="apple-touch-icon" href="{{ icon }}">{% else %}<link rel="icon" href="/static/icon-192.png">{% endif %}
-<meta name="theme-color" content="#1d4f8f">
+{% if phone %}<link rel="icon" href="{{ icon }}"><link rel="apple-touch-icon" href="{{ icon }}">{% else %}<link rel="icon" href="/static/icon-192.png"><link rel="apple-touch-icon" href="/static/icon-192.png">{% endif %}
+<meta name="theme-color" content="{{ "#0f6e5c" if demo else "#1d4f8f" }}">
 <style>
   * { box-sizing: border-box; }
   :root {
