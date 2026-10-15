@@ -81,7 +81,7 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    user verification REQUIRED; wrong answers count toward the 5-tries lock, cancelling does not). /passkey/setup
    (Settings → 👆 Fingerprint), /passkey/new/start + /passkey/new, /passkey/start + /passkey/unlock (in auth.PIN_PATHS),
    /passkey/forget. Unlock page asks at once, passcode box below. No webauthn package = fingerprint hidden. PC test now
-   opens localhost:5001 (WebAuthn refuses IP addresses). Darren: pip install webauthn on PA (V3_SETUP.md), then try.
+   opens localhost:5001 (WebAuthn refuses IP addresses). 15 Oct LIVE + WORKING on Darren's phone (webauthn installed on PA, live = v3.61).
    v3.55: Settings → Cards open at once (localStorage ft_maxopen, default 2; ft_openorder; opening one more folds the oldest),
    cards slide open/shut; spend/card errors show inside their card (error_at) and fade after 5 s.
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**
