@@ -165,14 +165,15 @@
   <header class="demohead">
     <a class="brand" href="/" title="Back to the top"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
+      {% set maxrow %}<div class="maxopen"><span>Cards open at once</span><span class="step"><button type="button" class="small" id="maxless" aria-label="Fewer">−</button><b id="maxopen">2</b><button type="button" class="small" id="maxmore" aria-label="More">+</button></span></div>{% endset %}
       <div class="setmenu" id="setmenu" hidden>{% if cloud %}
         <div class="v3links">
-          <div class="grp"><a class="small" href="/fix">🛠 Fix an item</a></div>
+          <div class="grp"><a class="small" href="/fix">🛠 Fix an item</a>{{ maxrow }}</div>
           <div class="grp"><a class="small" href="/backup/download">💾 Download backup</a>
           <form method="post" action="/settings/codes"><button class="small" type="submit">🔑 New backup codes</button></form>
           <form method="post" action="/settings/pin"><button class="small" type="submit">🔢 Change passcode</button></form></div>
           <div class="grp"><form method="post" action="/signout"><button class="small" type="submit">🚪 Sign out</button></form></div>
-        </div>{% endif %}</div>
+        </div>{% else %}<div class="v3links"><div class="grp">{{ maxrow }}</div></div>{% endif %}</div>
       <div class="appver">{% if config.get("V3_TEST") %}demo.{% endif %}v{{ app_version }}</div></div>{% endif %}
     {% if d.ready and not phone %}<button type="button" class="tab" id="quicktab" aria-expanded="false" aria-controls="quick" title="New payday / add statements"><svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 6.5 6 2l4.5 4.5"/></svg></button>{% endif %}
   </header>
@@ -230,7 +231,7 @@
   <div class="onlyedit hint">Click ⠿ on a card or row, then use the ⬆️ ⬇️ arrow keys to move it (or drag it). Click a name to rename it (empty = the normal name). Press <b>Done</b> when finished.</div>
   {% endif %}
 
-  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  {% if error and error_at not in ("spend", "card") %}<div class="error fade">{{ error }}</div>{% endif %}
 
   {% if demo %}{% include "demo_top.html" %}{% else %}
   <!-- No. 1: spare cash -->
@@ -346,6 +347,7 @@
   {% set c_spend %}
   <div class="card" data-id="spend" data-card="spend">
     <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('➕', 'spend') }} Add a spend<button type="button" class="fold" title="Fold">▾</button></h2>
+    {% if error and error_at == "spend" %}<div class="error fade">{{ error }}</div>{% endif %}
     {% if phone %}
     <form class="inline" id="addform">
       <input class="amount" type="text" id="addamount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
@@ -384,6 +386,7 @@
   {% set c_card %}
   <div class="card" data-id="card" data-card="card">
     <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('💳', 'zused') }} Credit card<button type="button" class="fold" title="Fold">▾</button></h2>
+    {% if error and error_at == "card" %}<div class="error fade">{{ error }}</div>{% endif %}
     {% if phone %}
     <form class="inline" id="cardform">
       <input class="amount" type="text" id="cardamount" inputmode="decimal" placeholder="40" aria-label="Amount">
@@ -610,6 +613,47 @@
     }
   });
 
+  // Fold cards (5 Oct 2026). 15 Oct: they slide open / shut, and only N can be open at once (Settings → Cards open
+  // at once, default 2, per device): opening one more folds the one opened longest ago.
+  var openOrder = [], maxOpen = 2;
+  try { openOrder = JSON.parse(localStorage.getItem('ft_openorder') || '[]'); maxOpen = parseInt(localStorage.getItem('ft_maxopen'), 10) || 2; } catch (e) {}
+  var calmFold = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function foldable() { return Array.prototype.slice.call(document.querySelectorAll('.card[data-id]')).filter(function (c) { return c.querySelector('h2 .fold'); }); }
+  function saveOrder() { try { localStorage.setItem('ft_openorder', JSON.stringify(openOrder)); } catch (e) {} }
+  function slideFold(card, fold, keep) {
+    var btn = card.querySelector('h2 .fold');
+    if (btn) btn.textContent = fold ? '▸' : '▾';
+    if (card.classList.contains('folded') === fold) return;
+    if (card.getAnimations) card.getAnimations().forEach(function (a) { a.cancel(); });
+    var r = card.getBoundingClientRect();
+    if (calmFold || !card.animate || r.bottom < 0) {           // off the top of the screen: fold at once and keep the view still
+      var before = card.offsetHeight;
+      card.classList.toggle('folded', fold);
+      if (r.bottom < 0) window.scrollBy(0, card.offsetHeight - before);
+      return;
+    }
+    var from = card.offsetHeight;
+    card.classList.toggle('folded', fold);
+    var to = card.offsetHeight;
+    card.style.overflow = 'hidden';
+    var a = card.animate([{height: from + 'px'}, {height: to + 'px'}], {duration: fold ? 300 : 340, easing: 'cubic-bezier(.2,.75,.25,1)'});
+    if (!fold) Array.prototype.slice.call(card.children).forEach(function (el) {
+      if (el.tagName !== 'H2' && el.animate) el.animate([{opacity: 0, transform: 'translateY(-6px)'}, {opacity: 1, transform: 'none'}], {duration: 340, easing: 'ease-out'});
+    });
+    a.onfinish = a.oncancel = function () { card.style.overflow = ''; };
+  }
+  function keepToMax(justOpened) {
+    var open = foldable().filter(function (c) { return !c.classList.contains('folded'); }).map(function (c) { return c.dataset.id; });
+    openOrder = openOrder.filter(function (id) { return open.indexOf(id) >= 0 && id !== justOpened; });
+    open.forEach(function (id) { if (openOrder.indexOf(id) < 0 && id !== justOpened) openOrder.unshift(id); });   // never-touched cards count as oldest
+    if (justOpened) openOrder.push(justOpened);
+    while (openOrder.length > maxOpen) {
+      var old = document.querySelector('.card[data-id="' + openOrder.shift() + '"]');
+      if (old) slideFold(old, true);
+    }
+    saveOrder(); saveFolded();
+  }
+
   // Handle fold button clicks
   document.querySelectorAll('.card h2 .fold').forEach(function (btn) {
     btn.addEventListener('click', function (e) {
@@ -617,12 +661,38 @@
       e.stopPropagation();
       var card = btn.closest('.card');
       if (!card) return;
-      card.classList.toggle('folded');
-      var text = card.classList.contains('folded') ? '▸' : '▾';
-      btn.textContent = text;
-      saveFolded();
+      var fold = !card.classList.contains('folded');
+      slideFold(card, fold);
+      keepToMax(fold ? null : card.dataset.id);
     });
   });
+
+  // Settings → Cards open at once (1 to 9)
+  (function () {
+    var shown = document.getElementById('maxopen');
+    if (!shown) return;
+    shown.textContent = maxOpen;
+    function setMax(n) {
+      maxOpen = Math.min(9, Math.max(1, n)); shown.textContent = maxOpen;
+      try { localStorage.setItem('ft_maxopen', maxOpen); } catch (e) {}
+      keepToMax(null);
+    }
+    document.getElementById('maxless').addEventListener('click', function (e) { e.stopPropagation(); setMax(maxOpen - 1); });
+    document.getElementById('maxmore').addEventListener('click', function (e) { e.stopPropagation(); setMax(maxOpen + 1); });
+  })();
+
+  // Error messages go after 5 seconds (15 Oct 2026); the ?error= is taken off the address so a refresh does not bring it back
+  document.querySelectorAll('.error.fade').forEach(function (box) {
+    setTimeout(function () {
+      if (calmFold || !box.animate) { box.remove(); return; }
+      var cs = getComputedStyle(box);
+      box.style.overflow = 'hidden';
+      box.animate([{opacity: 1, height: box.offsetHeight + 'px', marginBottom: cs.marginBottom, paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom},
+                   {opacity: 0, height: '0px', marginBottom: '0px', paddingTop: '0px', paddingBottom: '0px'}],
+                  {duration: 400, easing: 'ease-in-out'}).onfinish = function () { box.remove(); };
+    }, 5000);
+  });
+  if (location.search.indexOf('error=') >= 0 && history.replaceState) history.replaceState(null, '', location.pathname);
 
   // Expand/collapse items in last month's spending
   document.querySelectorAll('.openitems').forEach(function (btn) {

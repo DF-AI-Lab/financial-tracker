@@ -230,7 +230,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         if n and n > 0:
             push(db_path, wage_payer, today, http=phone_http)
 
-        return render_template("home.html", d=d, error=error, version=version, demo=demo, app_version=APP_VERSION,
+        return render_template("home.html", d=d, error=error, error_at=error_code, version=version, demo=demo, app_version=APP_VERSION,
                                cloud=cloud)
 
     # POST /pay

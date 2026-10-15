@@ -69,6 +69,8 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    VERSION RULE (Darren, 15 Oct): +0.01 per push: 3.51, 3.52, 3.53... (fintrack/appversion.py). Tell him the number.
    PC TEST COPY (v3.53+): v3.bat = :5001 on v3data, orange TEST COPY bar + "demo.v3.xx"; offers a newer downloaded backup
    as test data; Settings → Update pulls branch v3. Flow: I push → Darren updates the test copy → tries it → updates live.
+   v3.55: Settings → Cards open at once (localStorage ft_maxopen, default 2; ft_openorder; opening one more folds the oldest),
+   cards slide open/shut; spend/card errors show inside their card (error_at) and fade after 5 s.
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**
    v3app.py (make_app(data_dir): create_app(cloud=True, phone_http=None) + fintrack/v3/setup), v3.bat = PC test at
    :5001 on a copy of the data in <project>/v3data (v3_settings.json there: email, smtp, update zip|git, branch v3).

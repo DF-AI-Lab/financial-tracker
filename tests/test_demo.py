@@ -81,3 +81,23 @@ def test_tags_are_split_off_the_bill_name():
     f = app.jinja_env.filters["tagsplit"]
     assert f("Rent KT (Household) (BP)") == ("Rent KT", ["Household", "BP"])
     assert f("Council Tax") == ("Council Tax", [])
+
+
+def test_spend_and_card_errors_show_in_their_own_card_and_fade(client):
+    """15 Oct 2026 (Darren): the 'type an amount' error sits in the Add a spend card, not at the top, and goes after 5 s."""
+    html = client.post("/add", data={"amount": "", "name": ""}, follow_redirects=True).get_data(as_text=True)
+    msg = "Sorry, type an amount and a name, e.g. 12.50 and Costa."
+    assert html.count(msg) == 1
+    assert html.index('data-card="spend"') < html.index(msg) < html.index('action="/add"')
+    assert 'class="error fade"' in html                                   # the page script fades it after 5 seconds
+    html = client.post("/card/add", data={"amount": "", "name": ""}, follow_redirects=True).get_data(as_text=True)
+    msg = "Sorry, type an amount and a name for the credit card, e.g. 40 and Shell."
+    assert html.count(msg) == 1
+    assert html.index('data-card="card"') < html.index(msg) < html.index('action="/card/add"')
+
+
+def test_settings_has_cards_open_at_once(client):
+    """15 Oct 2026 (Darren): only N cards open at once (default 2); opening one more folds the oldest. N is per device."""
+    html = client.get("/").get_data(as_text=True)
+    assert 'id="maxopen"' in html and "Cards open at once" in html
+    assert "ft_maxopen" in html and "ft_openorder" in html               # kept in the browser, like the folding

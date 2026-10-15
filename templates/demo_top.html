@@ -95,8 +95,11 @@
       if (anim) anim.cancel();
       quick.hidden = false;
       const cs = getComputedStyle(quick);
-      const full = {height: quick.offsetHeight + 'px', paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, opacity: 1, transform: 'none'};
-      const shut = {height: '0px', paddingTop: '0px', paddingBottom: '0px', opacity: 0, transform: 'translateY(-8px)'};
+      // margin and border slide too, so nothing jumps when the panel is hidden at the end (15 Oct 2026)
+      const full = {height: quick.offsetHeight + 'px', paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop,
+                    marginBottom: cs.marginBottom, borderTopWidth: cs.borderTopWidth, borderBottomWidth: cs.borderBottomWidth, opacity: 1, transform: 'none'};
+      const shut = {height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px',
+                    borderTopWidth: '0px', borderBottomWidth: '0px', opacity: 0, transform: 'translateY(-8px)'};
       if (on) window.scrollTo({top: 0, behavior: calm ? 'auto' : 'smooth'});
       if (calm) { quick.hidden = !on; return; }
       quick.style.overflow = 'hidden';
