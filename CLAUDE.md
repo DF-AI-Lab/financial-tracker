@@ -66,6 +66,7 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    plan B = code saved in wmm-data/signin_code.txt (Files tab). Later: an HTTPS email API (Brevo/SendGrid) on the
    allow-list. Monthly 'Run until 1 month' reminder in Darren's Google Calendar (1st of the month, 9am).
    The old v2 phone site is replaced; v2 on the PC is the backup. Privacy check passed (1 payment reference only).
+   VERSION RULE (Darren, 15 Oct): +0.01 per push: 3.51, 3.52, 3.53... (fintrack/appversion.py). Tell him the number.
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**
    v3app.py (make_app(data_dir): create_app(cloud=True, phone_http=None) + fintrack/v3/setup), v3.bat = PC test at
    :5001 on a copy of the data in <project>/v3data (v3_settings.json there: email, smtp, update zip|git, branch v3).
