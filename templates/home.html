@@ -647,11 +647,23 @@
     openOrder = openOrder.filter(function (id) { return open.indexOf(id) >= 0 && id !== justOpened; });
     open.forEach(function (id) { if (openOrder.indexOf(id) < 0 && id !== justOpened) openOrder.unshift(id); });   // never-touched cards count as oldest
     if (justOpened) openOrder.push(justOpened);
+    var anchor = justOpened && document.querySelector('.card[data-id="' + justOpened + '"]');
+    var top = anchor && anchor.getBoundingClientRect().top;
     while (openOrder.length > maxOpen) {
       var old = document.querySelector('.card[data-id="' + openOrder.shift() + '"]');
       if (old) slideFold(old, true);
     }
+    if (anchor) holdStill(anchor, top);
     saveOrder(); saveFolded();
+  }
+  // The card you opened stays where it is on the screen while a card above it folds (15 Oct 2026)
+  function holdStill(card, top) {
+    var until = Date.now() + 450;
+    (function step() {
+      var drift = card.getBoundingClientRect().top - top;
+      if (Math.abs(drift) >= 0.5) window.scrollBy(0, drift);
+      if (Date.now() < until) requestAnimationFrame(step);
+    })();
   }
 
   // Handle fold button clicks
