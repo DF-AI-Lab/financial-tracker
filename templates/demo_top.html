@@ -76,8 +76,9 @@
     });
     const pc = x => Math.round(100 * f(x)) + '%';
     document.getElementById('ring-pc').textContent = pc(spare);
-    document.getElementById('st-key').innerHTML = '<i class="dot bill"></i>Bills ' + pc(bills) + ' · <i class="dot spend"></i>Spends ' +
-      pc(spends) + ' · <i class="dot spare"></i>Spare ' + pc(spare);
+    // each dot stays with its word when the line wraps (15 Oct 2026)
+    document.getElementById('st-key').innerHTML = '<span><i class="dot bill"></i>Bills ' + pc(bills) + '</span> · <span><i class="dot spend"></i>Spends ' +
+      pc(spends) + '</span> · <span><i class="dot spare"></i>Spare ' + pc(spare) + '</span>';
     const set = (id, x) => { const el = document.getElementById(id); if (el) el.textContent = money(x); };
     set('st-bills', bills); set('st-spare', total - bills - spends);
   };
