@@ -18,7 +18,7 @@ DATA = Path.home() / "wmm-data"
 
 def wsgi_file() -> str:
     user = os.environ.get("USER") or Path.home().name
-    return f"/var/www/{user}_pythonanywhere_com_wsgi.py"
+    return f"/var/www/{user.lower()}_pythonanywhere_com_wsgi.py"          # PythonAnywhere names it in lower case
 
 
 def main(ask=input, secret=getpass.getpass, data=DATA) -> dict:

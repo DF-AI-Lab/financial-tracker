@@ -88,7 +88,10 @@ def make_app(data_dir, wage_payer=None, today=None, updater=None, restart=None):
             updater = lambda: update_code(fetch=lambda: download(settings["branch"]))       # noqa: E731
     if restart is None:
         if settings["wsgi_file"]:
-            restart = lambda: Path(settings["wsgi_file"]).touch()                         # noqa: E731
+            wsgi = Path(settings["wsgi_file"])
+            if not wsgi.exists() and (wsgi.parent / wsgi.name.lower()).exists():
+                wsgi = wsgi.parent / wsgi.name.lower()                # PythonAnywhere's file name is lower case
+            restart = lambda: wsgi.touch()                                                # noqa: E731
         else:
             restart = lambda: threading.Timer(1.0, lambda: os._exit(3)).start()           # noqa: E731
 
