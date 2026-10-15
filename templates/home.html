@@ -920,6 +920,35 @@
   }));
 </script>
 {% endif %}
+{% if cloud %}
+<script>
+  // v3 (15 Oct 2026): keep up to date with the other devices. Check when the page is opened or shown again and every
+  // 15 minutes; reload only when the data changed and nothing is being typed, opened or moved.
+  (function () {
+    let seen = null;
+    const busy = () => {
+      const a = document.activeElement;
+      return (a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) || document.body.classList.contains('editing') ||
+             document.querySelector('.bmenu') || (document.getElementById('setmenu') && !document.getElementById('setmenu').hidden) ||
+             (document.getElementById('quick') && !document.getElementById('quick').hidden);
+    };
+    async function check() {
+      if (document.visibilityState !== 'visible') return;
+      let r;
+      try { r = await fetch('/stamp', {cache: 'no-store'}); } catch (e) { return; }     // offline: try again later
+      if (r.status === 401) { if (!busy()) location.reload(); return; }                // passcode time again
+      if (!r.ok) return;
+      const s = (await r.json()).stamp;
+      if (seen === null) { seen = s; return; }
+      if (s !== seen && !busy()) location.reload();
+    }
+    check();
+    document.addEventListener('visibilitychange', check);
+    window.addEventListener('pageshow', e => { if (e.persisted) check(); });
+    setInterval(check, 15 * 60 * 1000);
+  })();
+</script>
+{% endif %}
 {% if phone and d.ready %}
 <script id="pcdata" type="application/json">{{ pcdata|safe }}</script>
 <script>

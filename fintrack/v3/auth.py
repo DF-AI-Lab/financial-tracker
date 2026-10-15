@@ -42,7 +42,8 @@ BACKUP_COUNT = 8
 BACKUP_LETTERS = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0/o, 1/l/i look-alikes
 
 OPEN_PATHS = ("/signin", "/signin/code", "/signin/backup", "/signin/setup", "/manifest.json")
-PIN_PATHS = ("/unlock", "/unlock/forgot", "/pin/new")    # need a signed-in device, but no passcode yet
+PIN_PATHS = ("/unlock", "/unlock/forgot", "/pin/new")
+QUIET_PATHS = ("/stamp",)                               # the page's own checks: signed in, but not "using it"    # need a signed-in device, but no passcode yet
 
 
 def clock(t: datetime) -> str:
@@ -327,19 +328,21 @@ def register(app) -> None:
         path = request.path
         if path in OPEN_PATHS or path.startswith("/static/"):
             return None
+        page = request.method == "GET" and path not in QUIET_PATHS   # a page (redirect) or a check (401)
         token = request.cookies.get(COOKIE)
         if not device_ok(app, token):
-            if request.method == "GET":
+            if page:
                 return redirect("/signin")
             return ("Please sign in again.", 401)
         if path in PIN_PATHS:
             return None
         if not pin_is_set(app):
             session["new_pin_until"] = session.get("new_pin_until") or (now() + timedelta(minutes=CODE_MINUTES)).isoformat()
-            return redirect("/pin/new") if request.method == "GET" else ("Choose a passcode first.", 401)
+            return redirect("/pin/new") if page else ("Choose a passcode first.", 401)
         if not unlocked(app, token):
-            return redirect("/unlock") if request.method == "GET" else ("Type your passcode again.", 401)
-        session["unlocked"] = now().isoformat()               # still using it: the 15 minutes start again
+            return redirect("/unlock") if page else ("Type your passcode again.", 401)
+        if path not in QUIET_PATHS:
+            session["unlocked"] = now().isoformat()           # still using it: the 15 minutes start again
         return None
 
     @app.route("/signin", methods=["GET"])
