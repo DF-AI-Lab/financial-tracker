@@ -73,6 +73,9 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    (git push origin v3:live) ONLY when Darren says the demo is agreed.
    v3.60: backups also before every statement PDF (keep 5) + Settings → Restore a backup (/backup/restore, saves a
    restore-*.db first, keeps auth_* kv so you stay signed in).
+   NEXT (Darren, 15 Oct): FINGERPRINT = passkey (WebAuthn, platform authenticator) instead of typing the 6-digit
+   passcode on the phone; passcode stays as fallback; weekly email code unchanged. Needs one pip package on
+   PythonAnywhere (e.g. webauthn) - give Darren the exact Bash line. Build on v3, test on the PC copy, then live.
    v3.55: Settings → Cards open at once (localStorage ft_maxopen, default 2; ft_openorder; opening one more folds the oldest),
    cards slide open/shut; spend/card errors show inside their card (error_at) and fade after 5 s.
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**
