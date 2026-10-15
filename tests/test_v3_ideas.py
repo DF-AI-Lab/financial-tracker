@@ -109,3 +109,11 @@ def test_text_is_escaped(v3_client):
     add(v3_client, "<script>alert(1)</script>")
     page = v3_client.get("/ideas").get_data(as_text=True)
     assert "<script>alert(1)</script>" not in page
+
+
+def test_restoring_a_backup_keeps_the_notes(v3_app, v3_client, v3_data):
+    from fintrack.v3 import backup
+    backup.before(v3_data, "test")
+    add(v3_client, "Written after the backup")
+    backup.restore(v3_data, backup.list_backups(v3_data)[0]["name"])
+    assert [n["text"] for n in ideas.saved(v3_app)] == ["Written after the backup"]

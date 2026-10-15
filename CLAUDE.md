@@ -82,6 +82,10 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    (Settings → 👆 Fingerprint), /passkey/new/start + /passkey/new, /passkey/start + /passkey/unlock (in auth.PIN_PATHS),
    /passkey/forget. Unlock page asks at once, passcode box below. No webauthn package = fingerprint hidden. PC test now
    opens localhost:5001 (WebAuthn refuses IP addresses). 15 Oct LIVE + WORKING on Darren's phone (webauthn installed on PA, live = v3.61).
+   v3.62 BUILT (15 Oct, 558 tests + browser check, by me): Settings → 💡 Ideas & feedback = fintrack/v3/ideas.py +
+   templates/ideas.html (kv ideas [{id,text,tag idea|odd|love,at,done}]; /ideas, /ideas/add|done|remove; 📋 Copy all for
+   Claude = open notes as text). Restore a backup keeps the ideas notes (like auth_*). PLAN: Darren jots notes, then
+   pastes them into a chat to plan v4.
    v3.55: Settings → Cards open at once (localStorage ft_maxopen, default 2; ft_openorder; opening one more folds the oldest),
    cards slide open/shut; spend/card errors show inside their card (error_at) and fade after 5 s.
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**

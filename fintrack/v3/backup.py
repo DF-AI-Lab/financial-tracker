@@ -112,15 +112,15 @@ def restore(data_dir, name) -> None:
     before(data_dir, "restore")
     db = Path(data_dir) / "tracker.db"
     con = sqlite3.connect(str(db))
-    try:                                           # sign-in data stays as it is now: you stay signed in, same passcode
-        auth = con.execute("SELECT key, value FROM kv WHERE key LIKE 'auth\\_%' ESCAPE '\\'").fetchall()
+    try:                                           # sign-in data and ideas notes stay as they are now: you stay signed in, same passcode
+        auth = con.execute("SELECT key, value FROM kv WHERE key LIKE 'auth\\_%' ESCAPE '\\' OR key = 'ideas'").fetchall()
     finally:
         con.close()
     copy_db(Path(data_dir) / "backups" / name, db)
     con = sqlite3.connect(str(db))
     try:
         con.execute("CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT)")
-        con.execute("DELETE FROM kv WHERE key LIKE 'auth\\_%' ESCAPE '\\'")
+        con.execute("DELETE FROM kv WHERE key LIKE 'auth\\_%' ESCAPE '\\' OR key = 'ideas'")
         con.executemany("INSERT INTO kv (key, value) VALUES (?, ?)", auth)
         con.commit()
     finally:
