@@ -34,7 +34,7 @@ DEVICE_DAYS = 30
 BACKUP_COUNT = 8
 BACKUP_LETTERS = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0/o, 1/l/i look-alikes
 
-OPEN_PATHS = ("/signin", "/signin/code", "/signin/backup", "/manifest.json")
+OPEN_PATHS = ("/signin", "/signin/code", "/signin/backup", "/signin/setup", "/manifest.json")
 
 
 def clock(t: datetime) -> str:
@@ -83,7 +83,19 @@ def _set(app, key, value) -> None:
 
 
 def _allowed_email(app) -> str:
-    return (app.config["V3_SETTINGS"].get("email") or "").strip().lower()
+    email = (app.config["V3_SETTINGS"].get("email") or "").strip().lower()
+    if not email and app.config.get("V3_DATA_DIR"):           # typed into the file after the start: read it again
+        import v3app
+        fresh = v3app.load_settings(app.config["V3_DATA_DIR"])
+        if fresh.get("email"):
+            app.config["V3_SETTINGS"]["email"] = fresh["email"]
+            email = fresh["email"].strip().lower()
+    return email
+
+
+def _local() -> bool:
+    """The page is opened on this computer itself (the PC test), never from the internet."""
+    return request.remote_addr in ("127.0.0.1", "::1") and not request.headers.get("X-Forwarded-For")
 
 
 # --- devices -------------------------------------------------------------------------------------------------------
@@ -202,7 +214,8 @@ def _page(app, step="email", error="", sent=False, codes=None, status=200):
     if not _allowed_email(app):
         step = "noemail"
     html = render_template("signin.html", step=step, error=error, sent=sent, codes=codes or [],
-                           app_version=VERSION)
+                           app_version=VERSION, local=_local(),
+                           settings_file=str(app.config.get("V3_DATA_DIR", "")) + "/v3_settings.json")
     return make_response(html, status)
 
 
@@ -225,6 +238,18 @@ def register(app) -> None:
             return redirect("/")
         step = "backup" if request.args.get("backup") else "email"
         return _page(app, step)
+
+    @app.route("/signin/setup", methods=["POST"])
+    def signin_setup():
+        """First start on the PC: type the email on the page instead of editing the file (this computer only)."""
+        email = (request.form.get("email") or "").strip()
+        if _allowed_email(app) or not _local() or "@" not in email or " " in email or len(email) > 120:
+            return redirect("/signin")
+        import v3app
+        settings = app.config["V3_SETTINGS"]
+        settings["email"] = email
+        v3app.save_settings(app.config["V3_DATA_DIR"], settings)
+        return redirect("/signin")
 
     @app.route("/signin", methods=["POST"])
     def signin_ask():

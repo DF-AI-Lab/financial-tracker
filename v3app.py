@@ -43,15 +43,21 @@ def load_settings(data_dir) -> dict:
     saved = {}
     if path.exists():
         try:
-            saved = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            saved = {}
+            saved = json.loads(path.read_text(encoding="utf-8-sig"))     # -sig: Notepad may add a hidden mark
+        except (OSError, ValueError) as e:
+            # A typo while editing by hand: say so, and never write over the file (that would lose the email)
+            print(f"Could not read {path} ({e}). Check the quotes and commas.")
+            return {**DEFAULTS, "secret_key": secrets.token_hex(32)}
     settings = {**DEFAULTS, **saved}
     if not settings["secret_key"]:
         settings["secret_key"] = secrets.token_hex(32)
     if settings != saved:
-        path.write_text(json.dumps(settings, indent=2), encoding="utf-8")
+        save_settings(data_dir, settings)
     return settings
+
+
+def save_settings(data_dir, settings) -> None:
+    (Path(data_dir) / "v3_settings.json").write_text(json.dumps(settings, indent=2), encoding="utf-8")
 
 
 def git_update(code_dir=CODE_DIR, run=subprocess.run) -> dict:

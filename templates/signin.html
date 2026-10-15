@@ -43,7 +43,17 @@
   {% if sent %}<p class="note">If that's your address, a code is on its way.</p>{% endif %}
 
   {% if step == "noemail" %}
+    {% if local %}
+    <form method="post" action="/signin/setup">
+      <label for="setup-email">Your email (the only one that can sign in)</label>
+      <input id="setup-email" type="email" name="email" autocomplete="email" required>
+      <button type="submit">Save</button>
+    </form>
+    <p class="tag">Saved in {{ settings_file }}</p>
+    {% else %}
     <p>Put your email in <b>v3_settings.json</b> first (in the data folder), then open this page again.</p>
+    <p class="tag">{{ settings_file }}</p>
+    {% endif %}
 
   {% elif step == "codes" %}
     <p><b>Your backup codes</b></p>

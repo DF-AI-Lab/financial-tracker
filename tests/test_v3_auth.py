@@ -205,8 +205,9 @@ def test_empty_email_says_put_it_in(v3_data):
     sent = []
     app.config["V3_SEND"] = lambda to, code: sent.append(code)
     c = app.test_client()
-    assert "v3_settings.json" in c.get("/signin").get_data(as_text=True)
-    assert "v3_settings.json" in c.post("/signin", data={"email": ""}).get_data(as_text=True)
+    far = {"REMOTE_ADDR": "8.8.8.8"}                                  # from the internet: edit the file
+    assert "v3_settings.json" in c.get("/signin", environ_base=far).get_data(as_text=True)
+    assert "v3_settings.json" in c.post("/signin", data={"email": ""}, environ_base=far).get_data(as_text=True)
     assert sent == []
 
 
@@ -215,3 +216,36 @@ def test_console_code_when_no_mail_settings(app, capsys, clock):
     ask_code(app.test_client())
     out = capsys.readouterr().out
     assert re.search(r"Sign-in code: \d{6}", out)
+
+
+def test_email_typed_into_the_file_later_is_read_again(v3_data):
+    import v3app
+    app = v3app.make_app(v3_data, wage_payer=ACME)
+    app.testing = True
+    c = app.test_client()
+    assert "Your email" in c.get("/signin").get_data(as_text=True)          # no email yet: the setup box (local)
+    s = json.loads((v3_data / "v3_settings.json").read_text())
+    s["email"] = "me@example.com"
+    (v3_data / "v3_settings.json").write_text("﻿" + json.dumps(s), encoding="utf-8")   # Notepad's hidden mark
+    page = c.get("/signin").get_data(as_text=True)
+    assert "Send me a code" in page and "setup-email" not in page
+
+
+def test_email_can_be_set_on_the_page_on_this_computer_only(v3_data):
+    import v3app
+    app = v3app.make_app(v3_data, wage_payer=ACME)
+    app.testing = True
+    c = app.test_client()
+    c.post("/signin/setup", data={"email": "me@example.com"}, environ_base={"REMOTE_ADDR": "8.8.8.8"})
+    assert json.loads((v3_data / "v3_settings.json").read_text())["email"] == ""          # from the internet: no
+    c.post("/signin/setup", data={"email": "me@example.com"})
+    assert json.loads((v3_data / "v3_settings.json").read_text())["email"] == "me@example.com"
+    c.post("/signin/setup", data={"email": "thief@example.com"})                          # once set, never again
+    assert json.loads((v3_data / "v3_settings.json").read_text())["email"] == "me@example.com"
+
+
+def test_a_broken_settings_file_is_never_written_over(v3_data):
+    import v3app
+    (v3_data / "v3_settings.json").write_text('{"email": "me@example.com",,}', encoding="utf-8")
+    v3app.load_settings(v3_data)
+    assert (v3_data / "v3_settings.json").read_text() == '{"email": "me@example.com",,}'
