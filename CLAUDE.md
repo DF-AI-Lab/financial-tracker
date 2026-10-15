@@ -58,6 +58,14 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+000000. **15 Oct: v3 IS LIVE on https://darrenfawcett2448.pythonanywhere.com (branch v3, v3.5).** PythonAnywhere user
+   DarrenFawcett2448 (capitals; WSGI file /var/www/darrenfawcett2448_pythonanywhere_com_wsgi.py imports v3app.make_app
+   ("/home/DarrenFawcett2448/wmm-data")), code in ~/whereismymoney (git clone -b v3), venv ~/wmm-venv (Python 3.13),
+   data ~/wmm-data (tracker.db uploaded from the PC, v3_settings.json written by tools/pa_setup.py, update=git).
+   Sign-in: email code weekly + 6-digit passcode. Gmail SMTP FAILS on PythonAnywhere free (connects, closes at AUTH):
+   plan B = code saved in wmm-data/signin_code.txt (Files tab). Later: an HTTPS email API (Brevo/SendGrid) on the
+   allow-list. Monthly 'Run until 1 month' reminder in Darren's Google Calendar (1st of the month, 9am).
+   The old v2 phone site is replaced; v2 on the PC is the backup. Privacy check passed (1 payment reference only).
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**
    v3app.py (make_app(data_dir): create_app(cloud=True, phone_http=None) + fintrack/v3/setup), v3.bat = PC test at
    :5001 on a copy of the data in <project>/v3data (v3_settings.json there: email, smtp, update zip|git, branch v3).
