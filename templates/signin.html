@@ -40,7 +40,7 @@
   <p class="tag">Payday to payday</p>
 
   {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
-  {% if sent %}<p class="note">{% if console %}Testing on your PC: the code is in the black window.{% else %}If that's your address, a code is on its way.{% endif %}</p>{% endif %}
+  {% if sent %}<p class="note">{% if console and test_code %}Testing on your PC: your code is <b>{{ test_code }}</b>{% elif console %}Testing on your PC: the code is in the black window.{% else %}If that's your address, a code is on its way.{% endif %}</p>{% endif %}
 
   {% if step == "noemail" %}
     {% if local %}

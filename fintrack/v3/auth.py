@@ -216,11 +216,11 @@ def _clean_backup(text: str) -> str:
 
 # --- pages ---------------------------------------------------------------------------------------------------------
 
-def _page(app, step="email", error="", sent=False, codes=None, status=200):
+def _page(app, step="email", error="", sent=False, codes=None, status=200, test_code=""):
     if not _allowed_email(app):
         step = "noemail"
     html = render_template("signin.html", step=step, error=error, sent=sent, codes=codes or [],
-                           app_version=VERSION, local=_local(), console=_console(app),
+                           app_version=VERSION, local=_local(), console=_console(app), test_code=test_code,
                            settings_file=str(app.config.get("V3_DATA_DIR", "")) + "/v3_settings.json")
     return make_response(html, status)
 
@@ -268,11 +268,14 @@ def register(app) -> None:
                 first = min(datetime.fromisoformat(t) for t in _sent_last_hour(app))
                 return _page(app, "code", error=f"That's a lot of codes. Use the last one, or ask again at "
                                                 f"{clock(first + timedelta(hours=1))}.")
+            code = new_code(app)
             try:
-                send_code(app, allowed, new_code(app))
+                send_code(app, allowed, code)
             except (OSError, smtplib.SMTPException):
                 return _page(app, "email", error="The email could not be sent. Check the Gmail settings "
                                                  "in v3_settings.json.")
+            if _console(app) and _local():              # the PC test with no Gmail: show it on the page too
+                return _page(app, "code", sent=True, test_code=code)
         return _page(app, "code", sent=True)
 
     @app.route("/signin/code", methods=["POST"])

@@ -260,4 +260,21 @@ def test_pc_test_page_says_the_code_is_in_the_black_window(v3_data, capsys):
     (v3_data / "v3_settings.json").write_text(json.dumps(s))
     app = v3app.make_app(v3_data, wage_payer=ACME)
     page = app.test_client().post("/signin", data={"email": "me@example.com"}).get_data(as_text=True)
-    assert "the code is in the black window" in page and "Sign-in code:" in capsys.readouterr().out
+    assert "Testing on your PC: your code is" in page and "Sign-in code:" in capsys.readouterr().out
+
+
+def test_pc_test_shows_the_code_on_the_page_only_on_this_computer(v3_data):
+    import v3app
+    v3app.load_settings(v3_data)
+    s = json.loads((v3_data / "v3_settings.json").read_text())
+    s["email"] = "me@example.com"
+    (v3_data / "v3_settings.json").write_text(json.dumps(s))
+    app = v3app.make_app(v3_data, wage_payer=ACME)
+    c = app.test_client()
+    page = c.post("/signin", data={"email": "me@example.com"}).get_data(as_text=True)
+    code = re.search(r"your code is <b>(\d{6})</b>", page).group(1)
+    assert c.post("/signin/code", data={"code": code}).status_code in (302, 303)
+    far = c.post("/signin", data={"email": "me@example.com"}, environ_base={"REMOTE_ADDR": "8.8.8.8"})
+    assert "your code is" not in far.get_data(as_text=True)                         # never shown over the internet
+    wrong = c.post("/signin", data={"email": "other@example.com"}).get_data(as_text=True)
+    assert "your code is" not in wrong                                              # nor for another address
