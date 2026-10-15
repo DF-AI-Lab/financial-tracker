@@ -168,7 +168,7 @@ def client(tmp_path):
     cl = app.test_client()
     try:
         from fintrack.v3 import auth
-        cl.set_cookie(auth.COOKIE, auth.make_device(app))
+        auth.sign_in_for_tests(app, cl)
     except ImportError:                       # no sign-in yet
         pass
     cl.db = data / "tracker.db"

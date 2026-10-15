@@ -27,7 +27,8 @@
   .box .note { color: var(--accent); font-weight: 600; margin: 0 0 14px; }
   .box .err { color: var(--bad); font-weight: 600; margin: 0 0 14px; }
   .box .links { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
-  .box .links a { color: var(--muted); }
+  .box .links a, .box .linkbtn { color: var(--muted); }
+  .box button.linkbtn { background: none; border: 0; padding: 0; font-weight: 500; font-size: inherit; text-decoration: underline; }
   .box ul.codes { list-style: none; padding: 0; margin: 16px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
                   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; }
   .box ul.codes li { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 4px; }
@@ -54,6 +55,28 @@
     <p>Put your email in <b>v3_settings.json</b> first (in the data folder), then open this page again.</p>
     <p class="tag">{{ settings_file }}</p>
     {% endif %}
+
+  {% elif step == "unlock" %}
+    <form method="post" action="/unlock">
+      <label for="pin">Your passcode</label>
+      <input class="code" id="pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password"
+             pattern="[0-9]*" maxlength="6" required autofocus>
+      <button type="submit">Unlock</button>
+    </form>
+    <form method="post" action="/unlock/forgot" class="links"><button type="submit" class="linkbtn">Forgot passcode?</button></form>
+
+  {% elif step == "newpin" %}
+    <p><b>Choose a 6-number passcode</b></p>
+    <p class="tag">You'll type it each time you open the site. The email code is only needed once a week.</p>
+    <form method="post" action="/pin/new">
+      <label for="pin">Passcode</label>
+      <input class="code" id="pin" name="pin" type="password" inputmode="numeric" autocomplete="new-password"
+             pattern="[0-9]*" maxlength="6" required autofocus>
+      <label for="again">Same again</label>
+      <input class="code" id="again" name="again" type="password" inputmode="numeric" autocomplete="new-password"
+             pattern="[0-9]*" maxlength="6" required>
+      <button type="submit">Save passcode</button>
+    </form>
 
   {% elif step == "codes" %}
     <p><b>Your backup codes</b></p>

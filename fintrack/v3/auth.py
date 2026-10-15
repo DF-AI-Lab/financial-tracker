@@ -1,8 +1,11 @@
 """v3 sign-in by email code (14 Oct 2026).
 
 Only one email (settings["email"]) may sign in. POST /signin sends a 6-digit code (10 minutes, at most 5 an hour);
-the right code (or an unused backup code) gives this device a token in the COOKIE cookie for 30 days.
-5 wrong tries lock sign-in for 15 minutes. Every other page needs a signed-in device.
+the right code (or an unused backup code) gives this device a token in the COOKIE cookie for 7 days (user, 15 Oct:
+the email code once a week).
+On top, a 6-digit PASSCODE (user, 15 Oct): chosen once after the first email sign-in, asked whenever the site is
+opened again (a new browser session, or 15 minutes without use). "Forgot passcode?" = sign in by email, then choose
+a new one. 5 wrong tries (codes, backup codes or passcodes) lock for 15 minutes. Every other page needs both.
 Only HMAC hashes of codes and tokens are kept (kv table). Plain codes and tokens are never stored or logged.
 
 kv keys (JSON text):
@@ -11,6 +14,8 @@ kv keys (JSON text):
   auth_fails    {"count", "until"}             wrong tries, and the lock end time
   auth_devices  {token hash: created ISO}       signed-in devices
   auth_backup   [hash, ...]                     unused backup codes
+  auth_pin      {"salt", "hash"}                the passcode (PBKDF2)
+The unlocked state is in Flask's signed session cookie: {"unlocked": last use ISO, "device": device hash}.
 """
 import hashlib
 import hmac
@@ -20,7 +25,7 @@ import smtplib
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 
-from flask import make_response, redirect, render_template, request
+from flask import make_response, redirect, render_template, request, session
 
 from fintrack.appversion import VERSION
 from fintrack.store import open_db, get_value, set_value
@@ -30,11 +35,14 @@ CODE_MINUTES = 10
 CODES_PER_HOUR = 5
 MAX_TRIES = 5
 LOCK_MINUTES = 15
-DEVICE_DAYS = 30
+DEVICE_DAYS = 7
+IDLE_MINUTES = 15                                       # passcode again after this long without using the site
+PIN_ITERATIONS = 200_000
 BACKUP_COUNT = 8
 BACKUP_LETTERS = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0/o, 1/l/i look-alikes
 
 OPEN_PATHS = ("/signin", "/signin/code", "/signin/backup", "/signin/setup", "/manifest.json")
+PIN_PATHS = ("/unlock", "/unlock/forgot", "/pin/new")    # need a signed-in device, but no passcode yet
 
 
 def clock(t: datetime) -> str:
@@ -132,11 +140,73 @@ def _forget_device(app, token) -> None:
 
 
 def _signed_in_response(app):
-    """Go to the home page with a new device cookie."""
-    resp = redirect("/", code=303)
-    resp.set_cookie(COOKIE, make_device(app), max_age=DEVICE_DAYS * 24 * 3600, httponly=True, samesite="Lax",
+    """A new device cookie, and unlocked (the email code proves it is you). No passcode yet, or "Forgot passcode?":
+    choose one first."""
+    token = make_device(app)
+    forgot = session.pop("forgot", False)
+    _unlock(app, token)
+    if forgot or not pin_is_set(app):
+        session["new_pin_until"] = (now() + timedelta(minutes=CODE_MINUTES)).isoformat()
+    resp = redirect("/pin/new" if session.get("new_pin_until") else "/", code=303)
+    resp.set_cookie(COOKIE, token, max_age=DEVICE_DAYS * 24 * 3600, httponly=True, samesite="Lax",
                     secure=request.is_secure)
     return resp
+
+
+# --- passcode ------------------------------------------------------------------------------------------------------
+
+def _pin_hash(pin: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", pin.encode(), bytes.fromhex(salt), PIN_ITERATIONS).hex()
+
+
+def pin_is_set(app) -> bool:
+    return bool(_get(app, "auth_pin", {}).get("hash"))
+
+
+def set_pin(app, pin: str) -> None:
+    salt = secrets.token_hex(16)
+    _set(app, "auth_pin", {"salt": salt, "hash": _pin_hash(pin, salt)})
+
+
+def pin_ok(app, pin: str) -> bool:
+    saved = _get(app, "auth_pin", {})
+    return bool(saved.get("hash")) and hmac.compare_digest(_pin_hash(pin or "", saved["salt"]), saved["hash"])
+
+
+def pin_problem(pin: str, again: str) -> str:
+    """'' when the new passcode is fine, else what is wrong (plain words)."""
+    if not (len(pin) == 6 and pin.isdigit()):
+        return "The passcode must be 6 numbers."
+    if pin != again:
+        return "The two passcodes are not the same. Try again."
+    if len(set(pin)) == 1 or pin in "0123456789" or pin in "9876543210":
+        return "That passcode is too easy to guess. Pick another."
+    return ""
+
+
+def _unlock(app, token) -> None:
+    session["unlocked"] = now().isoformat()
+    session["device"] = _hash(app, token)
+
+
+def unlocked(app, token) -> bool:
+    """This browser typed the passcode (or signed in by email) for this device, and used the site in the last
+    15 minutes."""
+    last = session.get("unlocked")
+    if not last or session.get("device") != _hash(app, token):
+        return False
+    return now() < datetime.fromisoformat(last) + timedelta(minutes=IDLE_MINUTES)
+
+
+def sign_in_for_tests(app, client, pin: str = "246810") -> None:
+    """Tests: a signed-in device with a passcode set and this client unlocked."""
+    token = make_device(app)
+    if not pin_is_set(app):
+        set_pin(app, pin)
+    client.set_cookie(COOKIE, token)
+    with client.session_transaction() as s:
+        s["unlocked"] = now().isoformat()
+        s["device"] = _hash(app, token)
 
 
 # --- wrong tries ---------------------------------------------------------------------------------------------------
@@ -217,7 +287,7 @@ def _clean_backup(text: str) -> str:
 # --- pages ---------------------------------------------------------------------------------------------------------
 
 def _page(app, step="email", error="", sent=False, codes=None, status=200, test_code=""):
-    if not _allowed_email(app):
+    if not _allowed_email(app) and step not in ("unlock", "newpin"):
         step = "noemail"
     html = render_template("signin.html", step=step, error=error, sent=sent, codes=codes or [],
                            app_version=VERSION, local=_local(), console=_console(app), test_code=test_code,
@@ -232,11 +302,20 @@ def register(app) -> None:
         path = request.path
         if path in OPEN_PATHS or path.startswith("/static/"):
             return None
-        if device_ok(app, request.cookies.get(COOKIE)):
+        token = request.cookies.get(COOKIE)
+        if not device_ok(app, token):
+            if request.method == "GET":
+                return redirect("/signin")
+            return ("Please sign in again.", 401)
+        if path in PIN_PATHS:
             return None
-        if request.method == "GET":
-            return redirect("/signin")
-        return ("Please sign in again.", 401)
+        if not pin_is_set(app):
+            session["new_pin_until"] = session.get("new_pin_until") or (now() + timedelta(minutes=CODE_MINUTES)).isoformat()
+            return redirect("/pin/new") if request.method == "GET" else ("Choose a passcode first.", 401)
+        if not unlocked(app, token):
+            return redirect("/unlock") if request.method == "GET" else ("Type your passcode again.", 401)
+        session["unlocked"] = now().isoformat()               # still using it: the 15 minutes start again
+        return None
 
     @app.route("/signin", methods=["GET"])
     def signin():
@@ -314,6 +393,57 @@ def register(app) -> None:
         until = locked_until(app)
         return _page(app, "backup", error=_lock_text(until) if until else "That backup code is not right.")
 
+    @app.route("/unlock", methods=["GET", "POST"])
+    def unlock():
+        token = request.cookies.get(COOKIE)
+        if request.method == "GET":
+            if unlocked(app, token):
+                return redirect("/")
+            return _page(app, "unlock")
+        until = locked_until(app)
+        if until:
+            return _page(app, "unlock", error=_lock_text(until))
+        if pin_ok(app, "".join((request.form.get("pin") or "").split())):
+            _set(app, "auth_fails", {})
+            _unlock(app, token)
+            return redirect("/", code=303)
+        _add_fail(app)
+        until = locked_until(app)
+        return _page(app, "unlock", error=_lock_text(until) if until else "That passcode is not right. Try again.")
+
+    @app.route("/unlock/forgot", methods=["POST"])
+    def unlock_forgot():
+        """Forgot the passcode: sign in by email again, then choose a new one."""
+        _forget_device(app, request.cookies.get(COOKIE))
+        session.clear()
+        session["forgot"] = True
+        resp = redirect("/signin", code=303)
+        resp.delete_cookie(COOKIE)
+        return resp
+
+    @app.route("/pin/new", methods=["GET", "POST"])
+    def pin_new():
+        """Choose the passcode: the first time, or just after an email sign-in (Forgot / Change passcode)."""
+        until = session.get("new_pin_until")
+        allowed = not pin_is_set(app) or (until and now() < datetime.fromisoformat(until))
+        if not allowed:
+            return redirect("/")
+        if request.method == "GET":
+            return _page(app, "newpin")
+        pin = "".join((request.form.get("pin") or "").split())
+        problem = pin_problem(pin, "".join((request.form.get("again") or "").split()))
+        if problem:
+            return _page(app, "newpin", error=problem)
+        set_pin(app, pin)
+        session.pop("new_pin_until", None)
+        _unlock(app, request.cookies.get(COOKIE))
+        return redirect("/", code=303)
+
+    @app.route("/settings/pin", methods=["POST"])
+    def change_pin():
+        """Change passcode (from Settings): sign in by email first, then choose a new one."""
+        return unlock_forgot()
+
     @app.route("/settings/codes", methods=["POST"])
     def backup_codes():
         resp = _page(app, "codes", codes=make_backup_codes(app))
@@ -323,6 +453,7 @@ def register(app) -> None:
     @app.route("/signout", methods=["POST"])
     def signout():
         _forget_device(app, request.cookies.get(COOKIE))
+        session.clear()
         resp = redirect("/signin", code=303)
         resp.delete_cookie(COOKIE)
         return resp
@@ -330,6 +461,7 @@ def register(app) -> None:
     @app.route("/signout/all", methods=["POST"])
     def signout_all():
         _set(app, "auth_devices", {})
+        session.clear()
         resp = redirect("/signin", code=303)
         resp.delete_cookie(COOKIE)
         return resp

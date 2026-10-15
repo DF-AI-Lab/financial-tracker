@@ -20,7 +20,7 @@ def client(v3_app):
         from fintrack.v3 import auth
     except ImportError:
         return c
-    c.set_cookie(auth.COOKIE, auth.make_device(v3_app))
+    auth.sign_in_for_tests(v3_app, c)
     return c
 
 

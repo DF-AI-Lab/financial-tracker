@@ -18,6 +18,7 @@ def app(v3_app):
     v3_app.config["V3_SETTINGS"]["email"] = EMAIL
     v3_app.config["SENT"] = []
     v3_app.config["V3_SEND"] = lambda to, code: v3_app.config["SENT"].append((to, code))
+    auth.set_pin(v3_app, PIN)                               # the passcode is already chosen (its own tests below)
     return v3_app
 
 
@@ -27,6 +28,9 @@ def clock(monkeypatch):
     c = {"t": datetime(2026, 10, 14, 9, 0)}
     monkeypatch.setattr(auth, "now", lambda: c["t"])
     return c
+
+
+PIN = "246810"
 
 
 def ask_code(client, email=EMAIL):
@@ -92,13 +96,15 @@ def test_right_code_signs_in(app, clock):
     assert c2.get("/").status_code in (302, 303)
 
 
-def test_device_runs_out_after_30_days(app, clock):
+def test_device_runs_out_after_7_days(app, clock):
     c = app.test_client()
     sign_in(app, c)
-    clock["t"] += timedelta(days=29)
+    clock["t"] += timedelta(days=6)
+    assert c.get("/").headers["Location"].endswith("/unlock")     # passcode only, no email code
+    c.post("/unlock", data={"pin": PIN})
     assert c.get("/").status_code == 200
     clock["t"] += timedelta(days=2)
-    assert c.get("/").status_code in (302, 303)
+    assert c.get("/").headers["Location"].endswith("/signin")     # a week: the email code again
 
 
 def test_five_wrong_tries_lock(app, clock):
@@ -193,7 +199,76 @@ def test_make_device_and_client_fixture(v3_client, v3_app):
     assert v3_client.get("/").status_code == 200
     c = v3_app.test_client()
     c.set_cookie(auth.COOKIE, auth.make_device(v3_app))
+    assert c.get("/").headers["Location"].endswith("/unlock")     # a device alone still needs the passcode
+
+
+# ---- the passcode (user, 15 Oct 2026) -------------------------------------------------------------------------------
+
+def test_first_email_sign_in_asks_for_a_passcode(v3_app, clock):
+    v3_app.config["V3_SETTINGS"]["email"] = EMAIL
+    sent = []
+    v3_app.config["V3_SEND"] = lambda to, code: sent.append(code)
+    c = v3_app.test_client()
+    c.post("/signin", data={"email": EMAIL})
+    r = c.post("/signin/code", data={"code": sent[-1]})
+    assert r.headers["Location"].endswith("/pin/new")
+    assert c.get("/").headers["Location"].endswith("/pin/new")
+    page = c.post("/pin/new", data={"pin": "123456", "again": "123456"}).get_data(as_text=True)
+    assert "too easy" in page
+    assert "not the same" in c.post("/pin/new", data={"pin": "135792", "again": "135790"}).get_data(as_text=True)
+    assert "6 numbers" in c.post("/pin/new", data={"pin": "1357", "again": "1357"}).get_data(as_text=True)
+    r = c.post("/pin/new", data={"pin": "135792", "again": "135792"})
+    assert r.headers["Location"].endswith("/") and c.get("/").status_code == 200
+    assert "135792" not in kv_text(v3_app)
+    assert c.get("/pin/new").headers["Location"].endswith("/")    # can't be changed without the email code
+
+
+def test_passcode_again_after_15_minutes_idle(app, clock):
+    c = app.test_client()
+    sign_in(app, c)
+    clock["t"] += timedelta(minutes=10)
+    assert c.get("/").status_code == 200                            # still using it
+    clock["t"] += timedelta(minutes=14)
+    assert c.get("/").status_code == 200                            # 14 minutes since the last use
+    clock["t"] += timedelta(minutes=16)
+    assert c.get("/").headers["Location"].endswith("/unlock")
+    assert c.post("/add", data={"amount": "1", "name": "x"}).status_code == 401
+    assert "not right" in c.post("/unlock", data={"pin": "000000"}).get_data(as_text=True)
+    assert c.post("/unlock", data={"pin": PIN}).headers["Location"].endswith("/")
     assert c.get("/").status_code == 200
+
+
+def test_new_browser_session_needs_the_passcode(app, clock):
+    c = app.test_client()
+    sign_in(app, c)
+    token = c.get_cookie(auth.COOKIE).value
+    fresh = app.test_client()                                       # same device cookie, browser closed and opened
+    fresh.set_cookie(auth.COOKIE, token)
+    assert fresh.get("/").headers["Location"].endswith("/unlock")
+
+
+def test_five_wrong_passcodes_lock(app, clock):
+    c = app.test_client()
+    sign_in(app, c)
+    clock["t"] += timedelta(minutes=20)
+    for _ in range(5):
+        c.post("/unlock", data={"pin": "000000"})
+    assert "Too many tries" in c.post("/unlock", data={"pin": PIN}).get_data(as_text=True)
+    clock["t"] += timedelta(minutes=16)
+    assert c.post("/unlock", data={"pin": PIN}).headers["Location"].endswith("/")
+
+
+def test_forgot_passcode_signs_in_by_email_then_new_passcode(app, clock):
+    c = app.test_client()
+    sign_in(app, c)
+    clock["t"] += timedelta(minutes=20)
+    r = c.post("/unlock/forgot")
+    assert r.headers["Location"].endswith("/signin")
+    assert c.get("/").headers["Location"].endswith("/signin")       # the device is forgotten
+    r = sign_in(app, c)
+    assert r.headers["Location"].endswith("/pin/new")
+    c.post("/pin/new", data={"pin": "975310", "again": "975310"})
+    assert auth.pin_ok(app, "975310") and not auth.pin_ok(app, PIN)
 
 
 def test_empty_email_says_put_it_in(v3_data):
