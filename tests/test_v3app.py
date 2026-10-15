@@ -88,6 +88,10 @@ def test_test_copy_label_only_on_the_pc_test(data_dir):
     from fintrack.v3 import auth
     c = app.test_client()
     auth.sign_in_for_tests(app, c)
-    assert "TEST COPY" not in c.get("/").get_data(as_text=True)                         # the real site
+    page = c.get("/").get_data(as_text=True)
+    assert "TEST COPY" not in page and "demo.v" not in page                             # the real site
     app.config["V3_TEST"] = True
-    assert "TEST COPY" in c.get("/").get_data(as_text=True)
+    page = c.get("/").get_data(as_text=True)
+    assert "TEST COPY" in page and "demo.v" in page                                     # demo.v3.54 under Settings
+    # Settings order (15 Oct): Fix an item, then the backup things, Sign out last
+    assert page.index("Fix an item") < page.index("Download backup") < page.index("Change passcode") < page.index("Sign out")

@@ -167,17 +167,17 @@
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
       <div class="setmenu" id="setmenu" hidden>{% if cloud %}
         <div class="v3links">
-          <a class="small" href="/fix">🛠 Fix an item</a>
-          <a class="small" href="/backup/download">💾 Download backup</a>
+          <div class="grp"><a class="small" href="/fix">🛠 Fix an item</a></div>
+          <div class="grp"><a class="small" href="/backup/download">💾 Download backup</a>
           <form method="post" action="/settings/codes"><button class="small" type="submit">🔑 New backup codes</button></form>
-          <form method="post" action="/settings/pin"><button class="small" type="submit">🔢 Change passcode</button></form>
-          <form method="post" action="/signout"><button class="small" type="submit">🚪 Sign out</button></form>
+          <form method="post" action="/settings/pin"><button class="small" type="submit">🔢 Change passcode</button></form></div>
+          <div class="grp"><form method="post" action="/signout"><button class="small" type="submit">🚪 Sign out</button></form></div>
         </div>{% endif %}</div>
-      <div class="appver">v{{ app_version }}</div></div>{% endif %}
+      <div class="appver">{% if config.get("V3_TEST") %}demo.{% endif %}v{{ app_version }}</div></div>{% endif %}
     {% if d.ready and not phone %}<button type="button" class="tab" id="quicktab" aria-expanded="false" aria-controls="quick" title="New payday / add statements"><svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 6.5 6 2l4.5 4.5"/></svg></button>{% endif %}
   </header>
   <script>
-    // Settings (14 Oct 2026): the Update and Move & rename buttons live in this menu on the demo page
+    // Settings (14 Oct 2026, order 15 Oct): the Update and Move & rename buttons live in this menu on the demo page
     document.addEventListener('DOMContentLoaded', () => {
       // Home button: glide back to the top (no reload), with a little spin of the icon
       const home = document.querySelector('.demohead .brand');
@@ -190,7 +190,7 @@
       const btn = document.getElementById('setbtn'), menu = document.getElementById('setmenu');
       if (!btn) return;
       const bar = document.querySelector('.editbar');
-      if (bar) menu.appendChild(bar); else btn.hidden = true;
+      if (bar) menu.prepend(bar); else btn.hidden = true;     // Update + Move & rename first, Sign out last
       const show = on => { menu.hidden = !on; btn.setAttribute('aria-expanded', on); };
       btn.addEventListener('click', e => { e.stopPropagation(); show(menu.hidden); });
       document.addEventListener('click', e => { if (!menu.contains(e.target) && !document.body.classList.contains('editing')) show(false); });
