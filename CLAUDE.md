@@ -1,7 +1,7 @@
 # Financial Tracker
 
 **Front page for this project. Read this first. Keep it short and current; update it at the end of every session.**
-_Last updated: 14 Oct 2026._
+_Last updated: 15 Oct 2026._
 
 ## What it is
 A personal tool (user only, no login) for one HSBC current account. The user drops monthly statement PDFs in a folder,
@@ -76,6 +76,12 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
    NEXT (Darren, 15 Oct): FINGERPRINT = passkey (WebAuthn, platform authenticator) instead of typing the 6-digit
    passcode on the phone; passcode stays as fallback; weekly email code unchanged. Needs one pip package on
    PythonAnywhere (e.g. webauthn) - give Darren the exact Bash line. Build on v3, test on the PC copy, then live.
+   v3.61 BUILT (15 Oct, 544 tests + Chromium virtual-authenticator check, by me): FINGERPRINT = fintrack/v3/passkey.py
+   (py_webauthn; kv auth_passkeys = public keys + counter, auth_pk_challenge = one challenge, 5 min, used once;
+   user verification REQUIRED; wrong answers count toward the 5-tries lock, cancelling does not). /passkey/setup
+   (Settings → 👆 Fingerprint), /passkey/new/start + /passkey/new, /passkey/start + /passkey/unlock (in auth.PIN_PATHS),
+   /passkey/forget. Unlock page asks at once, passcode box below. No webauthn package = fingerprint hidden. PC test now
+   opens localhost:5001 (WebAuthn refuses IP addresses). Darren: pip install webauthn on PA (V3_SETUP.md), then try.
    v3.55: Settings → Cards open at once (localStorage ft_maxopen, default 2; ft_openorder; opening one more folds the oldest),
    cards slide open/shut; spend/card errors show inside their card (error_at) and fade after 5 s.
 00000. **v3 BRANCH (14 Oct night, 497 tests): the whole app as one website, built and click-tested; NOT on main.**

@@ -42,7 +42,7 @@ BACKUP_COUNT = 8
 BACKUP_LETTERS = "abcdefghjkmnpqrstuvwxyz23456789"      # no 0/o, 1/l/i look-alikes
 
 OPEN_PATHS = ("/signin", "/signin/code", "/signin/backup", "/signin/setup", "/manifest.json")
-PIN_PATHS = ("/unlock", "/unlock/forgot", "/pin/new")
+PIN_PATHS = ("/unlock", "/unlock/forgot", "/pin/new", "/passkey/start", "/passkey/unlock")   # + fingerprint
 QUIET_PATHS = ("/stamp",)                               # the page's own checks: signed in, but not "using it"    # need a signed-in device, but no passcode yet
 
 
@@ -312,12 +312,14 @@ def _clean_backup(text: str) -> str:
 
 # --- pages ---------------------------------------------------------------------------------------------------------
 
-def _page(app, step="email", error="", sent=False, codes=None, status=200, test_code=""):
-    if not _allowed_email(app) and step not in ("unlock", "newpin"):
+def _page(app, step="email", error="", sent=False, codes=None, status=200, test_code="", **extra):
+    if not _allowed_email(app) and step not in ("unlock", "newpin", "passkey"):
         step = "noemail"
+    from fintrack.v3 import passkey
     html = render_template("signin.html", step=step, error=error, sent=sent, codes=codes or [],
                            app_version=VERSION, local=_local(), console=_console(app), test_code=test_code,
-                           settings_file=str(app.config.get("V3_DATA_DIR", "")) + "/v3_settings.json")
+                           fingerprint=step == "unlock" and passkey.ready(app),
+                           settings_file=str(app.config.get("V3_DATA_DIR", "")) + "/v3_settings.json", **extra)
     return make_response(html, status)
 
 

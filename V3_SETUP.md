@@ -66,7 +66,7 @@ Draft of the steps, so nothing is a surprise:
 
 ```
 git clone -b v3 https://github.com/DF-AI-Lab/financial-tracker.git ~/whereismymoney
-python3.13 -m venv ~/wmm-venv && ~/wmm-venv/bin/pip install flask pdfplumber
+python3.13 -m venv ~/wmm-venv && ~/wmm-venv/bin/pip install flask pdfplumber webauthn
 mkdir -p ~/wmm-data
 ```
 
@@ -88,3 +88,18 @@ application = make_app("/home/USERNAME/wmm-data")
 7. ⏰ Once a month: PythonAnywhere → **Web** → **Run until 1 month from today**.
 
 🛟 v2 stays on your PC as a backup the whole time.
+
+## 👆 Fingerprint (v3.61)
+Unlock with your fingerprint instead of the passcode. The server needs one extra part, once.
+
+On PythonAnywhere, open a **Bash console** and paste:
+```
+~/wmm-venv/bin/pip install webauthn
+```
+Then **Web** tab → **Reload**. On your phone: ⚙ Settings → **👆 Fingerprint** → **Turn on fingerprint**.
+
+On the PC test copy (optional, Windows Hello):
+```
+C:\ftvenv\Scripts\python.exe -m pip install webauthn
+```
+Fingerprint only works at `http://localhost:5001` (not `127.0.0.1`).

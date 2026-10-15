@@ -151,10 +151,10 @@ def main():
     offer_fresh_copy(data_dir)
     app = make_app(data_dir)
     app.config["V3_TEST"] = True                      # the orange TEST COPY label
-    print(f"v3 test site: http://127.0.0.1:{PORT}   (data: {data_dir})   close this window to stop it")
+    print(f"v3 test site: http://localhost:{PORT}   (data: {data_dir})   close this window to stop it")
     if not os.environ.get("FT_RESTART"):
         import webbrowser
-        threading.Timer(1.0, lambda: webbrowser.open(f"http://127.0.0.1:{PORT}")).start()
+        threading.Timer(1.0, lambda: webbrowser.open(f"http://localhost:{PORT}")).start()
     app.run(host="127.0.0.1", port=PORT, debug=False)
 
 

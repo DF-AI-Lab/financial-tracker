@@ -1,5 +1,5 @@
 @echo off
-rem v3 test site at http://127.0.0.1:5001 (its own copy of your data in the v3data folder). Keep this window open.
+rem v3 test site at http://localhost:5001 (its own copy of your data in the v3data folder). Keep this window open.
 cd /d "%~dp0"
 :start
 C:\ftvenv\Scripts\python.exe v3app.py

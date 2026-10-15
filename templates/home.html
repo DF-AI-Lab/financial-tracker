@@ -172,7 +172,8 @@
           <div class="grp"><a class="small" href="/backup/download">💾 Download backup</a>
           <a class="small" href="/backup/restore">♻️ Restore a backup</a>
           <form method="post" action="/settings/codes"><button class="small" type="submit">🔑 New backup codes</button></form>
-          <form method="post" action="/settings/pin"><button class="small" type="submit">🔢 Change passcode</button></form></div>
+          <form method="post" action="/settings/pin"><button class="small" type="submit">🔢 Change passcode</button></form>
+          <a class="small" href="/passkey/setup">👆 Fingerprint</a></div>
           <div class="grp"><form method="post" action="/signout"><button class="small" type="submit">🚪 Sign out</button></form></div>
         </div>{% else %}<div class="v3links"><div class="grp">{{ maxrow }}</div></div>{% endif %}</div>
       <div class="appver">{% if config.get("V3_TEST") %}demo.{% endif %}v{{ app_version }}</div></div>{% endif %}
