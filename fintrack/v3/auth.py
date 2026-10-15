@@ -248,12 +248,37 @@ def send_code(app, to: str, code: str) -> None:
         msg["From"] = s["smtp_user"]
         msg["To"] = to
         msg.set_content(f"Your Where's My Money? code is {code}. It works for {CODE_MINUTES} minutes.")
-        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
-            smtp.starttls()
-            smtp.login(s["smtp_user"], s["smtp_password"])
-            smtp.send_message(msg)
-        return
+        try:                                               # Gmail's usual way first...
+            with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+                smtp.starttls()
+                smtp.login(s["smtp_user"], s["smtp_password"])
+                smtp.send_message(msg)
+            return
+        except (OSError, smtplib.SMTPException):
+            pass
+        try:                                               # ...then its other door (SSL on 465)
+            with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as smtp:
+                smtp.login(s["smtp_user"], s["smtp_password"])
+                smtp.send_message(msg)
+            return
+        except (OSError, smtplib.SMTPException):
+            code_to_file(app, code)                        # plan B: Darren reads it in PythonAnywhere's Files tab
+            raise CodeInFile()
     print(f"Sign-in code: {code}", flush=True)
+
+
+class CodeInFile(Exception):
+    """Email failed; the code was saved in the data folder instead."""
+
+
+CODE_FILE = "signin_code.txt"
+
+
+def code_to_file(app, code: str) -> None:
+    """Plan B when email fails (15 Oct 2026): the code goes in <data folder>/signin_code.txt, which only Darren can
+    open (PythonAnywhere → Files → wmm-data). It still runs out after 10 minutes and works once."""
+    (app.config["V3_DATA_DIR"] / CODE_FILE).write_text(
+        f"Your Where's My Money? code: {code}\nIt works for {CODE_MINUTES} minutes, once.\n", encoding="utf-8")
 
 
 def _sent_last_hour(app) -> list:
@@ -350,6 +375,9 @@ def register(app) -> None:
             code = new_code(app)
             try:
                 send_code(app, allowed, code)
+            except CodeInFile:
+                return _page(app, "code", error="The email didn't send. Your code is in PythonAnywhere: "
+                                                "Files → wmm-data → signin_code.txt")
             except (OSError, smtplib.SMTPException):
                 return _page(app, "email", error="The email could not be sent. Check the Gmail settings "
                                                  "in v3_settings.json.")
@@ -370,6 +398,10 @@ def register(app) -> None:
             return _page(app, "email", error="That code has run out. Ask for a new one.")
         if hmac.compare_digest(_hash(app, typed), saved["hash"]):
             _set(app, "auth_code", {})                      # each code works once
+            try:
+                (app.config["V3_DATA_DIR"] / CODE_FILE).unlink()      # plan B file: gone once used
+            except OSError:
+                pass
             _set(app, "auth_fails", {})
             return _signed_in_response(app)
         _add_fail(app)

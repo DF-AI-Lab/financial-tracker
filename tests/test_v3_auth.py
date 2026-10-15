@@ -353,3 +353,36 @@ def test_pc_test_shows_the_code_on_the_page_only_on_this_computer(v3_data):
     assert "your code is" not in far.get_data(as_text=True)                         # never shown over the internet
     wrong = c.post("/signin", data={"email": "other@example.com"}).get_data(as_text=True)
     assert "your code is" not in wrong                                              # nor for another address
+
+
+def test_email_fails_then_the_code_goes_in_a_file(v3_app, clock, monkeypatch):
+    import smtplib
+    v3_app.config["V3_SETTINGS"].update({"email": EMAIL, "smtp_user": EMAIL, "smtp_password": "x" * 16})
+    tried = []
+
+    class Broken:
+        def __init__(self, host, port, timeout=None):
+            tried.append(port)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def starttls(self):
+            pass
+
+        def login(self, u, p):
+            raise smtplib.SMTPServerDisconnected("Connection unexpectedly closed")
+
+    monkeypatch.setattr(smtplib, "SMTP", Broken)
+    monkeypatch.setattr(smtplib, "SMTP_SSL", Broken)
+    c = v3_app.test_client()
+    page = c.post("/signin", data={"email": EMAIL}, environ_base={"REMOTE_ADDR": "8.8.8.8"}).get_data(as_text=True)
+    assert tried == [587, 465]
+    assert "signin_code.txt" in page and 'name="code"' in page
+    f = v3_app.config["V3_DATA_DIR"] / "signin_code.txt"
+    code = re.search(r"code: (\d{6})", f.read_text()).group(1)
+    r = c.post("/signin/code", data={"code": code}, environ_base={"REMOTE_ADDR": "8.8.8.8"})
+    assert r.status_code in (302, 303) and not f.exists()               # used, and the file is gone
