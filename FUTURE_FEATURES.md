@@ -87,3 +87,13 @@ option (e.g. for PDFs from the phone).
 - **Caching (4 Oct):** the page files are cached by CloudFront and on the phone (opens instantly, works offline).
   The snapshot is NOT cached by CloudFront (no-cache: always fresh, token checked every time, never in a shared cache);
   the phone keeps its own last copy for offline viewing.
+
+## Idea: vanilla version (17 Oct, user, NOT agreed yet, do not build)
+A separate, simpler app for anyone: one installable web page, no PDFs, no Python, no server, no login.
+Everything typed by hand and saved in the browser only (private to each person/device).
+- Bills with categories, typed spends, pay -> spare cash (pay - bills - spends).
+- Accounts: any number of credit cards (limit, Add / Paid off, oldest first like Zopa) and pots (savings etc.).
+- "Close the month" saves a snapshot; history and averages build from those.
+Catches: data lost if browser data is cleared (needs Export / Import backup), no phone/PC sync, all typed by hand,
+iPhone Safari may clear data (install to home screen). Later: optional bank CSV import.
+User will keep using the current app. Next: grill session on it (one device or two, pots, month close), then a SPEC.
