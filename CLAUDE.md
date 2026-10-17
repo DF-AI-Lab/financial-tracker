@@ -59,8 +59,35 @@ left after typical month 416.71 on 2,677. The user's code folder is still named 
 
 ## Next
 000. **17 Oct: idea only, nothing built.** A "vanilla" typed-by-hand browser-only version (no PDFs, many cards + pots,
-   monthly snapshots). Notes in FUTURE_FEATURES.md "Idea: vanilla version". User low on credits till Thursday: keep it short.
+   monthly snapshots). Notes in FUTURE_FEATURES.md "Idea: vanilla version". Compare with V3_PLAN.md before planning.
    Next: grill session on it when the user asks.
+0000. **14 Oct v2.21: THE NEW LOOK IS LIVE on the PC main page / (user: 'move all this to live'). /demo redirects to /.
+   web.home(demo=True) -> template flag `demo` = new look; CSS in static/look.css (linked by templates/demo_style.html).
+   Version shows as 'v2.21' (fintrack/appversion.py, bump every push). Manifest name 'Where's My Money?'.
+   The PHONE page (web.phone_page) still has the OLD look: next job = phone (its script uses old ids/markup; test it).**
+   v3 PLAN (14 Oct): GitHub wayfinder map 'Map: v3, the whole app on PythonAnywhere' (issue 15, tickets 16-21; type in each
+   ticket's first line, labels missing). V3_PLAN.md points at it. Work one ticket per session.
+000. **14 Oct: new name idea 'Where's My Money?' (tagline 'Payday to payday'), not applied yet (page still says Wage Tracker).
+   New app icon BUILT: the Lens (teal, white magnifier, mint £), `tools/make_icon.py` writes static/icon-*.png + app.ico.
+   User wants a cleaner, more professional look next: mock it up first (fewer emojis, one accent colour, more space).**
+   14 Oct BUILT (445 tests + browser check): DEMO page http://127.0.0.1:5000/demo = the new look, the normal page / is
+   unchanged (user: 'only on the demo'). Same template home.html with demo=True: templates/demo_style.html (teal/mint,
+   bills blue, spends gold, Manrope, emojis -> coloured dots via the emo() macro), templates/demo_top.html (spare cash
+   as a statement (top: icon + name = a home link to /demo, 'Payday to payday', no dates) Pay / + Left / - Bills / - Spends = Spare, tap Pay or Left to open the same forms, thin 3-colour ring
+   bills/spends/spare of pay+left, tiles + Zopa ring: used pink-purple / free lilac, % of limit in the middle). Forms post as before; web.home_url sends you back to /demo when the
+   Referer is /demo. Demo header is sticky (icon+name = smooth scroll to top + icon spin, no reload; ⚙ Settings menu right; JS moves the .editbar
+   (Update, Move & rename, Put the order back) into it; menu stays open while editing; 'demo.v.X' under it from fintrack/appversion.py VERSION = 2.20 now:
+   BUMP IT (2.14, 2.15...) with every push to main and tell the user the number). v2.15: arrow tab on the header line (#quicktab, SVG chevron flipped by CSS on aria-expanded, starts hidden) opens the New payday
+   panel (#quick in demo_top: payform with Pay + Left + one long Work it out; JS posts /left first if Left changed;
+   the #dropbar is moved into it). Tapping Pay/Left in the statement opens it. v2.17: panel slides (Web Animations, reduced-motion = instant); demo top
+   has NO spare-last-month/avg tiles (user: no purpose there; they stay on /); both rings 96px, top-aligned, same card
+   padding; Credit card card in Zopa colours (--zused/--zfreetext). v2.18: demo Bills card = templates/demo_bills.html (same tr.bill rows/data/forms
+   so the page script works; name split by web 'tagsplit' filter into bold name + 'Household · BP · avg' line; diff as
+   a pill; ⋯ menu = Change amount / Put back / Stop or Count it again, all clicking the existing buttons/forms). v2.19: demo Last month's spending = templates/demo_last.html (same
+   rows/items/→ Bill; round ⌄ N button opens the shops). v2.20: every other card restyled the same way on the demo (spend + credit
+   card rows = tr.drow: name, 'date · category' line, amount, small ×; where/cats/subs/periods by CSS only: thin lines,
+   chevrons, diff pills). Normal / page HTML checked byte-for-byte unchanged. Mock-ups: https://claude.ai/artifact/McghmHZfrh5aYrhABkgprC. Next: user adds more mock ideas, then
+   swap the demo onto / (and the phone) when they say so.
 00. **4 Oct (grill session): step 10 phone copy BUILT (391 tests)** on PythonAnywhere instead of the AWS v3 design (the user
    chose it in the grill and drew the diagram: PC -> JSON/page -> PythonAnywhere <-> phone; phone changes go back to the PC,
    which asks y/n). See SPEC.md step 10 + DECISIONS.md 4 Oct. Code: `cloud/flask_app.py` (the site: page.html,

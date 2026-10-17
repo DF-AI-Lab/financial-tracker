@@ -11,6 +11,8 @@ try:
 except ImportError:
     raise ImportError("Flask is required. Install with: python -m pip install flask")
 
+from fintrack.appversion import VERSION as APP_VERSION
+
 from fintrack.home import home_data
 from fintrack.store import open_db, set_value, add_spend, delete_spend
 from fintrack.left import parse_money
@@ -154,6 +156,16 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         else:
             return f"-£{-x:,.2f}"
 
+    @app.template_filter('tagsplit')
+    def filter_tagsplit(name):
+        """'Rent KT (Household) (BP)' -> ('Rent KT', ['Household', 'BP']): the demo page shows the tags under the name."""
+        tags = []
+        name = str(name)
+        while name.endswith(")") and " (" in name:
+            name, tag = name[:-1].rsplit(" (", 1)
+            tags.insert(0, tag)
+        return name, tags
+
     @app.template_filter('diff')
     def filter_diff(x):
         """Format a difference as +£12.00 / -£20.83 / £0.00."""
@@ -173,9 +185,18 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         """Format as 'Oct 2024'."""
         return f"{d:%b %Y}"
 
+    # The demo page (14 Oct 2026): same page, new look. Changes made there go back to /demo.
+    def home_url(**kw):
+        ref = request.referrer or ""
+        return url_for("demo" if ref.split("?")[0].rstrip("/").endswith("/demo") else "home", **kw)
+
+    @app.route("/demo")
+    def demo():
+        return redirect(url_for("home"), code=302)               # the demo look is the main page now (14 Oct 2026)
+
     # GET /
     @app.route("/")
-    def home():
+    def home(demo=True):
         if not db_path.exists():
             open_db(db_path).close()                    # an empty database, so PDFs can be dropped on the page
 
@@ -202,7 +223,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         if n and n > 0:
             push(db_path, wage_payer, today, http=phone_http)
 
-        return render_template("home.html", d=d, error=error, version=version)
+        return render_template("home.html", d=d, error=error, version=version, demo=demo, app_version=APP_VERSION)
 
     # POST /pay
     @app.route("/pay", methods=["POST"])
@@ -211,7 +232,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         wage = parse_money(wage_text)
 
         if wage is None:
-            return redirect(url_for("home", error="pay"), code=303)
+            return redirect(home_url(error="pay"), code=303)
 
         conn = open_db(db_path)
         set_value(conn, "pay", str(wage))
@@ -221,7 +242,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
 
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     # POST /add
     @app.route("/add", methods=["POST"])
@@ -233,7 +254,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         parsed = parse_add([amount_str, name_str])
 
         if parsed is None:
-            return redirect(url_for("home", error="spend"), code=303)
+            return redirect(home_url(error="spend"), code=303)
 
         amount, name = parsed
 
@@ -243,7 +264,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
 
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     # Credit card (5 Oct 2026): POST /card/add {amount, name, paid=1 for money paid off}, /card/remove {id},
     # /card/limit {amount}, /card/balance {amount} (what the card owes now, from the tile)
@@ -254,12 +275,12 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         paid = request.form.get("paid") == "1"
         name = request.form.get("name", "").strip() or ("Paid off" if paid else "")
         if amount is None or not name:
-            return redirect(url_for("home", error="card"), code=303)
+            return redirect(home_url(error="card"), code=303)
         conn = open_db(db_path)
         add_card(conn, date.today() if today is None else today, -amount if paid else amount, name)
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     @app.route("/card/remove", methods=["POST"])
     def card_remove():
@@ -267,12 +288,12 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         try:
             item_id = int(request.form.get("id", ""))
         except ValueError:
-            return redirect(url_for("home"), code=303)
+            return redirect(home_url(), code=303)
         conn = open_db(db_path)
         remove_card(conn, item_id)
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     @app.route("/card/balance", methods=["POST"])
     def card_balance():
@@ -280,24 +301,24 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         text = request.form.get("amount", "").strip()
         amount = 0.0 if text.lstrip("£").replace(".", "").strip("0") == "" else parse_money(text)
         if amount is None:
-            return redirect(url_for("home", error="pay"), code=303)
+            return redirect(home_url(error="pay"), code=303)
         conn = open_db(db_path)
         set_balance(conn, date.today() if today is None else today, amount)
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     @app.route("/card/limit", methods=["POST"])
     def card_limit():
         from fintrack.creditcard import set_limit
         amount = parse_money(request.form.get("amount", ""))
         if amount is None:
-            return redirect(url_for("home", error="pay"), code=303)
+            return redirect(home_url(error="pay"), code=303)
         conn = open_db(db_path)
         set_limit(conn, amount)
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     # POST /bill: change a bill for this pay cycle only (empty amount = put it back)
     @app.route("/bill", methods=["POST"])
@@ -309,7 +330,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         d = home_data(conn, wage_payer=wage_payer, today=today)
         if not d["ready"] or key not in [b["key"] for b in d["pay"]["bills"]]:
             conn.close()
-            return redirect(url_for("home"), code=303)
+            return redirect(home_url(), code=303)
         if amount_text == "":
             clear_change(conn, d["cycle_start"], key)
         else:
@@ -320,13 +341,13 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
                 conn.close()
                 if request.headers.get("X-Requested-With") == "fetch":
                     return ("", 400)
-                return redirect(url_for("home", error="pay"), code=303)
+                return redirect(home_url(error="pay"), code=303)
             set_change(conn, d["cycle_start"], key, amount)
         conn.close()
         push_soon(db_path, wage_payer, today, http=phone_http)
         if request.headers.get("X-Requested-With") == "fetch":
             return ("", 204)                         # saved quietly by the page script, no reload
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     # POST /left: left from last month, added to the spare cash until the next payday (empty amount = remove)
     @app.route("/left", methods=["POST"])
@@ -337,18 +358,18 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         d = home_data(conn, wage_payer=wage_payer, today=today)
         if not d["ready"]:
             conn.close()
-            return redirect(url_for("home"), code=303)
+            return redirect(home_url(), code=303)
         if amount_text == "":
             clear_left(conn, d["cycle_start"])
         else:
             amount = parse_money(amount_text)
             if amount is None:
                 conn.close()
-                return redirect(url_for("home", error="pay"), code=303)
+                return redirect(home_url(error="pay"), code=303)
             set_left(conn, d["cycle_start"], amount)
         conn.close()
         push_soon(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     # Layout (page only, kept for good): POST /layout {"sort", "ids"} after a drag, POST /name {"id", "name"},
     # POST /layout/reset puts the order back (names are kept).
@@ -383,13 +404,13 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         reset_order(conn)
         conn.close()
         push_soon(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     # The app icon (3 Oct 2026): Chrome / Edge can install the page as an app ('Install Wage Tracker')
     @app.route("/manifest.json")
     def manifest():
-        return {"name": "Wage Tracker", "short_name": "Wage Tracker", "start_url": "/", "display": "standalone",
-                "background_color": "#15171a", "theme_color": "#1d4f8f",
+        return {"name": "Where's My Money?", "short_name": "My Money", "start_url": "/", "display": "standalone",
+                "background_color": "#0f1513", "theme_color": "#0f6e5c",
                 "icons": [{"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
                           {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"}]}
 
@@ -465,7 +486,7 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
             # Ignore bad id
             pass
 
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     @app.route("/stopped", methods=["POST"])
     def stopped():
@@ -476,16 +497,16 @@ def create_app(db_path, wage_payer=WAGE_PAYER, today=None, updater=None, restart
         d = home_data(conn, wage_payer=wage_payer, today=today)
         if not d["ready"] or key not in [b["key"] for b in d["pay"]["bills"]]:
             conn.close()
-            return redirect(url_for("home"), code=303)
+            return redirect(home_url(), code=303)
         try:
             stopped_val = stopped_str == "1"
             set_stopped(conn, key, stopped_val, today or date.today())
         except Exception:
             conn.close()
-            return redirect(url_for("home"), code=303)
+            return redirect(home_url(), code=303)
         conn.close()
         push(db_path, wage_payer, today, http=phone_http)
-        return redirect(url_for("home"), code=303)
+        return redirect(home_url(), code=303)
 
     return app
 

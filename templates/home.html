@@ -3,11 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Wage Tracker</title>
+<title>{{ "Where's My Money?" if demo else "Wage Tracker" }}</title>
 {% if not phone %}<link rel="manifest" href="/manifest.json">{% endif %}
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Wage Tracker">
+<meta name="apple-mobile-web-app-title" content="{{ "My Money" if demo else "Wage Tracker" }}">
 {% if phone %}<link rel="icon" href="{{ icon }}"><link rel="apple-touch-icon" href="{{ icon }}">{% else %}<link rel="icon" href="/static/icon-192.png">{% endif %}
 <meta name="theme-color" content="#1d4f8f">
 <style>
@@ -155,10 +155,43 @@
   .phonebox label { display: flex; gap: 10px; align-items: center; padding: 6px 0; font-family: ui-monospace, monospace; font-size: 14px; }
   .footer { color: var(--muted); font-size: 13px; text-align: center; margin: 20px 0 30px; }
 </style>
+{% if demo %}{% include "demo_style.html" %}{% endif %}
 </head>
-<body>
+<body{% if demo %} class="demo"{% endif %}>
+{% macro emo(e, kind='') %}{% if demo %}<i class="dot {{ kind }}"></i>{% else %}{{ e }}{% endif %}{% endmacro %}
 <div class="wrap">
+  {% if demo %}
+  <header class="demohead">
+    <a class="brand" href="/" title="Back to the top"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday</div></div></a>
+    {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
+      <div class="setmenu" id="setmenu" hidden></div>
+      <div class="appver">v{{ app_version }}</div></div>{% endif %}
+    {% if d.ready and not phone %}<button type="button" class="tab" id="quicktab" aria-expanded="false" aria-controls="quick" title="New payday / add statements"><svg viewBox="0 0 12 8" aria-hidden="true"><path d="M1.5 6.5 6 2l4.5 4.5"/></svg></button>{% endif %}
+  </header>
+  <script>
+    // Settings (14 Oct 2026): the Update and Move & rename buttons live in this menu on the demo page
+    document.addEventListener('DOMContentLoaded', () => {
+      // Home button: glide back to the top (no reload), with a little spin of the icon
+      const home = document.querySelector('.demohead .brand');
+      if (home) home.addEventListener('click', e => {
+        e.preventDefault();
+        const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+        window.scrollTo({top: 0, behavior: calm ? 'auto' : 'smooth'});
+        if (!calm) { home.classList.remove('spin'); void home.offsetWidth; home.classList.add('spin'); }
+      });
+      const btn = document.getElementById('setbtn'), menu = document.getElementById('setmenu');
+      if (!btn) return;
+      const bar = document.querySelector('.editbar');
+      if (bar) menu.appendChild(bar); else btn.hidden = true;
+      const show = on => { menu.hidden = !on; btn.setAttribute('aria-expanded', on); };
+      btn.addEventListener('click', e => { e.stopPropagation(); show(menu.hidden); });
+      document.addEventListener('click', e => { if (!menu.contains(e.target) && !document.body.classList.contains('editing')) show(false); });
+      document.addEventListener('keydown', e => { if (e.key === 'Escape' && !document.body.classList.contains('editing')) show(false); });
+    });
+  </script>
+  {% else %}
   <h1>💷 Where does my wage go?</h1>
+  {% endif %}
   {% if not d.ready %}
     <div class="card">
       <h2>No paydays yet</h2>
@@ -168,13 +201,13 @@
   <!-- No. 6a: drop statement PDFs anywhere on the page, or click to choose them -->
   <label class="dropbar" id="dropbar">
     <input type="file" id="dropfiles" accept=".pdf,application/pdf" multiple hidden>
-    <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
+    <span id="droptext">{{ emo('📄') }} <b>Drop statements here</b> (PDFs), or click to choose them</span>
   </label>
   {% endif %}
   <div id="dropresult" class="dropresult" hidden></div>
 
   {% else %}
-  <div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>
+  {% if not demo %}<div class="sub">This pay cycle from {{ d.pay.start|day }} · statements up to {{ d.statements_to|day }}</div>{% endif %}
 
 {{ '' }}  {% if phone %}
   <div class="phonebar"><span>📱 From PC: {{ updated }} <span id="sendmsg"></span></span></div>
@@ -191,6 +224,7 @@
 
   {% if error %}<div class="error">{{ error }}</div>{% endif %}
 
+  {% if demo %}{% include "demo_top.html" %}{% else %}
   <!-- No. 1: spare cash -->
   <div class="hero">
     <div class="label">Spare cash left</div>
@@ -224,12 +258,13 @@
     <div class="tile half"><div class="label">💳 Zopa free</div>
       <div class="num {{ 'bad' if d.card.free < 0 else 'good' }}" id="ccfree">{{ d.card.free|money }}</div></div>
   </div>
+  {% endif %}
 
   {% if not phone %}
   <!-- No. 6a: drop statement PDFs anywhere on the page, or click to choose them -->
   <label class="dropbar" id="dropbar">
     <input type="file" id="dropfiles" accept=".pdf,application/pdf" multiple hidden>
-    <span id="droptext">📄 <b>Drop statements here</b> (PDFs), or click to choose them</span>
+    <span id="droptext">{{ emo('📄') }} <b>Drop statements here</b> (PDFs), or click to choose them</span>
   </label>
   <div id="dropresult" class="dropresult" hidden></div>
   {% endif %}
@@ -237,7 +272,7 @@
   <!-- No. 6b: new items sorted on the page (my guess is picked; change any, then Save) -->
   {% if d.sort %}
   <div class="card sortcard" id="sortcard" data-count="{{ d.sort|length }}">
-    <h2>❓ {{ d.sort|length }} new item{{ 's' if d.sort|length != 1 else '' }} to sort</h2>
+    <h2>{{ emo('❓', 'ask') }} {{ d.sort|length }} new item{{ 's' if d.sort|length != 1 else '' }} to sort</h2>
     <div class="sub" style="margin-bottom:10px">My guesses are picked. Change any you like, then press <b>Save</b>.</div>
     <div class="sortbtns">
       <button type="button" id="sortsave">💾 Save</button>
@@ -266,7 +301,7 @@
   <!-- No. 6c: the other questions (same bill, rent, typed spends), answered with one click -->
   {% if d.more %}
   <div class="card sortcard" id="morecard">
-    <h2>❓ {{ d.more|length }} quick question{{ 's' if d.more|length != 1 else '' }}</h2>
+    <h2>{{ emo('❓', 'ask') }} {{ d.more|length }} quick question{{ 's' if d.more|length != 1 else '' }}</h2>
     {% for q in d.more %}
     <div class="ask" data-q="{{ q|tojson|forceescape }}">
       {% if q.type == 'job' %}
@@ -297,7 +332,7 @@
   {% set bills_last = d.pay.bills|sum(attribute='last') %}
   {% set c_spend %}
   <div class="card" data-id="spend" data-card="spend">
-    <h2><span class="handle" title="Drag to move">⠿</span> ➕ Add a spend<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('➕', 'spend') }} Add a spend<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if phone %}
     <form class="inline" id="addform">
       <input class="amount" type="text" id="addamount" inputmode="decimal" placeholder="12.50" aria-label="Amount">
@@ -315,8 +350,13 @@
     {% if d.spends %}
       <table style="margin-top:12px">
         {% for s in d.spends %}
+          {% if demo %}
+          <tr class="drow"><td><b>{{ s.name }}</b><span class="labels">{{ s.date|day }} · {{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
+              <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small xbtn" type="submit" title="Remove" aria-label="Remove {{ s.name }}">×</button></form></td></tr>
+          {% else %}
           <tr><td>{{ s.date|day }}</td><td>{{ s.name }}<span class="labels">{{ s.category or 'Unsorted' }}</span></td><td class="n">{{ s.amount|money }}</td>
               <td class="n"><form method="post" action="/remove"><input type="hidden" name="id" value="{{ s.id }}"><button class="small" type="submit">Remove</button></form></td></tr>
+          {% endif %}
         {% endfor %}
       </table>
     {% endif %}
@@ -330,7 +370,7 @@
   {% endset %}
   {% set c_card %}
   <div class="card" data-id="card" data-card="card">
-    <h2><span class="handle" title="Drag to move">⠿</span> 💳 Credit card<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('💳', 'zused') }} Credit card<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if phone %}
     <form class="inline" id="cardform">
       <input class="amount" type="text" id="cardamount" inputmode="decimal" placeholder="40" aria-label="Amount">
@@ -350,9 +390,15 @@
     {% if d.card.rows %}
       <table style="margin-top:12px">
         {% for r in d.card.rows %}
+          {% if demo %}
+          <tr class="drow {{ 'crossed' if r.status == 'paid' else '' }}"><td><b>{{ r.name }}</b><span class="labels">{{ r.date|day }}{% if r.status == 'part' %} · {{ r.left|money }} left{% endif %}</span></td>
+              <td class="n {{ 'good' if r.amount < 0 else '' }}">{{ r.amount|money }}</td>
+              <td class="n">{% if r.removable %}<form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ r.id }}"><button class="small xbtn" type="submit" title="Remove" aria-label="Remove {{ r.name }}">×</button></form>{% endif %}</td></tr>
+          {% else %}
           <tr class="{{ 'crossed' if r.status == 'paid' else '' }}"><td>{{ r.date|day }}</td><td>{{ r.name }}{% if r.status == 'part' %}<span class="labels">{{ r.left|money }} left</span>{% endif %}</td>
               <td class="n {{ 'good' if r.amount < 0 else '' }}">{{ r.amount|money }}</td>
               <td class="n">{% if r.removable %}<form method="post" action="/card/remove"><input type="hidden" name="id" value="{{ r.id }}"><button class="small" type="submit">Remove</button></form>{% endif %}</td></tr>
+          {% endif %}
         {% endfor %}
       </table>
     {% endif %}
@@ -365,8 +411,9 @@
   </div>
   {% endset %}
   {% set c_bills %}
+  {% if demo %}{% include "demo_bills.html" %}{% else %}
   <div class="card" data-id="bills" data-card="bills">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🏠 Bills (every month)<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🏠', 'bill') }} Bills (every month)<button type="button" class="fold" title="Fold">▾</button></h2>
     <table id="bills">
       <thead><tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr></thead>
       <tbody data-sort="bills">
@@ -391,10 +438,12 @@
       ✏️ Tap a Last month amount to change it for this pay cycle only. Spare cash updates as you type; ✖ puts it back.
     </div>
   </div>
+  {% endif %}
   {% endset %}
   {% set c_last %}
+  {% if demo %}{% include "demo_last.html" %}{% else %}
   <div class="card" data-id="lastmonth" data-card="lastmonth">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🛒 Last month's spending<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🛒', '') }} Last month's spending<button type="button" class="fold" title="Fold">▾</button></h2>
     <table>
       <thead><tr><th>What</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th></tr>
       {% set bd = bills_last - d.pay.bills_avg %}
@@ -418,11 +467,12 @@
         <td class="n {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td></tr></tbody>
     </table>
   </div>
+  {% endif %}
   {% endset %}
   {% set c_where %}
   {% if d.last %}
   <div class="card" data-id="where" data-card="where">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🔍 Where did last cycle's money go?<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🔍', '') }} Where did last cycle's money go?<button type="button" class="fold" title="Fold">▾</button></h2>
     <div class="sub">{{ d.last.start|day }} to {{ d.last.end|day }}</div>
     <div class="tiles">
       <div class="tile"><div class="label">Expected spare</div><div class="num">{{ d.last.expected|money }}</div></div>
@@ -448,7 +498,7 @@
   {% endset %}
   {% set c_cats %}
   <div class="card" data-id="cats" data-card="cats">
-    <h2><span class="handle" title="Drag to move">⠿</span> 📊 Spending by category<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('📊', '') }} Spending by category<button type="button" class="fold" title="Fold">▾</button></h2>
     <div class="sub">This cycle so far vs the {{ d.categories.cycles_used }}-cycle average. Tap one to see inside.</div>
     <div data-sort="cats">
     {% for r in d.categories.rows %}
@@ -463,7 +513,7 @@
   {% endset %}
   {% set c_subs %}
   <div class="card" data-id="subs" data-card="subs">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🔁 Subscriptions<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🔁', '') }} Subscriptions<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if d.subs.active or d.subs.stopped %}
       <table>
         <thead><tr><th>Still paying</th><th class="n">Monthly price</th><th class="n">Last 12 months</th><th class="n">This year</th></tr></thead>
@@ -483,7 +533,7 @@
   {% endset %}
   {% set c_periods %}
   <div class="card" data-id="periods" data-card="periods">
-    <h2><span class="handle" title="Drag to move">⠿</span> 🗓️ 6 months, 12 months and this year<button type="button" class="fold" title="Fold">▾</button></h2>
+    <h2><span class="handle" title="Drag to move">⠿</span> {{ emo('🗓️', '') }} 6 months, 12 months and this year<button type="button" class="fold" title="Fold">▾</button></h2>
     {% if d.periods %}
     <div class="scroll"><table class="periods">
       <tr><th></th>{% for p in d.periods %}<th class="n">{{ p.name }}<span class="labels">{{ p.cycles }} pay cycle{{ 's' if p.cycles != 1 else '' }}</span></th>{% endfor %}</tr>
@@ -596,7 +646,7 @@
 <script>
   // Change a bill for this pay cycle only (3 Oct 2026): spare cash, Diff and Total update as you type,
   // and each change is saved quietly (POST /bill) as a temp note until the next payday. Bills are never changed.
-  const PAGE = {{ {"wage": d.pay.wage, "left": d.pay.left, "typed": d.typed_total}|tojson if d.ready else '{}' }};
+  const PAGE = {{ {"wage": d.pay.wage, "left": d.pay.left, "typed": d.typed_total, "bills": d.pay.bills_last}|tojson if d.ready else '{}' }};
   const money = x => (x < 0 ? '-£' : '£') + Math.abs(x).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
   const diff = x => Math.abs(x) < 0.005 ? '£0.00' : (x > 0 ? '+' : '') + money(x);
   const tone = (el, x) => { el.classList.remove('good', 'bad', 'muted'); if (x === null) el.classList.add('muted');
@@ -611,7 +661,7 @@
   function showRow(row) {
     const used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1', est = row.dataset.estimated === '1' && !changed;
     const link = row.querySelector('button.link');
-    link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : ''));
+    link.textContent = money(used) + (est ? '*' : (changed && !document.body.classList.contains('demo') ? ' ✏️' : ''));
     link.classList.toggle('muted', est);
     row.querySelector('button.x').hidden = !changed;
     const d = est ? null : used - parseFloat(row.dataset.avg);
@@ -631,6 +681,7 @@
     document.getElementById('mfs').textContent = money(spare);
     document.getElementById('leftnow').textContent = money(leftNow);
     document.querySelectorAll('.yleft').forEach(el => el.textContent = money(spare - parseFloat(el.dataset.amount)));
+    if (window.demoTop) demoTop(bills);
   }
 
   document.querySelectorAll('tr.bill').forEach(row => {
@@ -1186,7 +1237,7 @@
     var used = parseFloat(row.dataset.used), changed = row.dataset.changed === '1';
     var est = row.dataset.estimated === '1' && !changed;
     var link = row.querySelector('button.link'), x = row.querySelector('button.x'), cell = row.querySelector('td.diff');
-    if (link) { link.textContent = money(used) + (est ? '*' : (changed ? ' ✏️' : '')); link.classList.toggle('muted', est); }
+    if (link) { link.textContent = money(used) + (est ? '*' : (changed && !document.body.classList.contains('demo') ? ' ✏️' : '')); link.classList.toggle('muted', est); }
     if (x) x.hidden = !changed;
     if (cell) { var d = est ? null : used - parseFloat(row.dataset.avg); cell.textContent = d === null ? '' : diffText(d); tone(cell, d); }
     var bills = 0, avg = 0;

@@ -130,7 +130,7 @@ def test_pc_page_stopped_button(db):
     client.post("/stopped", data={"key": key, "stopped": "1"})
     assert key in get_stopped(open_db(db))
     page = client.get("/").data.decode()
-    assert "🛑 stopped" in page
+    assert 'class="bstop">stopped' in page
     client.post("/stopped", data={"key": key, "stopped": "0"})
     assert get_stopped(open_db(db))[key] == "no"
 

@@ -146,7 +146,7 @@ def test_page_without_data(tmp_path):
 def test_last_month_spending_starts_with_the_bills(client, db):
     html = client.get("/").get_data(as_text=True)
     card = html.split("Last month's spending")[1].split("</table>")[0]
-    assert "Bills (rent, direct debits, standing orders)" in card
+    assert "Rent, direct debits, standing orders" in card
     d = home_data(open_db(db), wage_payer=ACME)
     last_bills = sum(b["last"] for b in d["pay"]["bills"])
     assert money(last_bills + d["pay"]["spending_last"]) in card       # the total now includes the bills
@@ -161,9 +161,10 @@ def test_bills_card_is_right_under_add_a_spend(client):
 
 def test_avg_then_last_month_then_diff_everywhere(client):
     html = client.get("/").get_data(as_text=True)
-    for card in ("Last month's spending", "Bills (every month)"):
-        part = html[html.index(card):]
-        assert part.index("-mth avg") < part.index("Last month</th>") < part.index("Diff</th>"), card
+    part = html[html.index("Bills (every month)"):]                       # the header row stays (hidden by CSS)
+    assert part.index("-mth avg") < part.index("Last month</th>") < part.index("Diff</th>")
+    row = html.split('class="dlast"')[1].split('data-sort="lastmonth"')[1].split("</tr>")[0]
+    assert row.index("avg £") < row.index('class="n lamt"') < row.index("n diff")   # avg under the name, then last, then diff
 
 
 def test_change_a_bill_for_this_cycle(client, db):
@@ -195,7 +196,7 @@ def test_left_from_last_month_box(client, db):
     assert d["pay"]["spare"] == pytest.approx(base["pay"]["spare"] + 220)
     assert d["left_now"] == pytest.approx(d["pay"]["spare"])
     html = client.get("/").get_data(as_text=True)
-    assert "+ left £220.00" in html and "Left from last month" in html
+    assert "+ Left from last month" in html and "£220.00" in html
     client.post("/left", data={"amount": ""})                                # the x
     assert home_data(open_db(db), wage_payer=ACME)["pay"]["spare"] == pytest.approx(base["pay"]["spare"])
     r = client.post("/left", data={"amount": "abc"}, follow_redirects=True)
@@ -365,7 +366,7 @@ def test_every_kind_of_question_shows(client, monkeypatch):
 
 def test_the_page_can_be_installed_as_an_app(client):
     m = client.get("/manifest.json").get_json()
-    assert m["name"] == "Wage Tracker" and m["display"] == "standalone"
+    assert m["name"] == "Where's My Money?" and m["display"] == "standalone"
     for icon in m["icons"]:
         r = client.get(icon["src"])
         assert r.status_code == 200 and r.data[:4] == b"\x89PNG"

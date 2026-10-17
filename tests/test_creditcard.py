@@ -76,8 +76,8 @@ def test_limit_can_change(conn):
 
 def test_page_shows_the_tiles_and_the_card(client):
     page = client.get("/").data.decode()
-    assert "Zopa used" in page and "Zopa free" in page
-    assert "💳 Credit card" in page
+    assert "Zopa credit card" in page and 'id="ccused"' in page and 'id="ccfree"' in page   # the Zopa ring at the top
+    assert "Credit card" in page
     assert 'action="/card/add"' in page
 
 
@@ -212,8 +212,8 @@ def test_old_saved_balance_line_still_counts(conn):
 
 def test_page_used_box_is_in_the_card_not_the_tiles(client, db):
     page = client.get("/").data.decode()
-    tiles = page.split('class="tiles toprow"')[1].split('id="dropbar"')[0]
-    assert "Zopa used" in tiles and "/card/balance" not in tiles
+    tiles = page.split('class="st-side"')[1].split('data-sort="cards"')[0]
+    assert 'id="zring"' in tiles and "/card/balance" not in tiles
     assert 'action="/card/balance"' in page
     client.post("/card/add", data={"amount": "120", "name": "Tyres"})
     client.post("/card/balance", data={"amount": "100"})
