@@ -50,6 +50,7 @@
   .demo .brand img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
   .demo .brand h1 { margin: 0; font-size: 26px; font-weight: 800; line-height: 1; }
   .demo .tagline { color: var(--spare); font-weight: 700; font-size: 14px; margin-top: 6px; }
+  .demo .tagline .lite { display: inline-block; margin-left: 6px; padding: 1px 9px; border-radius: 99px; font-size: 12px; font-weight: 700; letter-spacing: .3px; background: var(--accent); color: var(--on-accent); vertical-align: 1px; }
   /* fixed header: home button left, settings right */
   .demo .wrap { overflow: clip; padding-top: 0; }
   .demohead { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px;
