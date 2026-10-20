@@ -1,0 +1,310 @@
+<title>Basic Tracker Home</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: one phone-width column, spare-cash ring first, then cards in the order they are used most */
+  :root {
+    --bg: #15171a; --card: #1f2226; --text: #f2f2f2; --muted: #a8abb0; --border: #33373d;
+    --row: #262a2f; --accent: #5aa2ff; --good: #5fd27a; --bad: #ff7a7a;
+    --hero: #1d4f8f; --hero-text: #ffffff; --ring-track: rgba(255,255,255,.22);
+    --demo: #ffb547; --demo-bg: #3a2d14; --mock: #8a8f96;
+    color-scheme: dark;
+  }
+  @media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a1a1a; --muted: #666; --border: #e2e4e8;
+    --row: #f6f7f9; --accent: #0b63ce; --good: #1f8a3b; --bad: #c62828;
+    --hero: #0b63ce; --hero-text: #ffffff; --ring-track: rgba(255,255,255,.3);
+    --demo: #9a5b00; --demo-bg: #fff1d6; --mock: #777; color-scheme: light; } }
+  :root[data-theme="light"] {
+    --bg: #f6f7f9; --card: #ffffff; --text: #1a1a1a; --muted: #666; --border: #e2e4e8;
+    --row: #f6f7f9; --accent: #0b63ce; --good: #1f8a3b; --bad: #c62828;
+    --hero: #0b63ce; --hero-text: #ffffff; --ring-track: rgba(255,255,255,.3);
+    --demo: #9a5b00; --demo-bg: #fff1d6; --mock: #777; color-scheme: light; }
+  body { background: var(--bg); color: var(--text); font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .wrap { max-width: 440px; margin: 0 auto; padding-block: 12px 40px;
+          padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+          display: flex; flex-direction: column; gap: 14px; }
+
+  /* mock-up only: switch between /live and /demo */
+  .mockbar { border: 1px dashed var(--mock); border-radius: 10px; padding: 8px 10px; font-size: 13px; color: var(--mock);
+             display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .seg button { background: var(--card); color: var(--text); border: 0; padding: 6px 14px; font-size: 14px; cursor: pointer; }
+  .seg button.on { background: var(--accent); color: #fff; }
+
+  .demobar { background: var(--demo-bg); color: var(--demo); border: 1px solid var(--demo); border-radius: 10px;
+             padding: 8px 12px; font-size: 14px; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .demobar button { background: transparent; color: var(--demo); border: 1px solid var(--demo); border-radius: 8px; padding: 4px 10px; font-size: 13px; cursor: pointer; }
+
+  .top { display: flex; justify-content: space-between; align-items: baseline; }
+  .top h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+  .ver { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .hero { background: var(--hero); color: var(--hero-text); border-radius: 16px; padding: 20px 18px; display: grid; justify-items: center; gap: 6px; }
+  .hero .label { font-size: 13px; letter-spacing: .6px; text-transform: uppercase; opacity: .9; }
+  .ring { position: relative; width: 190px; height: 190px; max-width: 100%; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .mid { position: absolute; inset: 0; display: grid; place-content: center; text-align: center; }
+  .ring .big { font-size: 36px; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .ring .small { font-size: 13px; opacity: .9; }
+  .hero .how { font-size: 13px; opacity: .9; text-align: center; font-variant-numeric: tabular-nums; }
+  .hero .pay { display: flex; gap: 8px; margin-top: 6px; }
+  .hero .pay span { background: rgba(255,255,255,.14); border-radius: 8px; padding: 4px 10px; font-size: 13px; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; }
+  .card h2 { font-size: 16px; margin: 0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+  .card h2 .fold { color: var(--muted); font-size: 14px; transition: transform .15s; }
+  .card.folded h2 .fold { transform: rotate(-90deg); }
+  .card .body { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card.folded .body { display: none; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+  td, th { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+  td.n, th.n { text-align: right; }
+  tr:last-child td { border-bottom: 0; }
+  tr.total td { font-weight: 700; border-top: 2px solid var(--border); }
+  .muted { color: var(--muted); } .good { color: var(--good); } .bad { color: var(--bad); }
+  .tag { font-size: 11px; padding: 1px 6px; border-radius: 6px; background: var(--row); color: var(--muted); margin-left: 6px; }
+
+  form.add { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  form.add .wide { grid-column: 1 / -1; }
+  input, select { padding: 10px 11px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); font-size: 16px; min-width: 0; width: 100%; box-sizing: border-box; }
+  button.main { padding: 11px 16px; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font-size: 16px; cursor: pointer; }
+  button.ghost { padding: 9px 14px; border: 1px solid var(--border); border-radius: 8px; background: transparent; color: var(--text); font-size: 15px; cursor: pointer; }
+  button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .cc { border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; display: grid; gap: 6px; }
+  .cc .name { font-weight: 700; display: flex; justify-content: space-between; }
+  .bar { height: 8px; background: var(--row); border-radius: 4px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .cc .nums { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  .catrow { display: grid; grid-template-columns: 90px 1fr auto; gap: 8px; align-items: center; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .catrow .bar i { background: var(--good); }
+
+  .nudge { background: var(--row); border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+  footer { text-align: center; font-size: 12px; color: var(--muted); display: grid; gap: 4px; }
+  footer a { color: var(--accent); }
+  .tablewrap { overflow-x: auto; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <div class="mockbar">
+    <span>Mock-up · show as:</span>
+    <span class="seg" role="group" aria-label="Show live or demo">
+      <button id="btnLive" class="on" type="button">/live</button>
+      <button id="btnDemo" type="button">/demo</button>
+    </span>
+  </div>
+
+  <div class="demobar" id="demobar" hidden>
+    <span>🧪 Demo · made-up numbers</span>
+    <button type="button" id="resetDemo">Reset</button>
+  </div>
+
+  <div class="top">
+    <h1>💷 My Money</h1>
+    <span class="ver" id="verTop">V1.01</span>
+  </div>
+
+  <!-- 1. Spare cash -->
+  <section class="hero" aria-label="Spare cash">
+    <div class="label">Spare cash</div>
+    <div class="ring">
+      <svg viewBox="0 0 100 100" aria-hidden="true">
+        <circle cx="50" cy="50" r="44" fill="none" stroke="var(--ring-track)" stroke-width="9"></circle>
+        <circle id="ringArc" cx="50" cy="50" r="44" fill="none" stroke="var(--hero-text)" stroke-width="9" stroke-linecap="round"
+                stroke-dasharray="276.46" stroke-dashoffset="0"></circle>
+      </svg>
+      <div class="mid">
+        <div class="big" id="spare">£0.00</div>
+        <div class="small" id="ofStart">of £0.00</div>
+      </div>
+    </div>
+    <div class="how" id="how">Pay + left − bills − spends</div>
+    <div class="pay"><span>📅 12 days to payday (25th)</span><span>✏️ Pay</span></div>
+  </section>
+
+  <!-- 2. Add a spend -->
+  <section class="card" id="c-add">
+    <h2>🛒 Add a spend <span class="fold">▾</span></h2>
+    <div class="body">
+      <form class="add" id="addForm">
+        <input id="amt" inputmode="decimal" placeholder="£ amount" aria-label="Amount">
+        <select id="cat" aria-label="Category">
+          <option>Food</option><option>Fuel</option><option>Eating out</option><option>Shopping</option><option>Other</option><option>+ New category…</option>
+        </select>
+        <input class="wide" id="what" placeholder="What was it? (optional)" aria-label="What was it">
+        <button class="main wide" type="submit">Add</button>
+      </form>
+      <table aria-label="Latest spends"><tbody id="spendRows"></tbody></table>
+      <div class="muted" style="font-size:13px" id="moreSpends"></div>
+    </div>
+  </section>
+
+  <!-- 3. Bills -->
+  <section class="card" id="c-bills">
+    <h2>🧾 Bills this month <span class="fold">▾</span></h2>
+    <div class="body">
+      <table><tbody id="billRows"></tbody></table>
+      <div class="row2"><button class="ghost" type="button">+ Add a bill</button><button class="ghost" type="button">Change / stop</button></div>
+    </div>
+  </section>
+
+  <!-- 4. Credit cards -->
+  <section class="card" id="c-cards">
+    <h2>💳 Credit cards <span class="fold">▾</span></h2>
+    <div class="body" id="ccList"></div>
+  </section>
+
+  <!-- 5. Spending by category -->
+  <section class="card" id="c-cat">
+    <h2>📊 Spending by category <span class="fold">▾</span></h2>
+    <div class="body" id="catList"></div>
+  </section>
+
+  <!-- 6. Past months -->
+  <section class="card folded" id="c-past">
+    <h2>🗓️ Past months <span class="fold">▾</span></h2>
+    <div class="body">
+      <select aria-label="Pick a month" id="pastPick">
+        <option>Sep 2026 (25 Aug – 24 Sep)</option><option>Aug 2026 (25 Jul – 24 Aug)</option>
+      </select>
+      <table><tbody>
+        <tr><td>Pay</td><td class="n">£2,677.00</td></tr>
+        <tr><td>Left from before</td><td class="n">£86.40</td></tr>
+        <tr><td>Bills</td><td class="n">−£1,386.49</td></tr>
+        <tr><td>Spends</td><td class="n">−£1,256.80</td></tr>
+        <tr class="total"><td>Spare at the end</td><td class="n good">£120.11</td></tr>
+      </tbody></table>
+      <span class="muted" style="font-size:13px">Tap Bills or Spends to see each one.</span>
+    </div>
+  </section>
+
+  <!-- 7. Totals -->
+  <section class="card folded" id="c-totals">
+    <h2>📈 6 months · 12 months · this year <span class="fold">▾</span></h2>
+    <div class="body tablewrap">
+      <table>
+        <thead><tr><th></th><th class="n">6 mo</th><th class="n">12 mo</th><th class="n">This year</th></tr></thead>
+        <tbody>
+          <tr><td>Bills</td><td class="n">8,319</td><td class="n">16,402</td><td class="n">12,480</td></tr>
+          <tr><td>Food</td><td class="n">1,410</td><td class="n">2,795</td><td class="n">2,101</td></tr>
+          <tr><td>Fuel</td><td class="n">702</td><td class="n">1,388</td><td class="n">1,040</td></tr>
+          <tr><td>Eating out</td><td class="n">330</td><td class="n">612</td><td class="n">471</td></tr>
+          <tr class="total"><td>Spare (avg / month)</td><td class="n good">164</td><td class="n good">151</td><td class="n good">158</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 8. Backup -->
+  <section class="card" id="c-backup">
+    <h2>💾 Backup <span class="fold">▾</span></h2>
+    <div class="body">
+      <div class="nudge">⚠️ Last backup: <b>9 days ago</b>. Your numbers only live on this phone.</div>
+      <div class="row2"><button class="main" type="button">Back up now</button><button class="ghost" type="button">Restore</button></div>
+    </div>
+  </section>
+
+  <footer>
+    <span id="verFoot">Version V1.01 · data saved on this phone only</span>
+    <span id="otherLink"><a href="#demo">Try the demo</a></span>
+  </footer>
+</div>
+
+<script>
+  const money = x => (x < 0 ? '−£' : '£') + Math.abs(x).toLocaleString('en-GB', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  const sets = {
+    live: {
+      pay: 2677, left: 120,
+      bills: [['Rent', 570], ['Car finance', 289], ['Council tax', 168], ['Energy', 145], ['Car insurance', 64.5],
+              ['Water', 42], ['Broadband', 35], ['Phone', 32], ['Gym', 30, 'new'], ['Netflix', 10.99]],
+      spends: [['Tesco', 'Food', 46.2, '12 Oct'], ['Shell', 'Fuel', 55, '11 Oct'], ['Greggs', 'Eating out', 4.85, '11 Oct'],
+               ['Primark', 'Shopping', 51.5, '9 Oct'], ['Aldi', 'Food', 136.1, '6 Oct'], ['Shell', 'Fuel', 55, '3 Oct'],
+               ['Nando’s', 'Eating out', 43.75, '28 Sep'], ['Birthday card', 'Other', 20, '27 Sep']],
+      cards: [['Zopa', 500, 230], ['Barclaycard', 1200, 410]]
+    },
+    demo: {
+      pay: 1850, left: 40,
+      bills: [['Rent', 450], ['Council tax', 120], ['Energy', 95], ['Phone', 20], ['Spotify', 11.99]],
+      spends: [['Lidl', 'Food', 38.4, '12 Oct'], ['BP', 'Fuel', 40, '10 Oct'], ['Costa', 'Eating out', 3.6, '9 Oct']],
+      cards: [['Demo card', 300, 120]]
+    }
+  };
+  let mode = 'live';
+  let data = JSON.parse(JSON.stringify(sets.live));
+
+  function render() {
+    const bills = data.bills.reduce((a, b) => a + b[1], 0);
+    const spent = data.spends.reduce((a, s) => a + s[2], 0);
+    const start = data.pay + data.left - bills;
+    const spare = start - spent;
+    document.getElementById('spare').textContent = money(spare);
+    document.getElementById('ofStart').textContent = 'of ' + money(start);
+    document.getElementById('how').textContent =
+      money(data.pay) + ' pay + ' + money(data.left) + ' left − ' + money(bills) + ' bills − ' + money(spent) + ' spends';
+    const frac = Math.max(0, Math.min(1, start > 0 ? spare / start : 0));
+    document.getElementById('ringArc').setAttribute('stroke-dashoffset', (276.46 * (1 - frac)).toFixed(2));
+
+    const shown = data.spends.slice(0, 4);
+    document.getElementById('spendRows').innerHTML = shown.map(s =>
+      `<tr><td>${esc(s[0])}<span class="tag">${esc(s[1])}</span><div class="muted" style="font-size:12px">${esc(s[3])}</div></td><td class="n">${money(s[2])}</td></tr>`).join('');
+    document.getElementById('moreSpends').textContent = data.spends.length > 4 ? '+ ' + (data.spends.length - 4) + ' more this month' : '';
+
+    document.getElementById('billRows').innerHTML = data.bills.map(b =>
+      `<tr><td>${esc(b[0])}${b[2] ? '<span class="tag">🆕 new</span>' : ''}</td><td class="n">${money(b[1])}</td></tr>`).join('') +
+      `<tr class="total"><td>Total</td><td class="n">${money(bills)}</td></tr>`;
+
+    document.getElementById('ccList').innerHTML = data.cards.map(c => `
+      <div class="cc"><div class="name"><span>${esc(c[0])}</span><span class="muted" style="font-weight:400">limit ${money(c[1])}</span></div>
+        <div class="bar"><i style="width:${(c[2] / c[1] * 100).toFixed(0)}%"></i></div>
+        <div class="nums"><span>Used ${money(c[2])}</span><span>Free ${money(c[1] - c[2])}</span></div></div>`).join('') +
+      '<div class="row2"><button class="ghost" type="button">+ Add a card</button><button class="ghost" type="button">Add / Paid off</button></div>' +
+      '<span class="muted" style="font-size:13px">Not part of spare cash.</span>';
+
+    const cats = {};
+    data.spends.forEach(s => cats[s[1]] = (cats[s[1]] || 0) + s[2]);
+    const max = Math.max(1, ...Object.values(cats));
+    document.getElementById('catList').innerHTML = Object.entries(cats).sort((a, b) => b[1] - a[1]).map(([k, v]) =>
+      `<div class="catrow"><span>${esc(k)}</span><div class="bar"><i style="width:${(v / max * 100).toFixed(0)}%"></i></div><span>${money(v)}</span></div>`).join('') +
+      '<span class="muted" style="font-size:13px">This month so far. Bills not included.</span>';
+  }
+
+  function setMode(m) {
+    mode = m;
+    data = JSON.parse(JSON.stringify(sets[m]));
+    const demo = m === 'demo';
+    document.getElementById('btnLive').classList.toggle('on', !demo);
+    document.getElementById('btnDemo').classList.toggle('on', demo);
+    document.getElementById('demobar').hidden = !demo;
+    const v = demo ? 'D.V1.01' : 'V1.01';
+    document.getElementById('verTop').textContent = v;
+    document.getElementById('verFoot').textContent = 'Version ' + v + (demo ? ' · demo data, not saved' : ' · data saved on this phone only');
+    document.getElementById('otherLink').innerHTML = demo ? '<a href="#live">Go to the real app</a>' : '<a href="#demo">Try the demo</a>';
+    document.getElementById('c-backup').hidden = demo;
+    render();
+  }
+
+  document.getElementById('btnLive').onclick = () => setMode('live');
+  document.getElementById('btnDemo').onclick = () => setMode('demo');
+  document.getElementById('resetDemo').onclick = () => setMode('demo');
+  document.getElementById('otherLink').addEventListener('click', e => {
+    const a = e.target.closest('a'); if (!a) return; e.preventDefault(); setMode(mode === 'demo' ? 'live' : 'demo');
+  });
+  document.querySelectorAll('.card h2').forEach(h => h.onclick = () => h.parentElement.classList.toggle('folded'));
+  document.getElementById('addForm').addEventListener('submit', e => {
+    e.preventDefault();
+    const amt = parseFloat(document.getElementById('amt').value.replace(/[£,]/g, ''));
+    if (!(amt > 0)) { document.getElementById('amt').focus(); return; }
+    const cat = document.getElementById('cat').value.startsWith('+') ? 'Other' : document.getElementById('cat').value;
+    data.spends.unshift([document.getElementById('what').value || cat, cat, amt, 'Today']);
+    document.getElementById('amt').value = ''; document.getElementById('what').value = '';
+    render();
+  });
+  if (location.hash === '#demo') setMode('demo'); else render();
+</script>
