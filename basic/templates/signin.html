@@ -1,0 +1,213 @@
+<!doctype html>
+{# v3 sign-in (14 Oct 2026): email -> code, or a backup code. step: email | code | backup | codes | noemail #}
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Sign in · Where's My Money?</title>
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" href="/static/icon-192.png">
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+<meta name="apple-mobile-web-app-title" content="My Money">
+<meta name="theme-color" content="#0f6e5c">
+{% include "demo_style.html" %}
+<style>
+  body.demo { margin: 0; background: var(--bg); color: var(--text); min-height: 100vh; display: flex;
+              align-items: center; justify-content: center; padding: 24px 16px; box-sizing: border-box; }
+  .box { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 28px 24px;
+         width: 100%; max-width: 380px; box-sizing: border-box; text-align: center; }
+  .box img { width: 64px; height: 64px; border-radius: 16px; }
+  .box h1 { font-size: 22px; margin: 12px 0 4px; }
+  .box .tag { color: var(--muted); margin: 0 0 20px; }
+  .box form { display: flex; flex-direction: column; gap: 10px; text-align: left; margin: 0; }
+  .box label { font-weight: 600; }
+  .box input { font: inherit; font-size: 18px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px;
+               background: var(--bg); color: var(--text); width: 100%; box-sizing: border-box; }
+  .box input.code { letter-spacing: 6px; text-align: center; font-size: 24px; }
+  .box button { font: inherit; font-weight: 700; font-size: 17px; padding: 12px; border: 0; border-radius: 10px;
+                background: var(--accent); color: var(--on-accent); cursor: pointer; }
+  .box .note { color: var(--accent); font-weight: 600; margin: 0 0 14px; }
+  .box .err { color: var(--bad); font-weight: 600; margin: 0 0 14px; }
+  .box .links { margin-top: 18px; display: flex; flex-direction: column; gap: 8px; }
+  .box .links a, .box .linkbtn { color: var(--muted); }
+  .box button.linkbtn { background: none; border: 0; padding: 0; font-weight: 500; font-size: inherit; text-decoration: underline; }
+  .box ul.codes { list-style: none; padding: 0; margin: 16px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+                  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 18px; }
+  .box .fpbtn { width: 100%; font-size: 19px; padding: 16px; }
+  .box .or { color: var(--muted); margin: 14px 0 10px; }
+  .box ul.codes li { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 4px; }
+</style>
+</head>
+<body class="demo">
+<main class="box">
+  <img src="/static/icon-192.png" alt="">
+  <h1>Where's My Money?</h1>
+  <p class="tag">Payday to payday</p>
+
+  {% if error %}<p class="err" role="alert">{{ error }}</p>{% endif %}
+  {% if sent %}<p class="note">{% if console and test_code %}Testing on your PC: your code is <b>{{ test_code }}</b>{% elif console %}Testing on your PC: the code is in the black window.{% else %}If that's your address, a code is on its way.{% endif %}</p>{% endif %}
+
+  {% if step == "noemail" %}
+    {% if local %}
+    <form method="post" action="/signin/setup">
+      <label for="setup-email">Your email (the only one that can sign in)</label>
+      <input id="setup-email" type="email" name="email" autocomplete="email" required>
+      <button type="submit">Save</button>
+    </form>
+    <p class="tag">Saved in {{ settings_file }}</p>
+    {% else %}
+    <p>Put your email in <b>v3_settings.json</b> first (in the data folder), then open this page again.</p>
+    <p class="tag">{{ settings_file }}</p>
+    {% endif %}
+
+  {% elif step == "unlock" %}
+    {% if fingerprint %}
+    <div id="fp" hidden>
+      <button type="button" id="fpbtn" class="fpbtn">👆 Use fingerprint</button>
+      <p class="err" id="fperr" role="alert" hidden></p>
+      <p class="or">or type your passcode</p>
+    </div>
+    {% endif %}
+    <form method="post" action="/unlock">
+      <label for="pin">Your passcode</label>
+      <input class="code" id="pin" name="pin" type="password" inputmode="numeric" autocomplete="current-password"
+             pattern="[0-9]*" maxlength="6" required{% if not fingerprint %} autofocus{% endif %}>
+      <button type="submit">Unlock</button>
+    </form>
+    <form method="post" action="/unlock/forgot" class="links"><button type="submit" class="linkbtn">Forgot passcode?</button></form>
+
+  {% elif step == "newpin" %}
+    <p><b>Choose a 6-number passcode</b></p>
+    <p class="tag">You'll type it each time you open the site. The email code is only needed once a week.</p>
+    <form method="post" action="/pin/new">
+      <label for="pin">Passcode</label>
+      <input class="code" id="pin" name="pin" type="password" inputmode="numeric" autocomplete="new-password"
+             pattern="[0-9]*" maxlength="6" required autofocus>
+      <label for="again">Same again</label>
+      <input class="code" id="again" name="again" type="password" inputmode="numeric" autocomplete="new-password"
+             pattern="[0-9]*" maxlength="6" required>
+      <button type="submit">Save passcode</button>
+    </form>
+
+  {% elif step == "codes" %}
+    <p><b>Your backup codes</b></p>
+    <p>Keep these in your phone's notes. Each works once.</p>
+    <ul class="codes">{% for c in codes %}<li>{{ c }}</li>{% endfor %}</ul>
+    <p class="tag">You won't see them again. Old backup codes no longer work.</p>
+    <div class="links"><a href="/">Back to the home page</a></div>
+
+  {% elif step == "passkey" %}
+    <p><b>👆 Fingerprint</b></p>
+    {% if not passkey_lib %}
+    <p>Fingerprint needs one extra part on the server first (pip install webauthn). Your passcode works as before.</p>
+    {% else %}
+    <p class="tag">Unlock with your fingerprint instead of typing the passcode. Do this on the phone you use.
+      The passcode still works, and the email code is still needed once a week.</p>
+    <p class="note" id="fpok" hidden>✅ Fingerprint is on for this phone.</p>
+    <p class="err" id="fperr" role="alert" hidden></p>
+    <p id="fpnone" hidden>This browser can't use a fingerprint here.</p>
+    <form onsubmit="return false"><button type="button" id="fpadd">Turn on fingerprint</button></form>
+    {% if passkeys %}
+    <p class="tag" style="margin-top:16px">Set up on {{ passkeys|length }} device{{ '' if passkeys|length == 1 else 's' }}.</p>
+    <form method="post" action="/passkey/forget" class="links"
+          onsubmit="return confirm('Turn off fingerprint on every device? You will use your passcode.')">
+      <button type="submit" class="linkbtn">Turn off fingerprint everywhere</button></form>
+    {% endif %}
+    {% endif %}
+    <div class="links"><a href="/">Back to the home page</a></div>
+
+  {% elif step == "code" %}
+    <form method="post" action="/signin/code">
+      <label for="code">Type the 6-digit code from {{ 'the black window' if console else 'your email' }}</label>
+      <input class="code" id="code" name="code" inputmode="numeric" autocomplete="one-time-code"
+             pattern="[0-9 ]*" maxlength="7" required autofocus>
+      <button type="submit">Sign in</button>
+    </form>
+    <div class="links">
+      <a href="/signin">Send a new code</a>
+      <a href="/signin?backup=1">Use a backup code</a>
+    </div>
+
+  {% elif step == "backup" %}
+    <form method="post" action="/signin/backup">
+      <label for="bcode">Type a backup code</label>
+      <input class="code" id="bcode" name="code" autocomplete="off" autocapitalize="off" spellcheck="false"
+             placeholder="abcd-1234" required autofocus>
+      <button type="submit">Sign in</button>
+    </form>
+    <div class="links"><a href="/signin">Use an email code instead</a></div>
+
+  {% else %}
+    <form method="post" action="/signin">
+      <label for="email">Your email</label>
+      <input id="email" name="email" type="email" autocomplete="email" required autofocus>
+      <button type="submit">Send me a code</button>
+    </form>
+    <div class="links"><a href="/signin?backup=1">Use a backup code</a></div>
+  {% endif %}
+</main>
+{% if fingerprint or (step == "passkey" and passkey_lib) %}
+<script>
+// Fingerprint (passkey, 15 Oct 2026): the server sends options as JSON (base64url ids), the phone answers, we post it back
+(() => {
+  const unb = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0)).buffer;
+  const b = buf => buf ? btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : null;
+  const ids = list => (list || []).map(c => ({...c, id: unb(c.id)}));
+  const post = (url, body) => fetch(url, {method: 'POST', headers: {'Content-Type': 'application/json'},
+                                          body: body ? JSON.stringify(body) : '{}', credentials: 'same-origin'});
+  const err = document.getElementById('fperr');
+  const say = t => { if (err) { err.textContent = t; err.hidden = !t; } };
+  if (!window.PublicKeyCredential || !navigator.credentials) {
+    const none = document.getElementById('fpnone'); if (none) none.hidden = false;
+    const add = document.getElementById('fpadd'); if (add) add.hidden = true;
+    return;
+  }
+  async function unlock() {
+    say('');
+    const r = await post('/passkey/start');
+    if (!r.ok) return;
+    const o = await r.json();
+    let cred;
+    try {
+      cred = await navigator.credentials.get({publicKey: {...o, challenge: unb(o.challenge),
+                                                           allowCredentials: ids(o.allowCredentials)}});
+    } catch (e) { return; }                                   // closed the box: just use the passcode
+    const res = await post('/passkey/unlock', {id: cred.id, rawId: b(cred.rawId), type: cred.type,
+      response: {clientDataJSON: b(cred.response.clientDataJSON), authenticatorData: b(cred.response.authenticatorData),
+                 signature: b(cred.response.signature), userHandle: b(cred.response.userHandle)}});
+    const j = await res.json().catch(() => ({}));
+    if (j.ok) location.replace(j.go || '/'); else say(j.error || 'That didn\'t work. Use your passcode.');
+  }
+  async function add() {
+    say('');
+    const r = await post('/passkey/new/start');
+    if (!r.ok) { say('That didn\'t work. Try again.'); return; }
+    const o = await r.json();
+    let cred;
+    try {
+      cred = await navigator.credentials.create({publicKey: {...o, challenge: unb(o.challenge),
+        user: {...o.user, id: unb(o.user.id)}, excludeCredentials: ids(o.excludeCredentials)}});
+    } catch (e) {
+      say(e && e.name === 'InvalidStateError' ? 'Fingerprint is already on for this phone.' : 'Cancelled. Nothing changed.');
+      return;
+    }
+    const res = await post('/passkey/new', {id: cred.id, rawId: b(cred.rawId), type: cred.type,
+      response: {clientDataJSON: b(cred.response.clientDataJSON), attestationObject: b(cred.response.attestationObject)}});
+    const j = await res.json().catch(() => ({}));
+    if (j.ok) { document.getElementById('fpok').hidden = false; setTimeout(() => location.reload(), 1200); }
+    else say(j.error || 'That didn\'t work. Try again.');
+  }
+  const fp = document.getElementById('fp');
+  if (fp) {
+    fp.hidden = false;
+    document.getElementById('fpbtn').addEventListener('click', unlock);
+    unlock();                                                 // ask straight away when the page opens
+  }
+  const addBtn = document.getElementById('fpadd');
+  if (addBtn) addBtn.addEventListener('click', add);
+})();
+</script>
+{% endif %}
+</body>
+</html>

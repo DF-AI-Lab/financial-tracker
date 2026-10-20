@@ -1,0 +1,68 @@
+{# The demo page's Bills card (14 Oct 2026): rows with details under the name, a coloured difference pill, and a ⋯ menu
+   for Change amount / Put back / Stop. Same rows, data and buttons as the normal card, so the page script still works. #}
+<div class="card" data-id="bills" data-card="bills">
+  <h2><span class="handle" title="Drag to move">⠿</span> <i class="dot bill"></i> Bills (every month)<button type="button" class="fold" title="Fold">▾</button></h2>
+  <table id="bills" class="dbills">
+    <thead><tr><th>Bill</th><th class="n">{{ d.pay.cycles_used }}-mth avg</th><th class="n">Last month</th><th class="n">Diff</th><th></th></tr></thead>
+    <tbody data-sort="bills">
+    {% for b in d.pay.bills %}
+      {% set dflt = b.last if b.last > 0 else b.avg %}
+      {% set nm = b.name|tagsplit %}
+      <tr class="bill{{ ' stopped' if b.stopped else '' }}" data-id="{{ b.id }}" data-key="{{ b.key }}" data-avg="{{ b.avg if not b.stopped else 0 }}" data-avg0="{{ b.avg }}" data-default="{{ dflt if not b.stopped else 0 }}" data-default0="{{ dflt }}" data-estimated="{{ 1 if b.last <= 0 else 0 }}" data-changed="{{ 1 if b.changed else 0 }}" data-used="{{ b.used }}" data-new="{{ 1 if b.new else 0 }}" data-stopped="{{ 1 if b.stopped else 0 }}">
+        <td><span class="handle" title="Drag to move">⠿</span><span class="rname" data-id="{{ b.id }}" data-orig="{{ b.orig }}">{{ b.name }}</span><b class="bbase">{{ nm[0] }}</b>
+          <span class="bsub">{% for t in nm[1] %}{{ t }} · {% endfor %}avg {{ b.avg|money }}{% if b.new %} · <span class="bnew">new</span>{% endif %}{% if b.stopped %} · <span class="bstop">stopped</span>{% endif %}</span>
+          <form method="post" action="/stopped" class="stopform" hidden><input type="hidden" name="key" value="{{ b.key }}"><input type="hidden" name="stopped" value="{{ '0' if b.stopped else '1' }}"><button class="small stopbtn" type="submit">{{ 'Undo' if b.stopped else 'Stop' }}</button></form></td>
+        <td class="n bavg">{{ b.avg|money }}</td>
+        <td class="n bamt">
+          <button type="button" class="link {{ 'muted' if b.estimated else '' }}" title="Change it for this pay cycle">{{ b.used|money }}{% if b.estimated %}*{% endif %}</button>
+          <input class="amount billbox" type="text" inputmode="decimal" value="{{ '%.2f'|format(b.used) }}" aria-label="New amount for {{ b.name }}" hidden>
+          <button type="button" class="small x" title="Put it back" {{ '' if b.changed else 'hidden' }}>✖</button>
+        </td>
+        <td class="n diff {{ 'good' if b.diff is not none and b.diff < -0.005 else ('bad' if b.diff is not none and b.diff > 0.005 else 'muted') }}">{{ b.diff|diff }}</td>
+        <td class="bmore"><button type="button" class="more" aria-haspopup="true" aria-label="Change or stop {{ nm[0] }}">⋯</button></td></tr>
+    {% endfor %}
+    </tbody>
+    {% set bdiff = d.pay.bills_last - d.pay.bills_avg %}
+    <tbody><tr class="total"><td><b class="bbase">Total</b><span class="bsub">avg {{ d.pay.bills_avg|money }}</span></td><td class="n bavg">{{ d.pay.bills_avg|money }}</td><td class="n bamt" id="btotal">{{ d.pay.bills_last|money }}</td>
+      <td class="n diff {{ 'good' if bdiff < -0.005 else ('bad' if bdiff > 0.005 else '') }}" id="bdiff">{{ bdiff|diff }}</td><td></td></tr></tbody>
+  </table>
+  <div class="labels bnote">
+    {% if d.pay.bills|selectattr('estimated')|list %}* not paid last month, average used<br>{% endif %}
+    ⋯ → Change amount = this pay cycle only (or tap the blue amount). Spare cash updates as you type.
+  </div>
+</div>
+<script>
+  // ⋯ menu for each bill: Change amount (opens the same box), Put back (the same ✖), Stop / Undo (the same form)
+  document.addEventListener('DOMContentLoaded', () => {
+    const close = () => document.querySelectorAll('.bmenu, .bswap').forEach(m => m.remove());
+    const SWAP = {{ {'on': cloud|default(false), 'join': d.pay.bills|selectattr('joinable')|map(attribute='key')|list,
+                     'split': d.pay.bills|selectattr('swapped')|map(attribute='key')|list}|tojson }};
+    const post = (url, key) => { const f = document.createElement('form'); f.method = 'post'; f.action = url; f.className = 'bswap';
+      const k = document.createElement('input'); k.type = 'hidden'; k.name = 'key'; k.value = key; f.appendChild(k);
+      document.body.appendChild(f); return f; };
+    document.querySelectorAll('.dbills tr.bill .more').forEach(btn => btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const open = btn.parentElement.querySelector('.bmenu'); close(); if (open) return;
+      const row = btn.closest('tr'), m = document.createElement('div'); m.className = 'bmenu'; m.setAttribute('role', 'menu');
+      const add = (text, cls, fn) => { const b = document.createElement('button'); b.type = 'button'; b.textContent = text;
+        if (cls) b.className = cls; b.setAttribute('role', 'menuitem'); b.addEventListener('click', ev => { ev.stopPropagation(); close(); fn(); }); m.appendChild(b); };
+      const stopped = row.dataset.stopped === '1';
+      if (!stopped) add('✏️ Change amount', '', () => row.querySelector('button.link').click());
+      if (row.dataset.changed === '1') add('↩ Put back', '', () => row.querySelector('button.x').click());
+      add(stopped ? '▶ Count it again' : '⏸ Stop counting', stopped ? '' : 'stop', () => row.querySelector('form.stopform').submit());
+      // v3 (fintrack/v3/billswap.py): this bill replaces another one (joins it), or undo that
+      const others = [...document.querySelectorAll('.dbills tr.bill')].filter(r => r !== row && SWAP.join.includes(r.dataset.key));
+      if (SWAP.on && SWAP.join.includes(row.dataset.key) && others.length) add('🔁 Replaces…', '', () => {
+        const f = post('/bill/join', row.dataset.key), sel = document.createElement('select'), go = document.createElement('button');
+        sel.name = 'into'; sel.required = true; sel.setAttribute('aria-label', 'Which bill it replaces'); sel.add(new Option('Pick the bill ▾', ''));
+        others.forEach(r => sel.add(new Option(r.querySelector('.bbase').textContent, r.dataset.key)));
+        go.type = 'submit'; go.className = 'small'; go.textContent = 'Replaces it';
+        f.append(sel, go); f.addEventListener('click', ev => ev.stopPropagation());
+        btn.parentElement.appendChild(f); sel.focus(); });
+      if (SWAP.on && SWAP.split.includes(row.dataset.key)) add('↔ Split back out', '', () => post('/bill/split', row.dataset.key).submit());
+      btn.parentElement.appendChild(m); m.querySelector('button').focus();
+    }));
+    document.addEventListener('click', close);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  });
+</script>

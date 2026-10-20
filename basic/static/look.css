@@ -1,0 +1,284 @@
+/* The page's look (14 Oct 2026): teal + mint, bills blue, spends gold, credit card pink-purple, dots instead of emojis. */
+  :root {
+    --bg: #f3f5f4; --card: #ffffff; --text: #14201c; --muted: #5d6b66; --border: #dde3e0; --row: #eef2f0;
+    --accent: #0f6e5c; --on-accent: #ffffff; --good: #138a5e; --bad: #c8463a;
+    --bill: #2f6fd0; --spend: #b07d00; --spare: #13a07a; --ring-bg: #dde3e0;
+    --zused: #b53aab; --zfree: #c3b6ea; --zfreetext: #6b5a9e;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1513; --card: #171f1c; --text: #e9f0ed; --muted: #93a39d; --border: #26332f; --row: #1d2724;
+      --accent: #3fd0a4; --on-accent: #06221b; --good: #3fd0a4; --bad: #f07a6a;
+      --bill: #7fb0ff; --spend: #f2b632; --spare: #3fd0a4; --ring-bg: #26332f;
+      --zused: #e06cd8; --zfree: #6b5a9e; --zfreetext: #a99ad6;
+    }
+  }
+  body.demo { font-family: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+  .demo .wrap { max-width: 1000px; }
+  .demo button { background: var(--accent); color: var(--on-accent); font-family: inherit; font-weight: 700; border-radius: 10px; }
+  .demo button.small { background: transparent; color: var(--text); border: 1px solid var(--border); font-weight: 600; }
+  .demo button.link, .demo .card h2 .fold { background: none; color: inherit; font-weight: inherit; }
+  .demo .card h2 .fold { color: var(--muted); }
+  /* fold arrow (15 Oct 2026, from the mock): a thin chevron, down = open, turns to point right when folded */
+  .demo .card h2 .fold { font-size: 0; width: 32px; height: 32px; padding: 0; display: inline-block; position: relative; border-radius: 8px; cursor: pointer; }
+  @media (hover: hover) { .demo .card h2 .fold:hover { background: var(--row); color: var(--text); } }
+  .demo .card h2:has(.fold) { display: flex; align-items: center; }            /* arrow centred on the right, even when the name wraps */
+  .demo .card h2 .fold { float: none; flex: none; margin: -6px -6px -6px auto; }
+  .demo .card.folded h2 { margin-bottom: 0; }
+  .demo .card h2 .fold::before { content: ""; width: 8px; height: 8px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor;
+      border-radius: 1px; position: absolute; left: 50%; top: 50%;
+      transform: translate(-50%, -70%) rotate(45deg); transition: transform .25s ease; }   /* exact middle of the button */
+  .demo .card.folded h2 .fold::before { transform: translate(-70%, -50%) rotate(-45deg); }
+  @media (prefers-reduced-motion: reduce) { .demo .card h2 .fold::before { transition: none; } }
+  .st-key span { white-space: nowrap; }
+  .demo .seg button { background: var(--bg); color: var(--text); }
+  .demo .seg button.on { background: var(--accent); color: var(--on-accent); }
+  .demo input[type=text], .demo textarea { border-radius: 10px; font-family: inherit; }
+  .demo .card { border-radius: 16px; padding: 20px; }
+  .demo .card h2 { font-size: 18px; font-weight: 800; }
+  .demo .tile { border-radius: 14px; text-align: left; }
+  .demo .label, .demo .tile .label { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .demo .dropbar { border-radius: 14px; }
+
+  /* name + icon */
+  .demo .brand { display: inline-flex; align-items: flex-start; gap: 12px; margin: 4px 0 14px -6px; min-width: 0; padding: 6px 12px 6px 6px;
+                 border-radius: 14px; color: inherit; text-decoration: none; }
+  .demo .brand:hover { background: var(--card); }
+  .demo .brand img { transition: transform .6s ease; }
+  .demo .brand.spin img { transform: rotate(360deg); }
+  .demo .brand:focus-visible { outline: 2px solid var(--accent); }
+  .demo .brand img { width: 48px; height: 48px; border-radius: 12px; flex: none; }
+  .demo .brand h1 { margin: 0; font-size: 26px; font-weight: 800; line-height: 1; }
+  .demo .tagline { color: var(--spare); font-weight: 700; font-size: 14px; margin-top: 6px; }
+  /* fixed header: home button left, settings right */
+  .demo .wrap { overflow: clip; padding-top: 0; }
+  .demohead { position: sticky; top: 0; z-index: 20; display: flex; justify-content: space-between; align-items: center; gap: 12px;
+              background: var(--bg); padding: 10px 0 14px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+  .demohead .brand { margin: 0 0 0 -6px; }
+  /* the arrow tab on the header line, and the New payday panel it opens */
+  .demohead { position: sticky; }
+  .demohead .tab { position: absolute; left: 50%; bottom: 0; transform: translate(-50%, 50%); width: 40px; height: 20px; padding: 0;
+                   display: grid; place-items: center; border-radius: 99px; border: 1px solid var(--border); background: var(--bg);
+                   color: var(--muted); transition: color .15s, border-color .15s; }
+  .demohead .tab svg { width: 10px; height: 7px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round;
+                       stroke-linejoin: round; transition: transform .2s; }
+  .demohead .tab[aria-expanded="true"] svg { transform: rotate(180deg); }
+  .demohead .tab:hover, .demohead .tab[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+  .demohead .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .quick { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; border-color: var(--accent); }
+  .quick[hidden] { display: none; }
+  .q-title { font-weight: 800; margin-bottom: 10px; }
+  .q-fields { display: flex; gap: 12px; flex-wrap: wrap; }
+  .q-fields label { display: grid; gap: 4px; flex: 1 1 140px; min-width: 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .q-fields input.amount { width: 100%; font-size: 16px; font-weight: 600; letter-spacing: 0; text-transform: none; }
+  .lx { display: flex; gap: 6px; align-items: center; } .lx button { flex: none; }
+  .demo .q-go { width: 100%; margin-top: 12px; padding: 11px; font-size: 16px; }
+  .q-drop { display: flex; } .q-drop .dropbar { flex: 1; margin: 0; display: flex; align-items: center; justify-content: center; }
+  @media (max-width: 700px) { .quick { grid-template-columns: 1fr; } }
+  .settings { position: relative; z-index: 2; align-self: flex-start; margin-top: 6px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .appver { font-size: 11px; color: var(--muted); letter-spacing: .04em; text-align: center; align-self: stretch; }   /* centred under Settings */
+  .setmenu { position: absolute; right: 0; top: calc(100% + 8px); background: var(--card); border: 1px solid var(--border);
+             border-radius: 14px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.35); min-width: 210px; }
+  .setmenu[hidden] { display: none; }
+  #setbtn { white-space: nowrap; flex: none; }
+  @media (max-width: 440px) { .demo .brand h1 { font-size: 19px; white-space: nowrap; } .demo .brand img { width: 42px; height: 42px; } }
+  body.editing .setmenu { display: block; }
+  .demo .setmenu .editbar { flex-direction: column; align-items: stretch; margin: 0; }
+  .demo .setmenu .editbar button { width: 100%; text-align: left; }
+  .demo .setmenu .editbar form button { width: 100%; }
+  /* v3 (15 Oct): Update, Move & rename, Fix an item | backup, codes, passcode | Sign out */
+  .demo .setmenu .editbar { margin-bottom: 8px; }
+  .setmenu .v3links, .setmenu .grp { display: flex; flex-direction: column; gap: 8px; }
+  .setmenu .grp + .grp { padding-top: 8px; border-top: 1px solid var(--border); }
+  .setmenu .grp:not(:last-child) { padding-bottom: 8px; }
+  .setmenu .maxopen { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 13px; font-weight: 600; padding: 2px 2px 2px 10px; }
+  .setmenu .maxopen > span:first-child { white-space: nowrap; }
+  .setmenu .maxopen .step { display: inline-flex; align-items: center; gap: 4px; }
+  .setmenu .maxopen .step b { min-width: 18px; text-align: center; }
+  .demo .setmenu .maxopen .step button { width: 28px; height: 28px; padding: 0; text-align: center; }
+  .setmenu .v3links a, .demo .setmenu .v3links button { display: block; width: 100%; text-align: left; text-decoration: none; color: var(--text);
+      background: transparent; border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px; font-size: 13px; font-weight: 600; }
+  .setmenu .v3links a:hover, .setmenu .v3links button:hover { border-color: var(--accent); }
+
+  /* dots instead of emojis */
+  .demo .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 8px; vertical-align: middle; background: var(--muted); }
+  .demo .dot.bill { background: var(--bill); } .demo .dot.spend { background: var(--spend); }
+  .demo .dot.spare { background: var(--spare); } .demo .dot.ask { background: var(--accent); }
+
+  /* top: the statement + ring, tiles on the right */
+  .st-grid { display: grid; grid-template-columns: 1fr; gap: 14px; margin-bottom: 18px; }   /* stacked, full width (15 Oct) */
+  .st-grid .card { margin: 0; }
+  .st-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; }
+  .st-head .big { font-size: 52px; font-weight: 800; line-height: 1.05; color: var(--spare); }
+  .st-key { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .st-key .dot { width: 8px; height: 8px; margin: 0 5px 0 0; }
+  #ring, #zring { width: 96px; height: 96px; flex: none; align-self: flex-start; }   /* same size, same height in their cards */
+  #ring circle { fill: none; stroke-width: 6; }
+  #ring .ring-bg { stroke: var(--ring-bg); }
+  #ring .seg-bill { stroke: var(--bill); } #ring .seg-spend { stroke: var(--spend); } #ring .seg-spare { stroke: var(--spare); }
+  #ring text { fill: var(--text); font: 800 20px "Manrope", system-ui, sans-serif; }
+  .st-rows { margin-top: 14px; }
+  .st-rows .r { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px dashed var(--border); }
+  .st-rows .r > span:first-child { color: var(--muted); }
+  .st-rows .r.tot { border-top: 2px solid var(--text); font-weight: 800; }
+  .st-rows .r.tot > span:first-child { color: var(--text); }
+  .st-rows .tap { font-weight: 700; }
+  .st-edit { display: flex; gap: 8px; justify-content: flex-end; padding: 0 0 10px; }
+  .st-edit[hidden] { display: none; }
+  .st-edit button[type=submit]:not(.small) { width: auto; }
+  .k-bill { color: var(--bill); font-weight: 700; } .k-spend { color: var(--spend); font-weight: 700; }
+  .st-side { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-content: start; }
+  .st-side .tile { padding: 16px; }
+  .st-side .tile .num { font-size: 24px; font-weight: 800; }
+  .st-side .wide { grid-column: 1 / -1; }
+  .st-side .zcard { padding: 20px; border-radius: 16px; }           /* same edges as the spare cash card, so the rings line up */
+  /* Zopa: ring of the limit, used pink-purple, free lilac */
+  .zcard { display: flex; justify-content: space-between; align-items: center; gap: 14px; }
+  .zl { display: grid; gap: 6px; min-width: 0; }
+  .zrow { display: flex; align-items: center; font-size: 15px; }
+  .zrow span { color: var(--muted); min-width: 46px; } .zrow b { margin-left: 6px; }
+  .demo .dot.zused { background: var(--zused); } .demo .dot.zfree { background: var(--zfree); }
+  .zfreeval { color: var(--zfreetext); }
+  .zlimit { font-size: 12px; color: var(--muted); }
+  #zring circle { fill: none; stroke-width: 6; }
+  #zring .z-free { stroke: var(--zfree); } #zring .z-used { stroke: var(--zused); }
+  #zring .z-pc { fill: var(--text); font: 800 20px "Manrope", system-ui, sans-serif; }
+  #zring .z-sub { fill: var(--muted); font: 600 10px "Manrope", system-ui, sans-serif; }
+  @media (max-width: 760px) { .st-grid { grid-template-columns: 1fr; } }
+  @media (max-width: 420px) { .st-head .big { font-size: 42px; } #ring, #zring { width: 80px; height: 80px; } }
+
+  /* spends gold, bills blue */
+  .demo [data-card="spend"] h2, .demo [data-card="spend"] td.n { color: var(--spend); }
+  .demo [data-card="spend"] td.n button { color: var(--text); }
+  .demo [data-card="spend"] form.inline button[type=submit]:not(.small) { background: var(--spend); color: #1d1500; }
+  .demo [data-card="bills"] h2 { color: var(--bill); }
+  /* Bills card: rows (name + details, blue amount, diff pill, ⋯ menu) */
+  body.demo [data-card="bills"] table.dbills thead { display: none; }
+  body.demo [data-card="bills"] table.dbills tr { display: grid; grid-template-columns: minmax(0, 1fr) auto 96px 32px; gap: 12px; align-items: center;
+               padding: 12px 0; border-top: 1px solid var(--border); }
+  body.demo [data-card="bills"] table.dbills td { border: 0; padding: 0; min-width: 0; }
+  body.demo [data-card="bills"] table.dbills td.bavg { display: none; }
+  body.demo [data-card="bills"] table.dbills .rname { display: none; }
+  body.demo.editing [data-card="bills"] table.dbills .rname { display: inline; } body.demo.editing [data-card="bills"] table.dbills .bbase { display: none; }
+  body.demo [data-card="bills"] table.dbills .bbase { display: block; font-weight: 700; }
+  body.demo [data-card="bills"] table.dbills .bsub { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  body.demo [data-card="bills"] table.dbills .bnew { color: var(--accent); font-weight: 700; } body.demo [data-card="bills"] table.dbills .bstop { color: var(--bad); font-weight: 700; }
+  body.demo [data-card="bills"] table.dbills td.bamt { text-align: right; white-space: nowrap; }
+  body.demo [data-card="bills"] table.dbills td.bamt button.link { color: var(--bill); font-weight: 800; text-decoration: none; }
+  body.demo [data-card="bills"] table.dbills tr.bill[data-changed="1"] td.bamt button.link { text-decoration: underline dotted; text-underline-offset: 4px; }
+  body.demo [data-card="bills"] table.dbills td.bamt button.x { display: none; }
+  body.demo [data-card="bills"] table.dbills td.diff { justify-self: end; font-size: 12px; font-weight: 700; border-radius: 99px; padding: 3px 9px; white-space: nowrap; }
+  body.demo [data-card="bills"] table.dbills td.diff.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  body.demo [data-card="bills"] table.dbills td.diff.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  body.demo [data-card="bills"] table.dbills td.diff.muted, body.demo [data-card="bills"] table.dbills td.diff:not(.good):not(.bad) { color: var(--muted); background: var(--row); }
+  body.demo [data-card="bills"] table.dbills td.diff:empty { background: none; padding: 0; }
+  body.demo [data-card="bills"] table.dbills tr.stopped td { opacity: .55; } body.demo [data-card="bills"] table.dbills tr.stopped td.bmore { opacity: 1; }
+  body.demo [data-card="bills"] table.dbills tr.total { border-top: 2px solid var(--text); }
+  body.demo [data-card="bills"] table.dbills tr.total td { font-weight: 700; }
+  body.demo [data-card="bills"] table.dbills tr.total #btotal { color: var(--bill); font-weight: 800; }
+  body.demo [data-card="bills"] table.dbills td.bmore { position: relative; }
+  body.demo [data-card="bills"] table.dbills .more { width: 32px; height: 32px; padding: 0; border-radius: 8px; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; }
+  body.demo [data-card="bills"] table.dbills .more:hover, body.demo [data-card="bills"] table.dbills .more:focus-visible { background: var(--row); color: var(--text); }
+  .bmenu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 15; display: grid; min-width: 190px; padding: 6px;
+           background: var(--card); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
+  .demo .bmenu button { background: none; color: var(--text); text-align: left; font-weight: 600; font-size: 14px; padding: 9px 10px; border-radius: 8px; }
+  .demo .bmenu button:hover, .demo .bmenu button:focus-visible { background: var(--row); }
+  .demo .bmenu button.stop { color: var(--bad); }
+  .bnote { margin-top: 10px; }
+  @media (max-width: 520px) {
+    body.demo [data-card="bills"] table.dbills tr { grid-template-columns: minmax(0, 1fr) auto 32px; row-gap: 4px; }
+    body.demo [data-card="bills"] table.dbills td.diff { grid-column: 2; grid-row: 2; }
+    body.demo [data-card="bills"] table.dbills td:first-child { grid-column: 1; font-weight: inherit; }
+    body.demo [data-card="bills"] table.dbills tr { margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; padding: 12px 0; }
+    body.demo [data-card="bills"] table.dbills tr.total { border-top: 2px solid var(--text); }
+    body.demo [data-card="bills"] table.dbills td.n::before { content: none; }
+    body.demo [data-card="bills"] table.dbills td.bamt { text-align: right; }
+    body.demo [data-card="bills"] table.dbills td.bmore { grid-column: 3; grid-row: 1; }
+  }
+
+  /* Last month's spending: same rows as Bills, arrow button opens the shops */
+  body.demo [data-card="lastmonth"] table.dlast tr { display: grid; grid-template-columns: minmax(0, 1fr) auto 96px 48px; gap: 12px;
+      align-items: center; padding: 12px 0; margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+  body.demo [data-card="lastmonth"] table.dlast thead tr { border-top: 0; }
+  body.demo [data-card="lastmonth"] table.dlast td { border: 0; padding: 0; min-width: 0; display: block; }
+  body.demo [data-card="lastmonth"] table.dlast td.n::before { content: none; }
+  body.demo [data-card="lastmonth"] table.dlast td:first-child { grid-column: 1; font-weight: inherit; }
+  body.demo [data-card="lastmonth"] table.dlast .bbase { display: flex; align-items: center; font-weight: 700; }
+  body.demo [data-card="lastmonth"] table.dlast .bsub { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+  body.demo [data-card="lastmonth"] table.dlast .lamt { font-weight: 800; text-align: right; white-space: nowrap; }
+  body.demo [data-card="lastmonth"] table.dlast td.diff { justify-self: end; font-size: 12px; font-weight: 700; border-radius: 99px; padding: 3px 9px; white-space: nowrap; color: var(--muted); background: var(--row); }
+  body.demo [data-card="lastmonth"] table.dlast td.diff.good { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  body.demo [data-card="lastmonth"] table.dlast td.diff.bad { color: var(--bad); background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  body.demo [data-card="lastmonth"] table.dlast tr.total { border-top: 2px solid var(--text); }
+  body.demo [data-card="lastmonth"] table.dlast tr.item { grid-template-columns: minmax(0, 1fr) auto auto; padding: 6px 0 6px 14px; margin-left: 4px;
+      border-top: 0; border-left: 2px solid var(--border); color: var(--muted); font-size: 14px; }
+  body.demo [data-card="lastmonth"] table.dlast tr.item[hidden] { display: none; }
+  body.demo [data-card="lastmonth"] table.dlast tr.item td.n { color: var(--text); font-weight: 700; text-align: right; }
+  body.demo [data-card="lastmonth"] table.dlast tr.item td:last-child { display: none; }
+  .demo .dlast .tobill { color: var(--bill); font-size: 12px; padding: 4px 8px; }
+  .demo .dlast .chev { display: flex; align-items: center; justify-content: center; gap: 4px; height: 28px; padding: 0 8px; border-radius: 99px;
+      border: 1px solid var(--border); background: none; color: var(--muted); font-size: 12px; font-weight: 700; }
+  .demo .dlast .chev svg { flex: none; width: 10px; height: 7px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s; }
+  .demo .dlast .chev[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+  .demo .dlast .chev[aria-expanded="true"] svg { transform: rotate(180deg); }
+  @media (max-width: 520px) {
+    body.demo [data-card="lastmonth"] table.dlast tr:not(.item) { grid-template-columns: minmax(0, 1fr) auto 48px; row-gap: 4px; }
+    body.demo [data-card="lastmonth"] table.dlast tr:not(.item) td.diff { grid-column: 2; grid-row: 2; }
+    body.demo [data-card="lastmonth"] table.dlast tr:not(.item) td.lchev { grid-column: 3; grid-row: 1; }
+  }
+
+  /* Spends and Credit card lists: name, date line under it, amount, small × */
+  body.demo [data-card] table tr.drow { display: grid; grid-template-columns: minmax(0, 1fr) auto 36px; gap: 12px; align-items: center;
+      padding: 10px 0; margin: 0; border: 0; border-top: 1px solid var(--border); border-radius: 0; }
+  body.demo [data-card] table tr.drow td { display: block; border: 0; padding: 0; min-width: 0; grid-column: auto; font-weight: inherit; text-align: left; }
+  body.demo [data-card] table tr.drow td.n { text-align: right; font-weight: 800; }
+  body.demo [data-card] table tr.drow td.n::before { content: none; }
+  body.demo [data-card] table tr.drow td b { font-weight: 700; }
+  body.demo [data-card] table tr.drow .labels { margin-top: 2px; }
+  body.demo [data-card] table tr.drow.crossed td { text-decoration: none; opacity: .5; }
+  body.demo [data-card] table tr.drow.crossed td b, body.demo [data-card] table tr.drow.crossed td.n { text-decoration: line-through; }
+  .demo .xbtn { width: 30px; height: 30px; padding: 0; font-size: 16px; line-height: 1; color: var(--muted); border-radius: 8px; }
+  .demo .xbtn:hover { color: var(--bad); border-color: var(--bad); }
+  .demo [data-card="spend"] .sum, .demo [data-card="card"] .sum { padding-top: 10px; border-top: 1px solid var(--border); row-gap: 6px; }
+  .demo .sum > span:not(.n):not(.eq) { color: var(--muted); }
+  .demo .sum .eq { border-top: 0; padding-top: 0; }
+
+  /* the other cards: same lines, muted details, pills for differences, thin chevrons */
+  .demo .card .sub { color: var(--muted); font-size: 13px; }
+  .demo .card .tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .demo .card .tiles .tile { background: var(--row); border: 1px solid var(--border); padding: 14px 16px; }
+  .demo .card .tiles .tile .num { font-size: 22px; font-weight: 800; }
+  @media (max-width: 520px) { .demo .card .tiles { grid-template-columns: 1fr; } }
+  .demo .card details { border: 0; border-top: 1px solid var(--border); }
+  .demo .card summary { align-items: center; padding: 12px 2px; }
+  .demo .card summary::before { content: ""; flex: none; width: 7px; height: 7px; margin: 0 8px 0 2px; border-right: 1.8px solid var(--muted);
+      border-bottom: 1.8px solid var(--muted); transform: rotate(-45deg); transition: transform .2s; }
+  .demo .card details[open] summary::before { content: ""; transform: rotate(45deg); border-color: var(--accent); }
+  .demo .card summary .what { font-weight: 700; }
+  .demo .card summary .note { font-weight: 500; margin-top: 2px; }
+  .demo .card .inside { padding: 0 2px 12px 20px; }
+  .demo .card .inside div { padding: 5px 0; border-left: 2px solid var(--border); padding-left: 12px; }
+  .demo [data-card="cats"] summary .val { font-size: 12px; font-weight: 700; border-radius: 99px; padding: 3px 9px; }
+  .demo [data-card="cats"] summary .val.good { background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .demo [data-card="cats"] summary .val.bad { background: color-mix(in srgb, var(--bad) 14%, transparent); }
+  .demo .against { padding: 8px 2px; border-top: 1px solid var(--border); }
+  .demo .addsup { border-top: 2px solid var(--text); margin-top: 4px; padding-top: 10px; }
+  .demo [data-card="subs"] table th, .demo [data-card="periods"] table th { font-size: 11px; font-weight: 700; letter-spacing: .08em; border-bottom: 0; padding-bottom: 8px; }
+  .demo [data-card="subs"] table td, .demo [data-card="periods"] table td { border-bottom: 0; border-top: 1px solid var(--border); padding: 11px 6px; vertical-align: middle; }
+  .demo [data-card="subs"] table td:first-child { font-weight: 700; }
+  .demo [data-card="subs"] table td:first-child .labels { font-weight: 500; margin-top: 2px; }
+  .demo [data-card="periods"] table tr.total td { border-top: 2px solid var(--text); }
+  .demo .tobill { color: var(--bill); font-size: 12px; padding: 3px 8px; margin-left: 8px; }
+  .demo [data-card="periods"] .sum { padding-top: 6px; row-gap: 8px; }
+
+  /* credit card: the Zopa ring's colours */
+  .demo [data-card="card"] h2, .demo [data-card="card"] td.n { color: var(--zused); }
+  .demo [data-card="card"] td.n.good, .demo [data-card="card"] #ccfree2 { color: var(--zfreetext); }
+  .demo [data-card="card"] td.n button { color: var(--text); }
+  .demo [data-card="card"] form.inline button[type=submit]:not(.small) { background: var(--zused); color: #fff; }
+  .demo [data-card="bills"] tr.bill button.link:not(.muted) { color: var(--bill); font-weight: 700; }
+  .demo [data-card="bills"] #btotal { color: var(--bill); }
+
+/* v3 PC test (15 Oct 2026): never mix it up with the real site */
+.testcopy { background: #f29b38; color: #2a1500; font-weight: 800; text-align: center; padding: 6px 10px; border-radius: 0 0 12px 12px;
+            font-size: 14px; letter-spacing: .02em; }
