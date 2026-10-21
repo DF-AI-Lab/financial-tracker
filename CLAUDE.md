@@ -58,6 +58,9 @@ Mock-up of the home page: `prototype/home.html`. **2 Oct: user ran steps 1-4 on 
 left after typical month 416.71 on 2,677. The user's code folder is still named `...stoic-archimedes...` (it holds main).
 
 ## Next
+0000000. **21 Oct v3.63: LITE (map #22).** /lite = basic/ (exact copy of the v3 page + 'Lite' badge), /lite/demo =
+   basic_demo/ (copy to try changes on first). fintrack/v3/lite.py serves each from its own templates + static; same data,
+   sign-in and forms as /. Never change templates/ or static/ for Lite. Next ticket: #25 Bill details (tests first, Haiku builds).
 000000. **15 Oct: v3 IS LIVE on https://darrenfawcett2448.pythonanywhere.com (branch v3, v3.5).** PythonAnywhere user
    DarrenFawcett2448 (capitals; WSGI file /var/www/darrenfawcett2448_pythonanywhere_com_wsgi.py imports v3app.make_app
    ("/home/DarrenFawcett2448/wmm-data")), code in ~/whereismymoney (git clone -b v3), venv ~/wmm-venv (Python 3.13),
