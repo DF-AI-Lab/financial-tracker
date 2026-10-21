@@ -2,7 +2,7 @@
 (sign-in, backups, Fix an item, ...). Each module has register(app); setup(app) calls every one that exists."""
 import importlib
 
-PARTS = ("auth", "passkey", "backup", "fixitem", "billswap", "live", "ideas")
+PARTS = ("auth", "passkey", "backup", "fixitem", "billswap", "live", "ideas", "lite")
 
 
 def setup(app) -> None:

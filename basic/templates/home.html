@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="{{ "My Money" if demo else "Wage Tracker" }}">
-{% if phone %}<link rel="icon" href="{{ icon }}"><link rel="apple-touch-icon" href="{{ icon }}">{% else %}<link rel="icon" href="/static/icon-192.png"><link rel="apple-touch-icon" href="/static/icon-192.png">{% endif %}
+{% if phone %}<link rel="icon" href="{{ icon }}"><link rel="apple-touch-icon" href="{{ icon }}">{% else %}<link rel="icon" href="/lite/static/icon-192.png"><link rel="apple-touch-icon" href="/lite/static/icon-192.png">{% endif %}
 <meta name="theme-color" content="{{ "#0f6e5c" if demo else "#1d4f8f" }}">
 <style>
   * { box-sizing: border-box; }
@@ -163,7 +163,7 @@
   {% if demo %}
   {% if config.get("V3_TEST") %}<div class="testcopy">🧪 TEST COPY on this PC · not your real data</div>{% endif %}
   <header class="demohead">
-    <a class="brand" href="/" title="Back to the top"><img src="/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday <span class="lite">Lite</span></div></div></a>
+    <a class="brand" href="/lite" title="Back to the top"><img src="/lite/static/icon-192.png" alt=""><div><h1>Where's My Money?</h1><div class="tagline">Payday to payday <span class="lite">Lite</span></div></div></a>
     {% if not phone %}<div class="settings"><button type="button" class="small" id="setbtn" aria-expanded="false" aria-controls="setmenu">⚙ Settings</button>
       {% set maxrow %}<div class="maxopen"><span>Cards open at once</span><span class="step"><button type="button" class="small" id="maxless" aria-label="Fewer">−</button><b id="maxopen">2</b><button type="button" class="small" id="maxmore" aria-label="More">+</button></span></div>{% endset %}
       <div class="setmenu" id="setmenu" hidden>{% if cloud %}

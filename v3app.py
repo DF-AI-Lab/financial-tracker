@@ -108,6 +108,7 @@ def make_app(data_dir, wage_payer=None, today=None, updater=None, restart=None):
     app.secret_key = settings["secret_key"]
     app.config["V3_SETTINGS"] = settings
     app.config["V3_DATA_DIR"] = data_dir
+    app.config["V3_WAGE_PAYER"], app.config["V3_TODAY"] = wage_payer or WAGE_PAYER, today
     setup(app)
     return app
 

@@ -1,0 +1,44 @@
+{# The demo page's Last month's spending (14 Oct 2026): same style as the demo Bills card. Same rows, items and → Bill
+   buttons as the normal card; the arrow button opens a category's shops. #}
+{% set bills_last = d.pay.bills|sum(attribute='last') %}
+<div class="card" data-id="lastmonth" data-card="lastmonth">
+  <h2><span class="handle" title="Drag to move">⠿</span> <i class="dot"></i> Last month's spending<button type="button" class="fold" title="Fold">▾</button></h2>
+  <table class="dlast">
+    <thead>
+      {% set bd = bills_last - d.pay.bills_avg %}
+      <tr class="lbills"><td><b class="bbase"><i class="dot bill"></i>Bills</b><span class="bsub">Rent, direct debits, standing orders · in the Bills card · avg {{ d.pay.bills_avg|money }}</span></td>
+        <td class="n lamt k-bill">{{ bills_last|money }}</td>
+        <td class="n diff {{ 'good' if bd < -0.005 else ('bad' if bd > 0.005 else '') }}">{{ bd|diff }}</td><td></td></tr>
+    </thead>
+    <tbody data-sort="lastmonth">
+    {% for s in d.pay.spending %}
+      {% set sd = s.last - s.avg %}
+      {% set sitems = s['items'] if 'items' in s else [] %}
+      <tr data-id="{{ s.id }}"><td><span class="handle" title="Drag to move">⠿</span><b class="bbase"><span class="rname" data-id="{{ s.id }}" data-orig="{{ s.orig }}">{{ s.name }}</span></b>
+          <span class="bsub">{% if s.labels %}{{ s.labels|join(', ') }} · {% endif %}avg {{ s.avg|money }}</span></td>
+        <td class="n lamt">{{ s.last|money }}</td>
+        <td class="n diff {{ 'good' if sd < -0.005 else ('bad' if sd > 0.005 else '') }}">{{ sd|diff }}</td>
+        <td class="lchev">{% if sitems %}<button type="button" class="chev" aria-expanded="false" aria-label="Show the shops in {{ s.name }}"><svg viewBox="0 0 12 8" width="10" height="7" aria-hidden="true"><path d="M1.5 2 6 6.5 10.5 2"/></svg><span>{{ sitems|length }}</span></button>{% endif %}</td></tr>
+      {% for i in sitems %}
+      <tr class="item" data-cat="{{ s.id }}" hidden><td>{{ i.name }}</td><td class="n">{{ i.last|money }}</td>
+        <td class="n"><button type="button" class="small tobill" data-key="{{ i.key }}" data-name="{{ i.name }}">→ Bill</button></td><td></td></tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody>
+    {% set td = bills_last + d.pay.spending_last - d.pay.bills_avg - d.pay.spending_avg %}
+    <tbody><tr class="total"><td><b class="bbase">Total</b><span class="bsub">avg {{ (d.pay.bills_avg + d.pay.spending_avg)|money }}</span></td>
+      <td class="n lamt">{{ (bills_last + d.pay.spending_last)|money }}</td>
+      <td class="n diff {{ 'good' if td < -0.005 else ('bad' if td > 0.005 else '') }}">{{ td|diff }}</td><td></td></tr></tbody>
+  </table>
+</div>
+<script>
+  // The arrow button opens / shuts a category's shops (the same item rows the normal card opens with ▸ N)
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.dlast .chev').forEach(btn => btn.addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      const id = btn.closest('tr').dataset.id, open = btn.getAttribute('aria-expanded') !== 'true';
+      document.querySelectorAll('.dlast tr.item[data-cat="' + id + '"]').forEach(r => r.hidden = !open);
+      btn.setAttribute('aria-expanded', open);
+    }));
+  });
+</script>

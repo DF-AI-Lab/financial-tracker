@@ -1,0 +1,126 @@
+{# The demo page's top (14 Oct 2026): spare cash as a statement with a ring. Same forms and ids as the normal page. #}
+{# New payday panel (14 Oct 2026): opened by the arrow tab on the header line. One Work it out saves Left (POST /left) then Pay. #}
+<div class="card quick" id="quick" hidden>
+  <div class="q-pay">
+    <div class="q-title">New payday?</div>
+    <form method="post" action="/pay" id="payform" data-spends="{{ 1 if d.spends else 0 }}" data-pay="{{ '%.2f'|format(d.pay.wage) }}"
+          data-left="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}">
+      <input type="hidden" name="clear" value="0">
+      <div class="q-fields">
+        <label>Pay<input class="amount" type="text" name="pay" id="qpay" inputmode="decimal" value="{{ '%.2f'|format(d.pay.wage) }}"></label>
+        <label>Left from last month<span class="lx"><input class="amount" type="text" id="qleft" inputmode="decimal" placeholder="0.00" value="{{ '%.2f'|format(d.pay.left) if d.pay.left else '' }}">
+          <button type="button" class="small" id="qleftx" title="Remove what was left">✖</button></span></label>
+      </div>
+      <button type="submit" class="q-go">Work it out</button>
+    </form>
+    <form method="post" action="/left" hidden><input type="hidden" name="amount" value=""></form>
+  </div>
+  <div class="q-drop" id="qdrop"></div>
+</div>
+<div class="st-grid">
+  <div class="card st-sum">
+    <div class="st-head">
+      <div>
+        <div class="label">Spare cash left</div>
+        <div class="big" id="spare-big">{{ d.left_now|money }}</div>
+        <div class="st-key" id="st-key"></div>
+      </div>
+      <svg id="ring" viewBox="0 0 100 100" role="img" aria-label="Where the money went">
+        <circle cx="50" cy="50" r="40" class="ring-bg"/>
+        <circle cx="50" cy="50" r="40" class="seg-bill" transform="rotate(-90 50 50)"/>
+        <circle cx="50" cy="50" r="40" class="seg-spend" transform="rotate(-90 50 50)"/>
+        <circle cx="50" cy="50" r="40" class="seg-spare" transform="rotate(-90 50 50)"/>
+        <text x="50" y="57" text-anchor="middle" id="ring-pc"></text>
+      </svg>
+    </div>
+    <div class="st-rows">
+      <div class="r"><span>Pay</span><button type="button" class="link tap" data-edit="qpay" title="Change this month's pay">{{ d.pay.wage|money }}</button></div>
+      <div class="r"><span>+ Left from last month</span><button type="button" class="link tap" data-edit="qleft" title="Change what was left from last month">{{ d.pay.left|money if d.pay.left else 'Add' }}</button></div>
+      <div class="r"><span><i class="dot bill"></i>− Bills</span><span class="k-bill" id="st-bills">{{ d.pay.bills_last|money }}</span></div>
+      <div class="r"><span><i class="dot spend"></i>− Spends</span><span class="k-spend" id="st-spends">{{ d.typed_total|money }}</span></div>
+      <div class="r tot"><span>Spare</span><span id="st-spare">{{ d.left_now|money }}</span></div>
+    </div>
+    <div id="spare-how" hidden></div>
+  </div>
+  <div class="st-side">
+    {% set pc = (100 * d.card.used / d.card.limit) if d.card.limit else 0 %}
+    {% set pcr = [[pc, 0]|max, 100]|min %}
+    <div class="tile wide zcard"><div class="zl">
+        <div class="label">Zopa credit card</div>
+        <div class="zrow"><i class="dot zused"></i><span>Used</span><b id="ccused">{{ d.card.used|money }}</b></div>
+        <div class="zrow"><i class="dot zfree"></i><span>Free</span><b class="{{ 'bad' if d.card.free < 0 else 'zfreeval' }}" id="ccfree">{{ d.card.free|money }}</b></div>
+        <div class="zlimit">Limit {{ d.card.limit|money }}</div></div>
+      <svg id="zring" viewBox="0 0 100 100" role="img" aria-label="{{ pc|round|int }}% of the limit used">
+        <circle cx="50" cy="50" r="40" class="z-free"/>
+        <circle cx="50" cy="50" r="40" class="z-used" transform="rotate(-90 50 50)"
+          stroke-dasharray="{{ '%.1f'|format([pcr * 2.5133 - 1.5, 0]|max) }} 251.3"/>
+        <text x="50" y="52" text-anchor="middle" class="z-pc">{{ pc|round|int }}%</text>
+        <text x="50" y="67" text-anchor="middle" class="z-sub">used</text>
+      </svg>
+    </div>
+  </div>
+</div>
+<script>
+  // Ring: all money in (pay + left) split into bills, spends and spare. Tap Pay or Left to change them.
+  window.demoTop = function (bills) {
+    if (typeof PAGE === 'undefined' || PAGE.wage === undefined) return;
+    if (bills === undefined) bills = PAGE.bills;
+    const total = PAGE.wage + PAGE.left, spends = PAGE.typed, spare = Math.max(total - bills - spends, 0);
+    const C = 2 * Math.PI * 40, f = x => total > 0 ? Math.max(x, 0) / total : 0;
+    let start = 0;
+    [['seg-bill', f(bills)], ['seg-spend', f(spends)], ['seg-spare', f(spare)]].forEach(([cls, part]) => {
+      const el = document.querySelector('#ring .' + cls), len = Math.min(part, 1 - start) * C;
+      el.setAttribute('stroke-dasharray', (len > 2 ? len - 1.5 : len) + ' ' + C);
+      el.setAttribute('stroke-dashoffset', -start * C);
+      start += part;
+    });
+    const pc = x => Math.round(100 * f(x)) + '%';
+    document.getElementById('ring-pc').textContent = pc(spare);
+    // each dot stays with its word when the line wraps (15 Oct 2026)
+    document.getElementById('st-key').innerHTML = '<span><i class="dot bill"></i>Bills ' + pc(bills) + '</span> · <span><i class="dot spend"></i>Spends ' +
+      pc(spends) + '</span> · <span><i class="dot spare"></i>Spare ' + pc(spare) + '</span>';
+    const set = (id, x) => { const el = document.getElementById(id); if (el) el.textContent = money(x); };
+    set('st-bills', bills); set('st-spare', total - bills - spends);
+  };
+  document.addEventListener('DOMContentLoaded', () => {
+    demoTop();
+    // The arrow tab on the header line opens / hides the New payday panel (up = hidden, down = open). Starts hidden.
+    const quick = document.getElementById('quick'), tab = document.getElementById('quicktab');
+    const drop = document.getElementById('dropbar'); if (drop) document.getElementById('qdrop').appendChild(drop);
+    // Slides open / shut: height, padding and fade animate together (none if the computer asks for less motion)
+    const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let anim = null;
+    const openQuick = on => {
+      if (on === !quick.hidden && !anim) return;
+      if (tab) tab.setAttribute('aria-expanded', on);                  // the chevron flips by CSS
+      if (anim) anim.cancel();
+      quick.hidden = false;
+      const cs = getComputedStyle(quick);
+      // margin and border slide too, so nothing jumps when the panel is hidden at the end (15 Oct 2026)
+      const full = {height: quick.offsetHeight + 'px', paddingTop: cs.paddingTop, paddingBottom: cs.paddingBottom, marginTop: cs.marginTop,
+                    marginBottom: cs.marginBottom, borderTopWidth: cs.borderTopWidth, borderBottomWidth: cs.borderBottomWidth, opacity: 1, transform: 'none'};
+      const shut = {height: '0px', paddingTop: '0px', paddingBottom: '0px', marginTop: '0px', marginBottom: '0px',
+                    borderTopWidth: '0px', borderBottomWidth: '0px', opacity: 0, transform: 'translateY(-8px)'};
+      if (on) window.scrollTo({top: 0, behavior: calm ? 'auto' : 'smooth'});
+      if (calm) { quick.hidden = !on; return; }
+      quick.style.overflow = 'hidden';
+      anim = quick.animate(on ? [shut, full] : [full, shut], {duration: on ? 320 : 240, easing: 'cubic-bezier(.22,.8,.24,1)'});
+      anim.onfinish = () => { quick.style.overflow = ''; quick.hidden = !on; anim = null; };
+    };
+    if (tab) tab.addEventListener('click', () => openQuick(quick.hidden));
+    document.querySelectorAll('.tap').forEach(b => b.addEventListener('click', () => {
+      openQuick(true); const i = document.getElementById(b.dataset.edit); i.focus(); i.select();
+    }));
+    document.getElementById('qleftx').addEventListener('click', () => { document.getElementById('qleft').value = ''; });
+    // Work it out: save Left first when it changed (same POST /left as the normal page), then send the pay form
+    const payForm = document.getElementById('payform');
+    payForm.addEventListener('submit', async e => {
+      const left = document.getElementById('qleft').value.trim();
+      if (left === payForm.dataset.left) return;
+      e.preventDefault();
+      await fetch('/left', {method: 'POST', headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: new URLSearchParams({amount: left})});
+      payForm.submit();
+    });
+  });
+</script>
