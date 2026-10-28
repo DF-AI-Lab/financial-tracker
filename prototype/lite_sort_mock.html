@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Sort and Paid Mock</title>
+<title>Bills and Paid Mock</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
 <style>
   /* Mock only (28 Oct 2026): sort buttons, "going out" spends with Paid?, nudges, and "date varies" ideas. Not wired to the app. */
@@ -52,6 +52,15 @@
   .row .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
   .row .amt { font-weight: 800; font-size: 17px; color: var(--bill); white-space: nowrap; }
   .spends .row .amt { color: var(--text); }
+  .cat { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 0; border: 0; border-bottom: 1px solid var(--border);
+         background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+  .cat .who { flex: 1; } .cat .name { font-weight: 800; font-size: 17px; } .cat .sub { color: var(--muted); font-size: 14px; }
+  .cat .amt { font-weight: 800; font-size: 17px; color: var(--bill); }
+  .chev { width: 9px; height: 9px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted);
+          transform: rotate(-45deg); transition: transform .2s; margin: 0 4px; flex: none; }
+  .cat[aria-expanded="true"] .chev { transform: rotate(45deg); }
+  .inside { padding-left: 14px; border-left: 3px solid var(--bill); margin: 4px 0 8px; }
+  .inside .row .amt { font-size: 15px; }
   .group { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
            padding: 14px 0 0; display: flex; justify-content: space-between; }
 
@@ -87,33 +96,20 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🧪 Mock: sort, Paid?, Varies</h1>
-  <p class="intro">Tap things. Nothing here is saved. Pick A or B for each one.</p>
+  <h1>🧪 Mock 2: bills by category, Paid?, Varies</h1>
+  <p class="intro">Tap things. Nothing here is saved. </p>
 
-  <!-- 1A -->
-  <span class="mock-tag">1A · Sort: one row (replaces All | Categories)</span>
-  <div class="card bills" id="billsA">
+  <!-- 1 -->
+  <span class="mock-tag">1 · Bills: Categories = totals, tap to open</span>
+  <div class="card bills" id="bills">
     <h2><span class="dot"></span>Bills (every month)</h2>
     <div class="bar">
-      <span class="count">8 bills</span>
-      <button class="pill" data-sort="cost">Cost</button>
-      <button class="pill" data-sort="cat">Category</button>
+      <span class="count">8 bills · £1,391.70</span>
+      <span class="seg"><button class="pill" data-seg="all">All</button><button class="pill on" data-seg="cat">Categories</button></span>
     </div>
     <div class="list"></div>
   </div>
-
-  <!-- 1B -->
-  <span class="mock-tag">1B · Sort: keep All | Categories, add Cost</span>
-  <div class="card bills" id="billsB">
-    <h2><span class="dot"></span>Bills (every month)</h2>
-    <div class="bar">
-      <span class="count">8 bills</span>
-      <span class="seg"><button class="pill on" data-seg="all">All</button><button class="pill" data-seg="cat">Categories</button></span>
-      <button class="pill" data-sort="cost">Cost</button>
-    </div>
-    <div class="list"></div>
-  </div>
-  <p class="note">Cost: tap once = 💷 high → low, again = low → high, again = off. Category: Household always first. Each phone/PC remembers its own choice.</p>
+  <p class="note">Household always first, then biggest total first. Tap a category to open it: bills inside go largest first. Each phone/PC remembers All or Categories.</p>
 
   <!-- 2 -->
   <span class="mock-tag">2 · Spends: bills still going out (slanted) + Paid?</span>
@@ -121,8 +117,6 @@
     <h2><span class="dot"></span>Spends this month</h2>
     <div class="bar">
       <span class="count">Going out · £384.20</span>
-      <button class="pill" data-sort="cost">Cost</button>
-      <button class="pill" data-sort="cat">Category</button>
     </div>
     <div class="list"></div>
   </div>
@@ -229,8 +223,8 @@
     else items.forEach(function (x) { html += rowFn(x, list.indexOf(x)); });
     box.innerHTML = html;
     var c = card.querySelector('[data-sort="cost"]');
-    c.textContent = st.cost === 1 ? "Cost ↓ high" : st.cost === 2 ? "Cost ↑ low" : "Cost";
-    c.classList.toggle("on", !!st.cost);
+    if (c) c.textContent = st.cost === 1 ? "Cost ↓ high" : st.cost === 2 ? "Cost ↑ low" : "Cost";
+    if (c) c.classList.toggle("on", !!st.cost);
     var k = card.querySelector('[data-sort="cat"]');
     if (k) { k.textContent = st.cat ? "Category ✓" : "Category"; k.classList.toggle("on", st.cat); }
   }
@@ -249,8 +243,33 @@
     });
     draw(card, list, st, rowFn);
   }
-  setup("billsA", BILLS, billRow);
-  setup("billsB", BILLS, billRow);
+  (function () {                     // Bills: All, or category totals that open (largest first inside)
+    var card = document.getElementById("bills"), view = "cat", open = {};
+    function drawBills() {
+      var box = card.querySelector(".list"), html = "";
+      if (view === "all") BILLS.forEach(function (x) { html += billRow(x); });
+      else groups(BILLS).map(function (g) {
+        return [g[0], g[1], g[1].reduce(function (s, x) { return s + x.a; }, 0)];
+      }).sort(function (a, b) {
+        if (a[0] === "Household") return -1; if (b[0] === "Household") return 1; return b[2] - a[2];
+      }).forEach(function (g) {
+        var on = !!open[g[0]];
+        html += '<button class="cat" data-cat="' + g[0] + '" aria-expanded="' + on + '"><span class="chev"></span><span class="who"><span class="name">' + g[0] +
+          '</span><br><span class="sub">' + g[1].length + (g[1].length === 1 ? ' bill' : ' bills') + '</span></span><span class="amt">' + money(g[2]) + '</span></button>';
+        if (on) html += '<div class="inside">' + g[1].slice().sort(function (a, b) { return b.a - a.a; }).map(billRow).join("") + '</div>';
+      });
+      box.innerHTML = html;
+      card.querySelectorAll("[data-seg]").forEach(function (b) { b.classList.toggle("on", b.dataset.seg === view); });
+    }
+    card.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.seg) view = b.dataset.seg;
+      if (b.dataset.cat) open[b.dataset.cat] = !open[b.dataset.cat];
+      drawBills();
+    });
+    open.Household = true;
+    drawBills();
+  })();
   setup("spends", SPENDS, spendRow);
 
   document.getElementById("bell").onclick = function () { var d = document.getElementById("drop"); d.hidden = !d.hidden; };
