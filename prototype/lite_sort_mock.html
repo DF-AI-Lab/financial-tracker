@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sort and Paid Mock</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+<style>
+  /* Mock only (28 Oct 2026): sort buttons, "going out" spends with Paid?, nudges, and "date varies" ideas. Not wired to the app. */
+  :root {
+    --bg: #f3f5f4; --card: #ffffff; --text: #14201c; --muted: #5d6b66; --border: #dde3e0; --row: #eef2f0;
+    --accent: #0f6e5c; --on-accent: #ffffff; --good: #138a5e; --bad: #c8463a; --warn: #b07d00;
+    --bill: #2f6fd0; --spend: #b07d00;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1513; --card: #171f1c; --text: #e9f0ed; --muted: #93a39d; --border: #26332f; --row: #1d2724;
+      --accent: #3fd0a4; --on-accent: #06221b; --good: #3fd0a4; --bad: #f07a6a; --warn: #f2b632;
+      --bill: #7fb0ff; --spend: #f2b632;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: "Manrope", system-ui, sans-serif;
+         font-variant-numeric: tabular-nums; }
+  .wrap { max-width: 640px; margin: 0 auto; padding: 16px; }
+  h1 { font-size: 22px; margin: 8px 0 4px; }
+  .intro { color: var(--muted); margin: 0 0 20px; }
+  .mock-tag { display: inline-block; font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+              color: var(--accent); margin: 28px 0 8px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; margin-bottom: 14px; }
+  .card h2 { font-size: 18px; font-weight: 800; margin: 0 0 14px; display: flex; align-items: center; gap: 10px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .bills h2 { color: var(--bill); } .bills .dot { background: var(--bill); }
+  .spends h2 { color: var(--spend); } .spends .dot { background: var(--spend); }
+  .note { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+
+  .bar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .bar .count { color: var(--muted); font-weight: 700; margin-right: auto; }
+  .pill { border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; font-weight: 700;
+          font-size: 14px; padding: 8px 14px; border-radius: 999px; cursor: pointer; }
+  .pill.on { background: var(--bill); border-color: var(--bill); color: #06221b; }
+  .spends .pill.on { background: var(--spend); border-color: var(--spend); }
+  .seg { display: inline-flex; background: var(--bg); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+  .seg .pill { border: 0; background: transparent; }
+  .seg .pill.on { background: var(--bill); }
+
+  .row { display: flex; align-items: center; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .row:last-child { border-bottom: 0; }
+  .row .who { flex: 1; min-width: 0; }
+  .row .name { font-weight: 800; font-size: 17px; }
+  .row .day { color: var(--muted); font-weight: 600; font-size: 15px; }
+  .row .sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
+  .row .amt { font-weight: 800; font-size: 17px; color: var(--bill); white-space: nowrap; }
+  .spends .row .amt { color: var(--text); }
+  .group { font-size: 12px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+           padding: 14px 0 0; display: flex; justify-content: space-between; }
+
+  /* going out: slanted until paid */
+  .row.out .name, .row.out .amt { font-style: italic; color: var(--muted); }
+  .row.out .sub b { color: var(--warn); font-style: normal; }
+  .row.out.late .sub b { color: var(--bad); }
+  .paid { border: 1px solid var(--border); background: transparent; color: var(--text); font: inherit; font-weight: 700;
+          font-size: 13px; padding: 6px 10px; border-radius: 10px; cursor: pointer; white-space: nowrap; }
+  .row.done .paid { color: var(--good); border-color: var(--good); }
+
+  /* varies */
+  .vary { display: inline-block; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+          background: var(--row); color: var(--muted); font-style: normal; vertical-align: 2px; }
+
+  /* nudges */
+  .bellwrap { position: relative; display: inline-block; }
+  .bell { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--card);
+          color: var(--warn); font-size: 20px; cursor: pointer; position: relative; }
+  .bell .badge { position: absolute; top: -6px; right: -6px; background: var(--bad); color: #fff; font-size: 11px;
+                 font-weight: 800; border-radius: 999px; padding: 2px 6px; }
+  .drop { margin-top: 10px; border: 1px solid var(--border); border-radius: 12px; padding: 12px; background: var(--bg); }
+  .drop p { margin: 0 0 8px; }
+  .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; padding: 16px; }
+  .modal-bg.show { display: flex; }
+  .modal { background: var(--card); border: 2px solid var(--bad); border-radius: 18px; padding: 22px; max-width: 420px; width: 100%; }
+  .modal h3 { margin: 0 0 6px; color: var(--bad); font-size: 20px; }
+  .modal .btns { display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap; }
+  .btn { background: var(--accent); color: var(--on-accent); border: 0; font: inherit; font-weight: 800; padding: 10px 16px; border-radius: 10px; cursor: pointer; }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .choice { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🧪 Mock: sort, Paid?, Varies</h1>
+  <p class="intro">Tap things. Nothing here is saved. Pick A or B for each one.</p>
+
+  <!-- 1A -->
+  <span class="mock-tag">1A · Sort: one row (replaces All | Categories)</span>
+  <div class="card bills" id="billsA">
+    <h2><span class="dot"></span>Bills (every month)</h2>
+    <div class="bar">
+      <span class="count">8 bills</span>
+      <button class="pill" data-sort="cost">Cost</button>
+      <button class="pill" data-sort="cat">Category</button>
+    </div>
+    <div class="list"></div>
+  </div>
+
+  <!-- 1B -->
+  <span class="mock-tag">1B · Sort: keep All | Categories, add Cost</span>
+  <div class="card bills" id="billsB">
+    <h2><span class="dot"></span>Bills (every month)</h2>
+    <div class="bar">
+      <span class="count">8 bills</span>
+      <span class="seg"><button class="pill on" data-seg="all">All</button><button class="pill" data-seg="cat">Categories</button></span>
+      <button class="pill" data-sort="cost">Cost</button>
+    </div>
+    <div class="list"></div>
+  </div>
+  <p class="note">Cost: tap once = 💷 high → low, again = low → high, again = off. Category: Household always first. Each phone/PC remembers its own choice.</p>
+
+  <!-- 2 -->
+  <span class="mock-tag">2 · Spends: bills still going out (slanted) + Paid?</span>
+  <div class="card spends" id="spends">
+    <h2><span class="dot"></span>Spends this month</h2>
+    <div class="bar">
+      <span class="count">Going out · £384.20</span>
+      <button class="pill" data-sort="cost">Cost</button>
+      <button class="pill" data-sort="cat">Category</button>
+    </div>
+    <div class="list"></div>
+  </div>
+  <p class="note">Slanted = not seen on a statement yet. Tap <b>Paid?</b> → ✓ Paid and it turns normal. Spare cash already counts it.</p>
+
+  <!-- 3 -->
+  <span class="mock-tag">3 · Nudges if you don't tick Paid?</span>
+  <div class="card">
+    <p class="note" style="margin-bottom:10px">🔔 <b>Every 3 days</b>: a quiet line in the bell.</p>
+    <div class="bellwrap">
+      <button class="bell" id="bell">🔔<span class="badge">2</span></button>
+    </div>
+    <div class="drop" id="drop" hidden>
+      <p>⏳ <b>KT Coffee</b> £50.00 was due 2nd. Has it gone out?</p>
+      <p>⏳ <b>Gas & electric</b> £170.00 was due 5th. Has it gone out?</p>
+      <button class="paid">Paid</button> <button class="paid">Not yet</button>
+    </div>
+    <p class="note" style="margin:16px 0 10px">🚨 <b>1 week late</b>: a big box when you open the app.</p>
+    <button class="btn" id="openApp">Pretend: open the app</button>
+  </div>
+
+  <!-- 4 -->
+  <span class="mock-tag">4 · Bills with no set date</span>
+  <div class="card bills" id="vary">
+    <h2><span class="dot"></span>Bills (every month)</h2>
+    <div class="choice">
+      <button class="pill on" data-v="a">A: Varies</button>
+      <button class="pill" data-v="b">B: 1st–5th</button>
+      <button class="pill" data-v="c">C: ~3rd</button>
+    </div>
+    <div class="list"></div>
+  </div>
+  <p class="note" id="varyNote"></p>
+</div>
+
+<div class="modal-bg" id="modal">
+  <div class="modal">
+    <h3>🚨 Gas & electric: 1 week late</h3>
+    <p>£170.00 was due on the 5th. It's not on a statement yet.</p>
+    <p class="note">Has it gone out?</p>
+    <div class="btns">
+      <button class="btn" id="mPaid">✓ Yes, paid</button>
+      <button class="btn ghost" id="mNo">Not yet</button>
+      <button class="btn ghost" id="mStop">It's stopped</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  var BILLS = [
+    {n: "Rent / Mortgage", d: "28th", c: "Household", a: 610},
+    {n: "Council tax", d: "1st", c: "Household", a: 179},
+    {n: "KT Food", d: "1st", c: "Food shopping", a: 200, t: "SO"},
+    {n: "KT Coffee", d: "2nd", c: "Me stuff", a: 50, t: "SO"},
+    {n: "Gas & electric", d: "5th", c: "Household", a: 170},
+    {n: "Car insurance", d: "12th", c: "Car", a: 64.20},
+    {n: "Zopa", d: "14th", c: "Debt", a: 100},
+    {n: "Phone", d: "20th", c: "Bills", a: 18.50}
+  ];
+  var SPENDS = [
+    {n: "KT Coffee", c: "Me stuff", a: 50, out: "Due 2nd", late: 0},
+    {n: "Gas & electric", c: "Household", a: 170, out: "1 week late", late: 1},
+    {n: "Costa", c: "Me stuff", a: 4.20},
+    {n: "Car insurance", c: "Car", a: 64.20, out: "Due 12th"},
+    {n: "Tesco", c: "Food shopping", a: 23.85},
+    {n: "Zopa", c: "Debt", a: 100, out: "Due 14th"},
+    {n: "Greggs", c: "Food out", a: 3.10}
+  ];
+  function money(x) { return "£" + x.toFixed(2); }
+  function sorted(list, st) {
+    var out = list.slice();
+    if (st.cost === 1) out.sort(function (a, b) { return b.a - a.a; });
+    if (st.cost === 2) out.sort(function (a, b) { return a.a - b.a; });
+    return out;
+  }
+  function groups(list) {          // Household first, then A-Z
+    var g = {};
+    list.forEach(function (x) { (g[x.c] = g[x.c] || []).push(x); });
+    var keys = Object.keys(g).sort(function (a, b) {
+      if (a === "Household") return -1; if (b === "Household") return 1; return a.localeCompare(b);
+    });
+    return keys.map(function (k) { return [k, g[k]]; });
+  }
+  function billRow(x) {
+    return '<div class="row"><div class="who"><div class="name">' + x.n + ' <span class="day">· ' + x.d + '</span></div>' +
+      '<div class="sub">' + x.c + (x.t ? ' · ' + x.t : '') + ' · avg ' + money(x.a) + '</div></div>' +
+      '<div class="amt">' + money(x.a) + '</div></div>';
+  }
+  function spendRow(x, i) {
+    if (!x.out) return '<div class="row"><div class="who"><div class="name">' + x.n + '</div><div class="sub">' + x.c + '</div></div><div class="amt">' + money(x.a) + '</div></div>';
+    var done = x.done;
+    return '<div class="row ' + (done ? 'done' : 'out' + (x.late ? ' late' : '')) + '"><div class="who"><div class="name">' + x.n + '</div>' +
+      '<div class="sub">' + x.c + ' · ' + (done ? 'paid' : '<b>' + (x.late ? '⚠️ ' : '⏳ ') + x.out + '</b>') + '</div></div>' +
+      '<div class="amt">' + money(x.a) + '</div><button class="paid" data-i="' + i + '">' + (done ? '✓ Paid' : 'Paid?') + '</button></div>';
+  }
+  function draw(card, list, st, rowFn) {
+    var box = card.querySelector(".list"), html = "";
+    var items = sorted(list, st);
+    if (st.cat) groups(items).forEach(function (g) {
+      var sum = g[1].reduce(function (s, x) { return s + x.a; }, 0);
+      html += '<div class="group"><span>' + g[0] + '</span><span>' + money(sum) + '</span></div>';
+      g[1].forEach(function (x) { html += rowFn(x, list.indexOf(x)); });
+    });
+    else items.forEach(function (x) { html += rowFn(x, list.indexOf(x)); });
+    box.innerHTML = html;
+    var c = card.querySelector('[data-sort="cost"]');
+    c.textContent = st.cost === 1 ? "Cost ↓ high" : st.cost === 2 ? "Cost ↑ low" : "Cost";
+    c.classList.toggle("on", !!st.cost);
+    var k = card.querySelector('[data-sort="cat"]');
+    if (k) { k.textContent = st.cat ? "Category ✓" : "Category"; k.classList.toggle("on", st.cat); }
+  }
+  function setup(id, list, rowFn) {
+    var card = document.getElementById(id), st = {cost: 0, cat: false};
+    card.addEventListener("click", function (e) {
+      var b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.sort === "cost") st.cost = (st.cost + 1) % 3;
+      if (b.dataset.sort === "cat") st.cat = !st.cat;
+      if (b.dataset.seg) {
+        st.cat = b.dataset.seg === "cat";
+        card.querySelectorAll("[data-seg]").forEach(function (s) { s.classList.toggle("on", s === b); });
+      }
+      if (b.dataset.i) list[+b.dataset.i].done = !list[+b.dataset.i].done;
+      draw(card, list, st, rowFn);
+    });
+    draw(card, list, st, rowFn);
+  }
+  setup("billsA", BILLS, billRow);
+  setup("billsB", BILLS, billRow);
+  setup("spends", SPENDS, spendRow);
+
+  document.getElementById("bell").onclick = function () { var d = document.getElementById("drop"); d.hidden = !d.hidden; };
+  var modal = document.getElementById("modal");
+  document.getElementById("openApp").onclick = function () { modal.classList.add("show"); };
+  ["mPaid", "mNo", "mStop"].forEach(function (id) { document.getElementById(id).onclick = function () { modal.classList.remove("show"); }; });
+
+  var VARY = {
+    a: ['<span class="vary">↻ Varies</span>', "A: a small grey 'Varies' tag instead of a day."],
+    b: ['<span class="day">· 1st–5th</span>', "B: the range of days it has gone out on."],
+    c: ['<span class="day">· ~3rd</span> <span class="vary">varies</span>', "C: the usual day, with a 'varies' tag."]
+  };
+  function drawVary(v) {
+    var card = document.getElementById("vary");
+    card.querySelector(".list").innerHTML =
+      '<div class="row"><div class="who"><div class="name">Gas & electric ' + VARY[v][0] + '</div><div class="sub">Household · avg £170.00 · last 3rd</div></div><div class="amt">£170.00</div></div>' +
+      '<div class="row"><div class="who"><div class="name">Council tax <span class="day">· 1st</span></div><div class="sub">Household · avg £179.00</div></div><div class="amt">£179.00</div></div>';
+    document.getElementById("varyNote").innerHTML = VARY[v][1] + " Shows by itself when the day moves 3+ days between months. ⋯ menu can change it.";
+    card.querySelectorAll("[data-v]").forEach(function (b) { b.classList.toggle("on", b.dataset.v === v); });
+  }
+  document.getElementById("vary").addEventListener("click", function (e) { var b = e.target.closest("[data-v]"); if (b) drawVary(b.dataset.v); });
+  drawVary("a");
+</script>
+</body>
+</html>
