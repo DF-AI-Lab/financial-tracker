@@ -77,6 +77,8 @@
           background: var(--row); color: var(--muted); font-style: normal; vertical-align: 2px; }
 
   /* nudges */
+  .sumline { display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--border); margin-top: 4px; }
+  .more { color: var(--muted); font-weight: 800; padding: 0 2px; }
   .bellwrap { position: relative; display: inline-block; }
   .bell { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border); background: var(--card);
           color: var(--warn); font-size: 20px; cursor: pointer; position: relative; }
@@ -96,7 +98,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>🧪 Mock 2: bills by category, Paid?, Varies</h1>
+  <h1>🧪 Mock 3: bills by category, Paid?, Varies</h1>
   <p class="intro">Tap things. Nothing here is saved. </p>
 
   <!-- 1 -->
@@ -112,57 +114,24 @@
   <p class="note">Household always first, then biggest total first. Tap a category to open it: bills inside go largest first. Each phone/PC remembers All or Categories.</p>
 
   <!-- 2 -->
-  <span class="mock-tag">2 · Spends: bills still going out (slanted) + Paid?</span>
+  <span class="mock-tag">2 · Spends: same layout as now + Paid?</span>
   <div class="card spends" id="spends">
-    <h2><span class="dot"></span>Spends this month</h2>
-    <div class="bar">
-      <span class="count">Going out · £384.20</span>
-    </div>
+    <h2><span class="dot"></span>Add a spend</h2>
+    <div class="seg" style="margin-bottom:10px"><button class="pill on">Paid</button><button class="pill">Upcoming</button></div>
+    <p class="note" style="margin:0 0 12px">Upcoming: 📅 date is <b>optional</b>. No date = stays in Coming up until you tap Paid?</p>
     <div class="list"></div>
+    <div class="sumline"><span>Typed so far (all count)</span><b id="typed"></b></div>
   </div>
-  <p class="note">Slanted = not seen on a statement yet. Tap <b>Paid?</b> → ✓ Paid and it turns normal. Spare cash already counts it.</p>
-
-  <!-- 3 -->
-  <span class="mock-tag">3 · Nudges if you don't tick Paid?</span>
-  <div class="card">
-    <p class="note" style="margin-bottom:10px">🔔 <b>Every 3 days</b>: a quiet line in the bell.</p>
-    <div class="bellwrap">
-      <button class="bell" id="bell">🔔<span class="badge">2</span></button>
-    </div>
-    <div class="drop" id="drop" hidden>
-      <p>⏳ <b>KT Coffee</b> £50.00 was due 2nd. Has it gone out?</p>
-      <p>⏳ <b>Gas & electric</b> £170.00 was due 5th. Has it gone out?</p>
-      <button class="paid">Paid</button> <button class="paid">Not yet</button>
-    </div>
-    <p class="note" style="margin:16px 0 10px">🚨 <b>1 week late</b>: a big box when you open the app.</p>
-    <button class="btn" id="openApp">Pretend: open the app</button>
-  </div>
+  <p class="note">No warnings. Tap <b>Paid?</b> and it moves down to Paid. Every spend, coming up or paid, comes off your spare cash.</p>
 
   <!-- 4 -->
-  <span class="mock-tag">4 · Bills with no set date</span>
+  <span class="mock-tag">3 · Bills with no set date (A)</span>
   <div class="card bills" id="vary">
     <h2><span class="dot"></span>Bills (every month)</h2>
-    <div class="choice">
-      <button class="pill on" data-v="a">A: Varies</button>
-      <button class="pill" data-v="b">B: 1st–5th</button>
-      <button class="pill" data-v="c">C: ~3rd</button>
-    </div>
+
     <div class="list"></div>
   </div>
   <p class="note" id="varyNote"></p>
-</div>
-
-<div class="modal-bg" id="modal">
-  <div class="modal">
-    <h3>🚨 Gas & electric: 1 week late</h3>
-    <p>£170.00 was due on the 5th. It's not on a statement yet.</p>
-    <p class="note">Has it gone out?</p>
-    <div class="btns">
-      <button class="btn" id="mPaid">✓ Yes, paid</button>
-      <button class="btn ghost" id="mNo">Not yet</button>
-      <button class="btn ghost" id="mStop">It's stopped</button>
-    </div>
-  </div>
 </div>
 
 <script>
@@ -177,13 +146,11 @@
     {n: "Phone", d: "20th", c: "Bills", a: 18.50}
   ];
   var SPENDS = [
-    {n: "KT Coffee", c: "Me stuff", a: 50, out: "Due 2nd", late: 0},
-    {n: "Gas & electric", c: "Household", a: 170, out: "1 week late", late: 1},
-    {n: "Costa", c: "Me stuff", a: 4.20},
-    {n: "Car insurance", c: "Car", a: 64.20, out: "Due 12th"},
-    {n: "Tesco", c: "Food shopping", a: 23.85},
-    {n: "Zopa", c: "Debt", a: 100, out: "Due 14th"},
-    {n: "Greggs", c: "Food out", a: 3.10}
+    {n: "Car insurance", c: "Car", a: 64.20, up: "expected 12 Nov"},
+    {n: "Zopa top-up", c: "Debt", a: 100, up: "no date yet"},
+    {n: "Costa", c: "Me stuff", a: 4.20, when: "8 Nov 2024"},
+    {n: "Tesco", c: "Food shopping", a: 23.85, when: "6 Nov 2024"},
+    {n: "Greggs", c: "Food out", a: 3.10, when: "4 Nov 2024"}
   ];
   function money(x) { return "£" + x.toFixed(2); }
   function sorted(list, st) {
@@ -206,12 +173,25 @@
       '<div class="amt">' + money(x.a) + '</div></div>';
   }
   function spendRow(x, i) {
-    if (!x.out) return '<div class="row"><div class="who"><div class="name">' + x.n + '</div><div class="sub">' + x.c + '</div></div><div class="amt">' + money(x.a) + '</div></div>';
-    var done = x.done;
-    return '<div class="row ' + (done ? 'done' : 'out' + (x.late ? ' late' : '')) + '"><div class="who"><div class="name">' + x.n + '</div>' +
-      '<div class="sub">' + x.c + ' · ' + (done ? 'paid' : '<b>' + (x.late ? '⚠️ ' : '⏳ ') + x.out + '</b>') + '</div></div>' +
-      '<div class="amt">' + money(x.a) + '</div><button class="paid" data-i="' + i + '">' + (done ? '✓ Paid' : 'Paid?') + '</button></div>';
+    return '<div class="row"><div class="who"><div class="name">' + x.n + '</div><div class="sub">' + (x.up || x.when) + ' · ' + x.c + ' ⓘ</div></div>' +
+      '<div class="amt">' + money(x.a) + '</div>' + (x.up ? '<button class="paid" data-i="' + i + '">Paid?</button>' : '') + '<span class="more">⋯</span></div>';
   }
+  function drawSpends() {
+    var up = SPENDS.filter(function (x) { return x.up; }), done = SPENDS.filter(function (x) { return !x.up; });
+    var tot = function (l) { return money(l.reduce(function (s, x) { return s + x.a; }, 0)); };
+    var html = '';
+    if (up.length) html += '<div class="group"><span>Coming up</span><span>' + tot(up) + '</span></div>' + up.map(function (x) { return spendRow(x, SPENDS.indexOf(x)); }).join('');
+    html += '<div class="group"><span>Paid</span><span>' + tot(done) + '</span></div>' + done.map(function (x) { return spendRow(x, SPENDS.indexOf(x)); }).join('');
+    document.querySelector('#spends .list').innerHTML = html;
+    document.getElementById('typed').textContent = tot(SPENDS);
+  }
+  document.getElementById('spends').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-i]'); if (!b) return;
+    var x = SPENDS[+b.dataset.i]; delete x.up; x.when = 'today';
+    SPENDS.splice(SPENDS.indexOf(x), 1); SPENDS.splice(SPENDS.findIndex(function (y) { return !y.up; }) < 0 ? SPENDS.length : SPENDS.findIndex(function (y) { return !y.up; }), 0, x);
+    drawSpends();
+  });
+  drawSpends();
   function draw(card, list, st, rowFn) {
     var box = card.querySelector(".list"), html = "";
     var items = sorted(list, st);
@@ -270,12 +250,6 @@
     open.Household = true;
     drawBills();
   })();
-  setup("spends", SPENDS, spendRow);
-
-  document.getElementById("bell").onclick = function () { var d = document.getElementById("drop"); d.hidden = !d.hidden; };
-  var modal = document.getElementById("modal");
-  document.getElementById("openApp").onclick = function () { modal.classList.add("show"); };
-  ["mPaid", "mNo", "mStop"].forEach(function (id) { document.getElementById(id).onclick = function () { modal.classList.remove("show"); }; });
 
   var VARY = {
     a: ['<span class="vary">↻ Varies</span>', "A: a small grey 'Varies' tag instead of a day."],
@@ -287,10 +261,8 @@
     card.querySelector(".list").innerHTML =
       '<div class="row"><div class="who"><div class="name">Gas & electric ' + VARY[v][0] + '</div><div class="sub">Household · avg £170.00 · last 3rd</div></div><div class="amt">£170.00</div></div>' +
       '<div class="row"><div class="who"><div class="name">Council tax <span class="day">· 1st</span></div><div class="sub">Household · avg £179.00</div></div><div class="amt">£179.00</div></div>';
-    document.getElementById("varyNote").innerHTML = VARY[v][1] + " Shows by itself when the day moves 3+ days between months. ⋯ menu can change it.";
-    card.querySelectorAll("[data-v]").forEach(function (b) { b.classList.toggle("on", b.dataset.v === v); });
+    document.getElementById("varyNote").innerHTML = "Pick <b>Varies</b> in the due-day box (⋯ → Due day, or + date). It never turns green by itself: use ⋯ → Mark paid.";
   }
-  document.getElementById("vary").addEventListener("click", function (e) { var b = e.target.closest("[data-v]"); if (b) drawVary(b.dataset.v); });
   drawVary("a");
 </script>
 </body>
